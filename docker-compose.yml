@@ -1,14 +1,34 @@
 services:
-  td:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: td
+      POSTGRES_USER: td
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-td}
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U td"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
     build: .
     ports:
       - "5001:5000"
-    volumes:
-      - ./data:/app/data
+    depends_on:
+      db:
+        condition: service_healthy
     environment:
-      - DB_PATH=/app/data/td.db
-      # ── Authentication ────────────────────────────────────────────────────────
+      - DATABASE_URL=postgresql://td:${POSTGRES_PASSWORD:-td}@db:5432/td
       - TD_USERNAME=${TD_USERNAME:-}
       - TD_PASSWORD=${TD_PASSWORD:-}
       - TD_API_KEY=${TD_API_KEY:-}
+      # Google Calendar (optional)
+      # Paste the full service account JSON as a single line:
+      - GCAL_CREDENTIALS_JSON=${GCAL_CREDENTIALS_JSON:-}
+      # Calendar ID to sync to (default: primary)
+      - GCAL_CALENDAR_ID=${GCAL_CALENDAR_ID:-primary}
     restart: unless-stopped

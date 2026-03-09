@@ -1,1104 +1,652 @@
 #!/usr/bin/env python3
-"""
-TaskFlow Server - Flask + SQLite backend
-Run: python3 server.py
-Access: http://localhost:5000 (or your local IP for phone access)
-"""
+"""TD Server - Flask + PostgreSQL backend"""
 
-import sqlite3
-import json
-import re
-import os
-import uuid
-from datetime import datetime, date, timedelta
-from flask import Flask, request, jsonify, send_from_directory, send_file, redirect
-from functools import wraps
+import json, re, os, uuid, hashlib, secrets, time as _time
+from datetime import datetime, date, timedelta, timezone
+import psycopg2, psycopg2.extras
+from flask import Flask, request, jsonify, send_from_directory, redirect, make_response
 
 app = Flask(__name__, static_folder='client/public')
 
-# DB_PATH: use environment variable if set, otherwise next to this file
-DB_PATH = os.environ.get('DB_PATH', '/app/data/taskflow.db')
-print(f"[startup] DB_PATH = {DB_PATH}", flush=True)
+# ─────────────────────────────────────────────
+# DATABASE — PostgreSQL
+# ─────────────────────────────────────────────
 
-# ─────────────────────────────────────────────
-# DATABASE
-# ─────────────────────────────────────────────
+DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://td:td@localhost:5432/td')
+print(f"[startup] DATABASE_URL = {DATABASE_URL}", flush=True)
 
 def get_db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
+    conn = psycopg2.connect(DATABASE_URL)
+    conn.autocommit = False
     return conn
 
 def init_db():
-    print(f"[init_db] creating tables in {DB_PATH}", flush=True)
-    # Make sure the directory exists
-    db_dir = os.path.dirname(DB_PATH)
-    if db_dir:
-        os.makedirs(db_dir, exist_ok=True)
-
-    conn = sqlite3.connect(DB_PATH)
+    print("[init_db] creating tables...", flush=True)
+    conn = get_db()
     try:
         cur = conn.cursor()
         cur.execute("""
             CREATE TABLE IF NOT EXISTS projects (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                color TEXT DEFAULT '#6366f1',
-                icon TEXT DEFAULT '📁',
-                created_at TEXT DEFAULT (datetime('now')),
-                updated_at TEXT DEFAULT (datetime('now'))
-            )
-        """)
+                id TEXT PRIMARY KEY, name TEXT NOT NULL,
+                color TEXT DEFAULT '#6366f1', icon TEXT DEFAULT '📁',
+                created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW()
+            )""")
         cur.execute("""
             CREATE TABLE IF NOT EXISTS tasks (
-                id TEXT PRIMARY KEY,
-                title TEXT NOT NULL,
-                description TEXT DEFAULT '',
-                project_id TEXT,
-                status TEXT DEFAULT 'todo',
-                priority TEXT DEFAULT 'medium',
-                due_date TEXT,
-                due_time TEXT,
-                tags TEXT DEFAULT '[]',
-                position INTEGER DEFAULT 0,
-                created_at TEXT DEFAULT (datetime('now')),
-                updated_at TEXT DEFAULT (datetime('now')),
-                completed_at TEXT,
-                FOREIGN KEY (project_id) REFERENCES projects(id)
-            )
-        """)
+                id TEXT PRIMARY KEY, title TEXT NOT NULL, description TEXT DEFAULT '',
+                project_id TEXT REFERENCES projects(id), status TEXT DEFAULT 'todo',
+                priority TEXT DEFAULT 'medium', due_date DATE, due_time TIME,
+                tags JSONB DEFAULT '[]', position INTEGER DEFAULT 0,
+                created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW(),
+                completed_at TIMESTAMPTZ, gcal_event_id TEXT
+            )""")
         cur.execute("""
             CREATE TABLE IF NOT EXISTS subtasks (
-                id TEXT PRIMARY KEY,
-                task_id TEXT NOT NULL,
-                title TEXT NOT NULL,
-                completed INTEGER DEFAULT 0,
-                position INTEGER DEFAULT 0,
-                due_date TEXT,
-                due_time TEXT,
-                priority TEXT DEFAULT 'medium',
-                labels TEXT DEFAULT '[]',
-                FOREIGN KEY (task_id) REFERENCES tasks(id)
-            )
-        """)
-        # Migrate existing subtasks tables that predate NLP fields
-        for col, default in [('due_date', 'NULL'), ('due_time', 'NULL'),
-                              ('priority', "'medium'"), ('labels', "'[]'")]:
-            try:
-                cur.execute(f"ALTER TABLE subtasks ADD COLUMN {col} TEXT DEFAULT {default}")
-            except Exception:
-                pass  # column already exists
-
+                id TEXT PRIMARY KEY, task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+                title TEXT NOT NULL, completed BOOLEAN DEFAULT FALSE, position INTEGER DEFAULT 0,
+                due_date DATE, due_time TIME, priority TEXT DEFAULT 'medium', labels JSONB DEFAULT '[]'
+            )""")
         cur.execute("""
-            INSERT OR IGNORE INTO projects (id, name, color, icon)
-            VALUES ('inbox', 'Inbox', '#6366f1', '📥')
-        """)
+            CREATE TABLE IF NOT EXISTS sessions (
+                id TEXT PRIMARY KEY, created TIMESTAMPTZ DEFAULT NOW(),
+                expires TIMESTAMPTZ NOT NULL, remember BOOLEAN DEFAULT FALSE
+            )""")
+        cur.execute("INSERT INTO projects (id,name,color,icon) VALUES ('inbox','Inbox','#6366f1','📥') ON CONFLICT (id) DO NOTHING")
         conn.commit()
-
-        # Verify
-        tables = cur.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
-        print(f"[init_db] done. tables: {[t[0] for t in tables]}", flush=True)
+        print("[init_db] done.", flush=True)
+    except Exception as e:
+        conn.rollback(); print(f"[init_db] error: {e}", flush=True); raise
     finally:
         conn.close()
 
-# Run immediately on import — before any request is handled
 init_db()
 
 def tables_exist():
-    """Quick check that all tables are present — used as a safety net in before_request."""
     try:
-        conn = sqlite3.connect(DB_PATH)
-        count = conn.execute(
-            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN ('projects','tasks','subtasks')"
-        ).fetchone()[0]
-        conn.close()
-        return count == 3
-    except Exception:
-        return False
+        conn = get_db(); cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM information_schema.tables WHERE table_name IN ('projects','tasks','subtasks')")
+        count = cur.fetchone()[0]; conn.close(); return count == 3
+    except: return False
 
 def row_to_dict(row):
-    if row is None:
-        return None
+    if row is None: return None
     d = dict(row)
-    for field in ('tags', 'labels'):
-        if field in d and isinstance(d[field], str):
-            try:
-                d[field] = json.loads(d[field])
-            except Exception:
-                d[field] = []
+    for field in ('created_at','updated_at','completed_at'):
+        if field in d and d[field] is not None: d[field] = str(d[field])
+    if 'due_date' in d and d['due_date'] is not None: d['due_date'] = str(d['due_date'])[:10]
+    if 'due_time' in d and d['due_time'] is not None: d['due_time'] = str(d['due_time'])[:5]
+    for field in ('tags','labels'):
+        if field in d:
+            if isinstance(d[field], str):
+                try: d[field] = json.loads(d[field])
+                except: d[field] = []
+            elif d[field] is None: d[field] = []
+    if 'completed' in d: d['completed'] = bool(d['completed'])
     return d
 
 # ─────────────────────────────────────────────
-# NLP DATE PARSER
+# NLP
 # ─────────────────────────────────────────────
 
-DAYS = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday']
-MONTHS = ['january','february','march','april','may','june',
-          'july','august','september','october','november','december']
+DAYS   = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday']
+MONTHS = ['january','february','march','april','may','june','july','august','september','october','november','december']
 
 def parse_natural_language(text):
-    """
-    Extract task title, due_date, due_time, priority, project_name, labels from natural language.
-    #word  → project name (find or create)
-    @word  → label / tag
-    Returns dict with parsed fields and cleaned title.
-    """
     original = text
-    text_lower = text.lower().strip()
-    result = {
-        'title': text,
-        'due_date': None,
-        'due_time': None,
-        'priority': 'medium',
-        'project_name': None,   # parsed from #word
-        'labels': [],           # parsed from @word
-        'nlp_summary': None
-    }
-
+    result = {'title': text, 'due_date': None, 'due_time': None, 'priority': 'medium',
+              'project_name': None, 'labels': [], 'nlp_summary': None}
     today = date.today()
-    found_date = None
-    found_time = None
+    found_date = found_time = None
 
-    # ── #project — first match wins ──
-    project_match = re.search(r'#(\w+)', text)
-    if project_match:
-        result['project_name'] = project_match.group(1)
-        text = re.sub(r'#\w+', '', text).strip()
-
-    # ── @labels — extract all before anything else touches the text ──
+    m = re.search(r'#(\w+)', text)
+    if m: result['project_name'] = m.group(1); text = re.sub(r'#\w+','',text).strip()
     labels = re.findall(r'@(\w+)', text)
-    if labels:
-        result['labels'] = labels
-        text = re.sub(r'@\w+', '', text).strip()
+    if labels: result['labels'] = labels; text = re.sub(r'@\w+','',text).strip()
 
-    # ── Priority detection (after @ removal so @urgent doesn't collide) ──
-    text_lower = text.lower().strip()
-    if re.search(r'\b(urgent|asap|critical|!!)\b', text_lower):
-        result['priority'] = 'high'
-        text = re.sub(r'\b(urgent|asap|critical|!!)\b', '', text, flags=re.IGNORECASE).strip()
-    elif re.search(r'\b(low priority|whenever|no rush|someday)\b', text_lower):
-        result['priority'] = 'low'
-        text = re.sub(r'\b(low priority|whenever|no rush|someday)\b', '', text, flags=re.IGNORECASE).strip()
-    elif re.search(r'\b(important|high priority|!)\b', text_lower):
-        result['priority'] = 'high'
-        text = re.sub(r'\b(important|high priority|!)\b', '', text, flags=re.IGNORECASE).strip()
+    tl = text.lower().strip()
+    if re.search(r'\b(urgent|asap|critical|!!)\b', tl):
+        result['priority']='high'; text=re.sub(r'\b(urgent|asap|critical|!!)\b','',text,flags=re.IGNORECASE).strip()
+    elif re.search(r'\b(low priority|whenever|no rush|someday)\b', tl):
+        result['priority']='low'; text=re.sub(r'\b(low priority|whenever|no rush|someday)\b','',text,flags=re.IGNORECASE).strip()
+    elif re.search(r'\b(important|high priority)\b', tl):
+        result['priority']='high'; text=re.sub(r'\b(important|high priority)\b','',text,flags=re.IGNORECASE).strip()
 
-    # ── Time parsing ──
-    time_patterns = [
-        (r'\bat\s+(\d{1,2}):(\d{2})\s*(am|pm)?\b', 'hm_ampm'),
-        (r'\bat\s+(\d{1,2})\s*(am|pm)\b', 'h_ampm'),
-        (r'\b(\d{1,2}):(\d{2})\s*(am|pm)\b', 'hm_ampm'),
-        (r'\b(\d{1,2})\s*(am|pm)\b', 'h_ampm'),
-    ]
-    for pattern, kind in time_patterns:
-        m = re.search(pattern, text_lower)
+    for pat, kind in [(r'\bat\s+(\d{1,2}):(\d{2})\s*(am|pm)?\b','hm'),(r'\bat\s+(\d{1,2})\s*(am|pm)\b','h'),
+                      (r'\b(\d{1,2}):(\d{2})\s*(am|pm)\b','hm'),(r'\b(\d{1,2})\s*(am|pm)\b','h')]:
+        m = re.search(pat, tl)
         if m:
             try:
-                if kind == 'hm_ampm':
-                    h, mi = int(m.group(1)), int(m.group(2))
-                    meridiem = m.group(3) if m.lastindex >= 3 else None
-                elif kind == 'h_ampm':
-                    h, mi = int(m.group(1)), 0
-                    meridiem = m.group(2)
-                else:
-                    h, mi = int(m.group(1)), int(m.group(2))
-                    meridiem = None
-                if meridiem == 'pm' and h < 12:
-                    h += 12
-                elif meridiem == 'am' and h == 12:
-                    h = 0
-                found_time = f"{h:02d}:{mi:02d}"
-                text = text[:m.start()] + text[m.end():]
-                text = re.sub(r'\bat\s*$', '', text).strip()
-                break
-            except:
-                pass
+                h,mi=(int(m.group(1)),int(m.group(2))) if kind=='hm' else (int(m.group(1)),0)
+                mer=m.group(3 if kind=='hm' else 2) if m.lastindex>=(3 if kind=='hm' else 2) else None
+                if mer=='pm' and h<12: h+=12
+                elif mer=='am' and h==12: h=0
+                found_time=f"{h:02d}:{mi:02d}"; text=text[:m.start()]+text[m.end():]; text=re.sub(r'\bat\s*$','',text).strip(); break
+            except: pass
 
-    # ── Date parsing ──
-    # Strip "by" prefix so "by friday" == "friday"
-    text = re.sub(r'\bby\s+(?=(monday|tuesday|wednesday|thursday|friday|saturday|sunday|tomorrow|today|tonight|next|this|\d))', '', text, flags=re.IGNORECASE).strip()
-    text_lower_clean = text.lower()
+    text=re.sub(r'\bby\s+(?=(monday|tuesday|wednesday|thursday|friday|saturday|sunday|tomorrow|today|tonight|next|this|\d))','',text,flags=re.IGNORECASE).strip()
+    tlc=text.lower()
 
-    # "next monday", "this friday", etc.
-    m = re.search(r'\b(next|this)\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b', text_lower_clean)
+    m=re.search(r'\b(next|this)\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b',tlc)
     if m:
-        modifier, day_name = m.group(1), m.group(2)
-        target_dow = DAYS.index(day_name)
-        current_dow = today.weekday()
-        delta = (target_dow - current_dow) % 7
-        if delta == 0:
-            delta = 7
-        if modifier == 'next':
-            delta = delta if delta > 0 else delta + 7
-        found_date = today + timedelta(days=delta)
-        text = text[:m.start()] + text[m.end():]
-
-    # "monday", "tuesday" alone
+        mod,dn=m.group(1),m.group(2); tdow=DAYS.index(dn); cdow=today.weekday()
+        delta=(tdow-cdow)%7 or 7; found_date=today+timedelta(days=delta if mod=='this' else max(delta,7)); text=text[:m.start()]+text[m.end():]
     if not found_date:
-        m = re.search(r'\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b', text_lower_clean)
+        m=re.search(r'\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b',tlc)
         if m:
-            day_name = m.group(1)
-            target_dow = DAYS.index(day_name)
-            current_dow = today.weekday()
-            delta = (target_dow - current_dow) % 7
-            if delta == 0:
-                delta = 7
-            found_date = today + timedelta(days=delta)
-            text = text[:m.start()] + text[m.end():]
-
-    # "tomorrow", "today", "tonight"
+            delta=(DAYS.index(m.group(1))-today.weekday())%7 or 7; found_date=today+timedelta(days=delta); text=text[:m.start()]+text[m.end():]
     if not found_date:
-        if re.search(r'\btonight\b', text_lower_clean):
-            found_date = today
-            if not found_time:
-                found_time = "20:00"
-            text = re.sub(r'\btonight\b', '', text, flags=re.IGNORECASE)
-        elif re.search(r'\btomorrow\b', text_lower_clean):
-            found_date = today + timedelta(days=1)
-            text = re.sub(r'\btomorrow\b', '', text, flags=re.IGNORECASE)
-        elif re.search(r'\btoday\b', text_lower_clean):
-            found_date = today
-            text = re.sub(r'\btoday\b', '', text, flags=re.IGNORECASE)
-
-    # "in X days/weeks"
+        if re.search(r'\btonight\b',tlc): found_date=today; found_time=found_time or "20:00"; text=re.sub(r'\btonight\b','',text,flags=re.IGNORECASE)
+        elif re.search(r'\btomorrow\b',tlc): found_date=today+timedelta(1); text=re.sub(r'\btomorrow\b','',text,flags=re.IGNORECASE)
+        elif re.search(r'\btoday\b',tlc): found_date=today; text=re.sub(r'\btoday\b','',text,flags=re.IGNORECASE)
     if not found_date:
-        m = re.search(r'\bin\s+(\d+)\s+(day|days|week|weeks)\b', text_lower_clean)
+        m=re.search(r'\bin\s+(\d+)\s+(day|days|week|weeks)\b',tlc)
         if m:
-            n = int(m.group(1))
-            unit = m.group(2)
-            if 'week' in unit:
-                found_date = today + timedelta(weeks=n)
-            else:
-                found_date = today + timedelta(days=n)
-            text = text[:m.start()] + text[m.end():]
-
-    # "next week", "next month"
+            n=int(m.group(1)); found_date=today+timedelta(weeks=n if 'week' in m.group(2) else 0,days=0 if 'week' in m.group(2) else n); text=text[:m.start()]+text[m.end():]
     if not found_date:
-        if re.search(r'\bnext\s+week\b', text_lower_clean):
-            found_date = today + timedelta(weeks=1)
-            text = re.sub(r'\bnext\s+week\b', '', text, flags=re.IGNORECASE)
-        elif re.search(r'\bnext\s+month\b', text_lower_clean):
-            month = today.month % 12 + 1
-            year = today.year + (1 if today.month == 12 else 0)
-            found_date = today.replace(year=year, month=month, day=1)
-            text = re.sub(r'\bnext\s+month\b', '', text, flags=re.IGNORECASE)
-
-    # "Jan 15", "March 3rd", "15th of April"
+        if re.search(r'\bnext\s+week\b',tlc): found_date=today+timedelta(weeks=1); text=re.sub(r'\bnext\s+week\b','',text,flags=re.IGNORECASE)
+        elif re.search(r'\bnext\s+month\b',tlc):
+            month=today.month%12+1; year=today.year+(1 if today.month==12 else 0)
+            found_date=today.replace(year=year,month=month,day=1); text=re.sub(r'\bnext\s+month\b','',text,flags=re.IGNORECASE)
     if not found_date:
-        m = re.search(r'\b(' + '|'.join(MONTHS) + r')\s+(\d{1,2})(?:st|nd|rd|th)?\b', text_lower_clean)
-        if not m:
-            m = re.search(r'\b(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(' + '|'.join(MONTHS) + r')\b', text_lower_clean)
-            if m:
-                day_n, month_name = int(m.group(1)), m.group(2)
-            elif m:
-                month_name, day_n = m.group(1), int(m.group(2))
+        m=re.search(r'\b('+('|'.join(MONTHS))+r')\s+(\d{1,2})(?:st|nd|rd|th)?\b',tlc)
         if m:
             try:
-                groups = m.groups()
-                if MONTHS.index(groups[0]) >= 0 if groups[0] in MONTHS else False:
-                    month_name, day_n = groups[0], int(groups[1])
-                else:
-                    day_n, month_name = int(groups[0]), groups[1]
-                month_n = MONTHS.index(month_name) + 1
-                year = today.year
-                candidate = date(year, month_n, day_n)
-                if candidate < today:
-                    candidate = date(year + 1, month_n, day_n)
-                found_date = candidate
-                text = text[:m.start()] + text[m.end():]
-            except:
-                pass
-
-    # "MM/DD" or "MM/DD/YY"
+                mn=MONTHS.index(m.group(1))+1; dn=int(m.group(2))
+                c=date(today.year,mn,dn); found_date=c if c>=today else date(today.year+1,mn,dn); text=text[:m.start()]+text[m.end():]
+            except: pass
     if not found_date:
-        m = re.search(r'\b(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?\b', text)
+        m=re.search(r'\b(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?\b',text)
         if m:
             try:
-                mo, dy = int(m.group(1)), int(m.group(2))
-                yr = int(m.group(3)) if m.group(3) else today.year
-                if yr < 100:
-                    yr += 2000
-                found_date = date(yr, mo, dy)
-                text = text[:m.start()] + text[m.end():]
-            except:
-                pass
+                mo,dy=int(m.group(1)),int(m.group(2)); yr=int(m.group(3)) if m.group(3) else today.year
+                if yr<100: yr+=2000
+                found_date=date(yr,mo,dy); text=text[:m.start()]+text[m.end():]
+            except: pass
+    if not found_date and re.search(r'\b(end of week|eow|weekend)\b',tlc):
+        delta=(5-today.weekday())%7 or 7; found_date=today+timedelta(days=delta); text=re.sub(r'\b(end of week|eow|weekend)\b','',text,flags=re.IGNORECASE)
 
-    # ── End of week / weekend ──
-    if not found_date:
-        if re.search(r'\b(end of week|eow|this weekend|weekend)\b', text_lower_clean):
-            delta = (5 - today.weekday()) % 7
-            if delta == 0:
-                delta = 7
-            found_date = today + timedelta(days=delta)
-            text = re.sub(r'\b(end of week|eow|this weekend|weekend)\b', '', text, flags=re.IGNORECASE)
-
-    # ── Finalize ──
-    if found_date:
-        result['due_date'] = found_date.isoformat()
-    if found_time:
-        result['due_time'] = found_time
-
-    # Clean up title
-    title = re.sub(r'\s+', ' ', text).strip()
-    title = re.sub(r'^(,|\.|-)\s*', '', title)
-    title = re.sub(r'\s*(,|\.)$', '', title)
-    result['title'] = title if title else original
-
-    # Build summary
-    parts = []
-    if result['project_name']:
-        parts.append(f"#{result['project_name']}")
-    if found_date:
-        parts.append(f"due {found_date.strftime('%a %b %-d')}")
-    if found_time:
-        h, mi = map(int, found_time.split(':'))
-        ampm = 'am' if h < 12 else 'pm'
-        parts.append(f"at {h % 12 or 12}:{mi:02d}{ampm}")
-    if result['priority'] != 'medium':
-        parts.append(f"priority: {result['priority']}")
-    if result['labels']:
-        parts.append(' '.join(f"@{l}" for l in result['labels']))
-    if parts:
-        result['nlp_summary'] = ' · '.join(parts)
-
+    if found_date: result['due_date']=found_date.isoformat()
+    if found_time: result['due_time']=found_time
+    title=re.sub(r'\s+',' ',text).strip(); title=re.sub(r'^[,.\-]\s*','',title); title=re.sub(r'\s*[,.]$','',title)
+    result['title']=title or original
+    parts=[]
+    if result['project_name']: parts.append(f"#{result['project_name']}")
+    if found_date: parts.append(f"due {found_date.strftime('%a %b %-d')}")
+    if found_time: h,mi=map(int,found_time.split(':')); parts.append(f"at {h%12 or 12}:{mi:02d}{'am' if h<12 else 'pm'}")
+    if result['priority']!='medium': parts.append(f"priority: {result['priority']}")
+    if result['labels']: parts.append(' '.join(f"@{l}" for l in result['labels']))
+    if parts: result['nlp_summary']=' · '.join(parts)
     return result
 
 # ─────────────────────────────────────────────
-# AUTH — Session + Password
+# GOOGLE CALENDAR
 # ─────────────────────────────────────────────
 
-import hashlib
-import secrets
-from datetime import timezone
+GCAL_ENABLED     = False
+GCAL_CREDENTIALS = os.environ.get('GCAL_CREDENTIALS_JSON')
+GCAL_CALENDAR_ID = os.environ.get('GCAL_CALENDAR_ID', 'primary')
+_gcal_service    = None
 
-TD_USERNAME = os.environ.get('TD_USERNAME', '').strip()
-TD_PASSWORD = os.environ.get('TD_PASSWORD', '').strip()
-API_KEY     = os.environ.get('TD_API_KEY', '').strip()
-
-# Warn loudly at startup if exposed without credentials
-if not TD_PASSWORD:
-    print("[auth] WARNING: TD_PASSWORD is not set — app is open to anyone!", flush=True)
-elif not TD_USERNAME:
-    print("[auth] WARNING: TD_USERNAME is not set — any username will be accepted!", flush=True)
-else:
-    print(f"[auth] Login required. Username: {TD_USERNAME}", flush=True)
-
-# ── Brute-force protection ─────────────────────────────────────────────────────
-# Tracks failed login attempts per IP. Lockout after 5 failures for 15 minutes.
-import time as _time
-_failed: dict = {}   # ip → [timestamp, ...]
-_LOCKOUT_ATTEMPTS = 5
-_LOCKOUT_SECONDS  = 15 * 60  # 15 minutes
-
-def _check_rate_limit(ip: str) -> bool:
-    """Returns True if the IP is currently locked out."""
-    now = _time.time()
-    attempts = [t for t in _failed.get(ip, []) if now - t < _LOCKOUT_SECONDS]
-    _failed[ip] = attempts
-    return len(attempts) >= _LOCKOUT_ATTEMPTS
-
-def _record_failure(ip: str):
-    now = _time.time()
-    _failed.setdefault(ip, []).append(now)
-
-def _clear_failures(ip: str):
-    _failed.pop(ip, None)
-
-# Routes that are always public (no session required)
-_PUBLIC_PATHS = {'/login', '/auth/login', '/auth/logout', '/auth/status'}
-
-def _sessions_table():
-    """Ensure the sessions table exists."""
+def _get_gcal_service():
+    global _gcal_service, GCAL_ENABLED
+    if _gcal_service: return _gcal_service
+    if not GCAL_CREDENTIALS: return None
     try:
-        conn = sqlite3.connect(DB_PATH)
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS sessions (
-                id       TEXT PRIMARY KEY,
-                created  TEXT DEFAULT (datetime('now')),
-                expires  TEXT NOT NULL,
-                remember INTEGER DEFAULT 0
-            )
-        """)
-        conn.commit()
-        conn.close()
+        from google.oauth2.service_account import Credentials
+        from googleapiclient.discovery import build
+        creds = Credentials.from_service_account_info(json.loads(GCAL_CREDENTIALS),
+                scopes=['https://www.googleapis.com/auth/calendar'])
+        _gcal_service = build('calendar','v3',credentials=creds)
+        GCAL_ENABLED = True
+        print("[gcal] Google Calendar connected.", flush=True)
+        return _gcal_service
     except Exception as e:
-        print(f"[sessions] table init error: {e}", flush=True)
+        print(f"[gcal] init failed: {e}", flush=True); return None
 
-_sessions_table()
+_get_gcal_service()
 
-def _hash_pw(pw: str) -> str:
-    return hashlib.sha256(pw.encode()).hexdigest()
-
-def _create_session(remember: bool) -> str:
-    sid = secrets.token_urlsafe(32)
-    days = 30 if remember else 0
-    hours = 0 if remember else 8
-    expires = datetime.now(timezone.utc) + timedelta(days=days, hours=hours)
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute(
-        "INSERT INTO sessions (id, expires, remember) VALUES (?, ?, ?)",
-        (sid, expires.strftime('%Y-%m-%d %H:%M:%S'), 1 if remember else 0)
-    )
-    conn.commit(); conn.close()
-    return sid, expires
-
-def _valid_session(sid: str) -> bool:
-    if not sid:
-        return False
+def gcal_upsert(task):
+    svc = _get_gcal_service()
+    if not svc or not task.get('due_date'): return None
     try:
-        conn = sqlite3.connect(DB_PATH)
-        row = conn.execute(
-            "SELECT expires FROM sessions WHERE id=?", (sid,)
-        ).fetchone()
-        conn.close()
-        if not row:
-            return False
-        exp = datetime.fromisoformat(row[0]).replace(tzinfo=timezone.utc)
-        return datetime.now(timezone.utc) < exp
-    except Exception:
-        return False
+        if task.get('due_time'):
+            dt = f"{task['due_date']}T{task['due_time']}:00"
+            end_dt = (datetime.fromisoformat(dt)+timedelta(hours=1)).isoformat()
+            start={'dateTime':dt,'timeZone':'UTC'}; end={'dateTime':end_dt,'timeZone':'UTC'}
+        else:
+            start={'date':task['due_date']}; end={'date':task['due_date']}
+        body={'summary':task['title'],'description':task.get('description') or '',
+              'start':start,'end':end,
+              'extendedProperties':{'private':{'td_task_id':task['id']}}}
+        eid = task.get('gcal_event_id')
+        if eid:
+            ev = svc.events().update(calendarId=GCAL_CALENDAR_ID,eventId=eid,body=body).execute()
+        else:
+            ev = svc.events().insert(calendarId=GCAL_CALENDAR_ID,body=body).execute()
+        return ev.get('id')
+    except Exception as e:
+        print(f"[gcal] upsert error: {e}", flush=True); return None
 
-def _delete_session(sid: str):
+def gcal_delete(event_id):
+    svc = _get_gcal_service()
+    if not svc or not event_id: return
+    try: svc.events().delete(calendarId=GCAL_CALENDAR_ID,eventId=event_id).execute()
+    except Exception as e: print(f"[gcal] delete error: {e}", flush=True)
+
+def _gcal_save(task_id, event_id):
+    conn = get_db()
     try:
-        conn = sqlite3.connect(DB_PATH)
-        conn.execute("DELETE FROM sessions WHERE id=?", (sid,))
-        conn.commit(); conn.close()
-    except Exception:
-        pass
+        cur = conn.cursor()
+        cur.execute("UPDATE tasks SET gcal_event_id=%s WHERE id=%s",(event_id,task_id))
+        conn.commit()
+    finally: conn.close()
+
+# ─────────────────────────────────────────────
+# AUTH
+# ─────────────────────────────────────────────
+
+TD_USERNAME = os.environ.get('TD_USERNAME','').strip()
+TD_PASSWORD = os.environ.get('TD_PASSWORD','').strip()
+API_KEY     = os.environ.get('TD_API_KEY','').strip()
+
+if not TD_PASSWORD: print("[auth] WARNING: TD_PASSWORD not set!", flush=True)
+else: print(f"[auth] Login required. Username: {TD_USERNAME}", flush=True)
+
+_failed: dict = {}
+_LOCKOUT_ATTEMPTS = 5; _LOCKOUT_SECONDS = 15*60
+
+def _check_rate_limit(ip):
+    now=_time.time(); attempts=[t for t in _failed.get(ip,[]) if now-t<_LOCKOUT_SECONDS]
+    _failed[ip]=attempts; return len(attempts)>=_LOCKOUT_ATTEMPTS
+def _record_failure(ip): _failed.setdefault(ip,[]).append(_time.time())
+def _clear_failures(ip): _failed.pop(ip,None)
+
+_PUBLIC_PATHS={'/login','/auth/login','/auth/logout','/auth/status'}
+
+def _hash_pw(pw): return hashlib.sha256(pw.encode()).hexdigest()
+
+def _create_session(remember):
+    sid=secrets.token_urlsafe(32)
+    expires=datetime.now(timezone.utc)+(timedelta(days=30) if remember else timedelta(hours=8))
+    conn=get_db()
+    try:
+        cur=conn.cursor(); cur.execute("INSERT INTO sessions (id,expires,remember) VALUES (%s,%s,%s)",(sid,expires,remember)); conn.commit()
+    finally: conn.close()
+    return sid,expires
+
+def _valid_session(sid):
+    if not sid: return False
+    try:
+        conn=get_db(); cur=conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT expires FROM sessions WHERE id=%s",(sid,)); row=cur.fetchone(); conn.close()
+        if not row: return False
+        exp=row['expires']; exp=exp.replace(tzinfo=timezone.utc) if exp.tzinfo is None else exp
+        return datetime.now(timezone.utc)<exp
+    except: return False
+
+def _delete_session(sid):
+    try:
+        conn=get_db(); cur=conn.cursor(); cur.execute("DELETE FROM sessions WHERE id=%s",(sid,)); conn.commit(); conn.close()
+    except: pass
 
 def _purge_expired_sessions():
-    """Clean up old sessions (called lazily on login)."""
     try:
-        conn = sqlite3.connect(DB_PATH)
-        conn.execute("DELETE FROM sessions WHERE expires < datetime('now')")
-        conn.commit(); conn.close()
-    except Exception:
-        pass
+        conn=get_db(); cur=conn.cursor(); cur.execute("DELETE FROM sessions WHERE expires<NOW()"); conn.commit(); conn.close()
+    except: pass
 
-def _is_authenticated() -> bool:
-    """Check API key first, then session cookie."""
-    # API key always works if configured (for Claude Code / CLI)
+def _is_authenticated():
     if API_KEY:
-        auth = request.headers.get('Authorization', '')
-        if auth.startswith('Bearer ') and auth[7:] == API_KEY:
-            return True
-        if request.headers.get('X-API-Key', '') == API_KEY:
-            return True
-    # Session cookie
-    sid = request.cookies.get('td_session', '')
-    return _valid_session(sid)
+        auth=request.headers.get('Authorization','')
+        if auth.startswith('Bearer ') and auth[7:]==API_KEY: return True
+        if request.headers.get('X-API-Key','')==API_KEY: return True
+    return _valid_session(request.cookies.get('td_session',''))
 
-# ── Login page (inline, no external file needed) ──────────────────────────────
-LOGIN_HTML = """<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#000000">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>TD — Sign In</title>
-<style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{--bg:#000;--bg2:#1c1c1e;--bg3:#2c2c2e;--accent:#0a84ff;--text:#fff;--text2:rgba(255,255,255,.7);--text3:rgba(255,255,255,.4);--red:#ff453a;--radius:12px;--font:-apple-system,'SF Pro Text','Inter',sans-serif}
-html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);-webkit-font-smoothing:antialiased}
-body{display:flex;align-items:center;justify-content:center;padding:24px;padding-top:max(24px,env(safe-area-inset-top))}
-.card{width:100%;max-width:360px}
-.logo{text-align:center;margin-bottom:40px}
-.logo-mark{width:72px;height:72px;background:var(--accent);border-radius:18px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:36px;box-shadow:0 8px 32px rgba(10,132,255,.35)}
-.logo h1{font-size:28px;font-weight:700;letter-spacing:-.5px}
-.logo p{font-size:14px;color:var(--text3);margin-top:4px}
-.fields{background:var(--bg2);border-radius:var(--radius);overflow:hidden;border:1px solid rgba(255,255,255,.07);margin-bottom:12px}
-.field{position:relative}
-.field+.field::before{content:'';display:block;height:1px;background:rgba(255,255,255,.07);margin:0 15px}
-.field label{display:block;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;padding:10px 15px 0}
-.field input{display:block;width:100%;background:none;border:none;padding:4px 15px 11px;font-family:var(--font);font-size:16px;color:var(--text);outline:none}
-.field input::placeholder{color:var(--text3)}
-.row{display:flex;align-items:center;gap:8px;margin:14px 0}
-.row input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent);flex-shrink:0;cursor:pointer}
-.row label{font-size:14px;color:var(--text2);cursor:pointer}
-.btn{width:100%;padding:14px;background:var(--accent);border:none;border-radius:var(--radius);font-family:var(--font);font-size:17px;font-weight:600;color:#fff;cursor:pointer;margin-top:4px;transition:opacity .15s}
-.btn:active{opacity:.8}
-.btn:disabled{opacity:.5;cursor:not-allowed}
-.err{color:var(--red);font-size:14px;text-align:center;margin-top:12px;min-height:20px}
-</style>
-</head>
-<body>
-<div class="card">
-  <div class="logo">
-    <div class="logo-mark">✓</div>
-    <h1>TD</h1>
-    <p>Sign in to continue</p>
-  </div>
-  <form id="form" onsubmit="login(event)" autocomplete="on">
-    <div class="fields">
-      <div class="field">
-        <label for="un">Username</label>
-        <input type="text" id="un" name="username" autocomplete="username" autofocus
-               placeholder="Enter username" spellcheck="false" autocapitalize="none">
-      </div>
-      <div class="field">
-        <label for="pw">Password</label>
-        <input type="password" id="pw" name="password" autocomplete="current-password"
-               placeholder="Enter password">
-      </div>
-    </div>
-    <div class="row">
-      <input type="checkbox" id="rem" name="remember">
-      <label for="rem">Keep me signed in for 30 days</label>
-    </div>
-    <button class="btn" type="submit" id="submitBtn">Sign In</button>
-    <div class="err" id="err"></div>
-  </form>
-</div>
-<script>
-async function login(e) {
-  e.preventDefault();
-  const un  = document.getElementById('un').value.trim();
-  const pw  = document.getElementById('pw').value;
-  const rem = document.getElementById('rem').checked;
-  const btn = document.getElementById('submitBtn');
-  const err = document.getElementById('err');
-  err.textContent = '';
-  if (!un || !pw) { err.textContent = 'Please enter your username and password.'; return; }
-  btn.disabled = true; btn.textContent = 'Signing in\u2026';
-  try {
-    const r = await fetch('/auth/login', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({username: un, password: pw, remember: rem})
-    });
-    if (r.ok) {
-      const next = new URLSearchParams(location.search).get('next') || '/';
-      location.href = next;
-    } else {
-      const d = await r.json();
-      err.textContent = d.error || 'Incorrect username or password';
-      document.getElementById('pw').value = '';
-      document.getElementById('pw').focus();
-    }
-  } catch(e) {
-    err.textContent = 'Network error — please try again';
-  } finally {
-    btn.disabled = false; btn.textContent = 'Sign In';
-  }
-}
-</script>
-</body>
-</html>"""
-
-from flask import make_response
+LOGIN_HTML="""<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover"><title>TD — Sign In</title><style>*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}:root{--bg:#000;--bg2:#1c1c1e;--accent:#0a84ff;--text:#fff;--text2:rgba(255,255,255,.7);--text3:rgba(255,255,255,.4);--red:#ff453a;--radius:12px;--font:-apple-system,'SF Pro Text','Inter',sans-serif}html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);-webkit-font-smoothing:antialiased}body{display:flex;align-items:center;justify-content:center;padding:24px}.card{width:100%;max-width:360px}.logo{text-align:center;margin-bottom:40px}.logo-mark{width:72px;height:72px;background:var(--accent);border-radius:18px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:36px;box-shadow:0 8px 32px rgba(10,132,255,.35)}.logo h1{font-size:28px;font-weight:700}.logo p{font-size:14px;color:var(--text3);margin-top:4px}.fields{background:var(--bg2);border-radius:var(--radius);overflow:hidden;border:1px solid rgba(255,255,255,.07);margin-bottom:12px}.field+.field::before{content:'';display:block;height:1px;background:rgba(255,255,255,.07);margin:0 15px}.field label{display:block;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;padding:10px 15px 0}.field input{display:block;width:100%;background:none;border:none;padding:4px 15px 11px;font-family:var(--font);font-size:16px;color:var(--text);outline:none}.row{display:flex;align-items:center;gap:8px;margin:14px 0}.row input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}.row label{font-size:14px;color:var(--text2);cursor:pointer}.btn{width:100%;padding:14px;background:var(--accent);border:none;border-radius:var(--radius);font-family:var(--font);font-size:17px;font-weight:600;color:#fff;cursor:pointer;transition:opacity .15s}.err{color:var(--red);font-size:14px;text-align:center;margin-top:12px;min-height:20px}</style></head><body><div class="card"><div class="logo"><div class="logo-mark">✓</div><h1>TD</h1><p>Sign in to continue</p></div><form id="form" onsubmit="login(event)" autocomplete="on"><div class="fields"><div class="field"><label for="un">Username</label><input type="text" id="un" name="username" autocomplete="username" autofocus placeholder="Enter username" spellcheck="false" autocapitalize="none"></div><div class="field"><label for="pw">Password</label><input type="password" id="pw" name="password" autocomplete="current-password" placeholder="Enter password"></div></div><div class="row"><input type="checkbox" id="rem"><label for="rem">Keep me signed in for 30 days</label></div><button class="btn" type="submit" id="btn">Sign In</button><div class="err" id="err"></div></form></div><script>async function login(e){e.preventDefault();const un=document.getElementById('un').value.trim(),pw=document.getElementById('pw').value,rem=document.getElementById('rem').checked,btn=document.getElementById('btn'),err=document.getElementById('err');err.textContent='';if(!un||!pw){err.textContent='Please fill in both fields.';return;}btn.disabled=true;btn.textContent='Signing in…';try{const r=await fetch('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:un,password:pw,remember:rem})});if(r.ok){location.href=new URLSearchParams(location.search).get('next')||'/';}else{const d=await r.json();err.textContent=d.error||'Incorrect username or password';document.getElementById('pw').value='';document.getElementById('pw').focus();}}catch(e){err.textContent='Network error';}finally{btn.disabled=false;btn.textContent='Sign In';}}</script></body></html>"""
 
 @app.route('/login')
 def login_page():
-    if not TD_PASSWORD:
-        return redirect('/')
-    if _is_authenticated():
-        return redirect(request.args.get('next', '/'))
-    return LOGIN_HTML, 200, {'Content-Type': 'text/html'}
+    if not TD_PASSWORD: return redirect('/')
+    if _is_authenticated(): return redirect(request.args.get('next','/'))
+    return LOGIN_HTML,200,{'Content-Type':'text/html'}
 
-@app.route('/auth/login', methods=['POST'])
+@app.route('/auth/login',methods=['POST'])
 def do_login():
-    if not TD_PASSWORD:
-        return jsonify({'ok': True})
-    ip = request.remote_addr or '0.0.0.0'
-    if _check_rate_limit(ip):
-        return jsonify({'error': 'Too many failed attempts — try again in 15 minutes'}), 429
-    data = request.get_json() or {}
-    username = data.get('username', '').strip()
-    pw       = data.get('password', '').strip()
-    # Validate username if TD_USERNAME is configured
-    username_ok = (not TD_USERNAME) or secrets.compare_digest(username.lower(), TD_USERNAME.lower())
-    password_ok = secrets.compare_digest(_hash_pw(pw), _hash_pw(TD_PASSWORD))
-    if not (username_ok and password_ok):
-        _record_failure(ip)
-        # Generic message — don't reveal which field was wrong
-        return jsonify({'error': 'Incorrect username or password'}), 401
-    _clear_failures(ip)
-    _purge_expired_sessions()
-    remember = bool(data.get('remember', False))
-    sid, expires = _create_session(remember)
-    resp = make_response(jsonify({'ok': True}))
-    max_age = (30 * 86400) if remember else None
-    resp.set_cookie(
-        'td_session', sid,
-        httponly=True, samesite='Lax',
-        expires=expires if remember else None,
-        max_age=max_age,
-        secure=False  # set True if terminating TLS at Flask (usually False with reverse proxy)
-    )
+    if not TD_PASSWORD: return jsonify({'ok':True})
+    ip=request.remote_addr or '0.0.0.0'
+    if _check_rate_limit(ip): return jsonify({'error':'Too many attempts — try again in 15 minutes'}),429
+    data=request.get_json() or {}
+    uok=(not TD_USERNAME) or secrets.compare_digest(data.get('username','').strip().lower(),TD_USERNAME.lower())
+    pok=secrets.compare_digest(_hash_pw(data.get('password','').strip()),_hash_pw(TD_PASSWORD))
+    if not (uok and pok): _record_failure(ip); return jsonify({'error':'Incorrect username or password'}),401
+    _clear_failures(ip); _purge_expired_sessions()
+    sid,expires=_create_session(bool(data.get('remember')))
+    resp=make_response(jsonify({'ok':True}))
+    resp.set_cookie('td_session',sid,httponly=True,samesite='Lax',
+                    expires=expires if data.get('remember') else None,
+                    max_age=30*86400 if data.get('remember') else None)
     return resp
 
-@app.route('/auth/logout', methods=['POST'])
+@app.route('/auth/logout',methods=['POST'])
 def do_logout():
-    sid = request.cookies.get('td_session', '')
-    _delete_session(sid)
-    resp = make_response(redirect('/login'))
-    resp.delete_cookie('td_session')
-    return resp
+    _delete_session(request.cookies.get('td_session',''))
+    resp=make_response(redirect('/login')); resp.delete_cookie('td_session'); return resp
 
 @app.route('/auth/status')
 def auth_status():
-    """Let the frontend know if password auth is active (so it can show the logout button)."""
-    return jsonify({
-        'password_set':  bool(TD_PASSWORD),
-        'authenticated': _is_authenticated(),
-        'username':      TD_USERNAME or None,
-    })
+    return jsonify({'password_set':bool(TD_PASSWORD),'authenticated':_is_authenticated(),
+                    'username':TD_USERNAME or None,'gcal_enabled':GCAL_ENABLED})
 
 @app.before_request
 def auth_middleware():
-    path = request.path
-
-    # Always allow public paths and OPTIONS preflight
-    if path in _PUBLIC_PATHS or request.method == 'OPTIONS':
-        return None
-
-    # If no password is configured, everything is open
+    path=request.path
+    if path in _PUBLIC_PATHS or request.method=='OPTIONS': return None
     if not TD_PASSWORD:
-        # Still enforce API key if set
-        if path.startswith('/api/'):
-            if API_KEY:
-                auth = request.headers.get('Authorization', '')
-                xkey = request.headers.get('X-API-Key', '')
-                ok = (auth.startswith('Bearer ') and auth[7:] == API_KEY) or xkey == API_KEY
-                if not ok:
-                    return jsonify({'error': 'Unauthorized — provide a valid API key'}), 401
-        if path.startswith('/api/') and not tables_exist():
-            init_db()
+        if path.startswith('/api/') and API_KEY:
+            auth=request.headers.get('Authorization',''); xkey=request.headers.get('X-API-Key','')
+            if not ((auth.startswith('Bearer ') and auth[7:]==API_KEY) or xkey==API_KEY):
+                return jsonify({'error':'Unauthorized'}),401
         return None
-
-    # Password is configured — require auth on everything
     if not _is_authenticated():
-        if path.startswith('/api/'):
-            return jsonify({'error': 'Unauthorized'}), 401
-        # Redirect browsers to login, preserving the requested URL
+        if path.startswith('/api/'): return jsonify({'error':'Unauthorized'}),401
         from urllib.parse import quote
         return redirect(f'/login?next={quote(request.full_path.rstrip("?"))}')
 
-    # Authenticated — still reinit DB if needed
-    if path.startswith('/api/') and not tables_exist():
-        init_db()
-
-
-
 @app.after_request
 def add_cors(response):
-    response.headers['Access-Control-Allow-Origin'] = '*'
-    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-API-Key'
-    response.headers['Access-Control-Allow-Methods'] = 'GET,POST,PUT,PATCH,DELETE,OPTIONS'
+    response.headers['Access-Control-Allow-Origin']='*'
+    response.headers['Access-Control-Allow-Headers']='Content-Type, Authorization, X-API-Key'
+    response.headers['Access-Control-Allow-Methods']='GET,POST,PUT,PATCH,DELETE,OPTIONS'
     return response
 
+# ─────────────────────────────────────────────
+# ROUTES
+# ─────────────────────────────────────────────
 
 @app.route('/share-target')
 def share_target():
-    """
-    iOS/Android Web Share Target landing page.
-    The browser POSTs or GETs here; we redirect to / with params so the JS can handle them.
-    """
     from urllib.parse import urlencode
-    params = {}
-    for key in ('title', 'text', 'url'):
-        val = request.args.get(key, '').strip()
-        if val:
-            params[f'share_{key}'] = val
-    qs = urlencode(params)
-    return redirect(f'/?{qs}' if qs else '/')
+    params={f'share_{k}':v for k in ('title','text','url') if (v:=request.args.get(k,'').strip())}
+    qs=urlencode(params); return redirect(f'/?{qs}' if qs else '/')
 
-@app.route('/', defaults={'path': ''})
+@app.route('/',defaults={'path':''})
 @app.route('/<path:path>')
 def serve_frontend(path):
-    if path and os.path.exists(os.path.join(app.static_folder, path)):
-        return send_from_directory(app.static_folder, path)
-    return send_from_directory(app.static_folder, 'index.html')
+    if path and os.path.exists(os.path.join(app.static_folder,path)):
+        return send_from_directory(app.static_folder,path)
+    return send_from_directory(app.static_folder,'index.html')
 
-# ─────────────────────────────────────────────
-# API: NLP PARSE
-# ─────────────────────────────────────────────
-
-@app.route('/api/nlp/parse', methods=['POST', 'OPTIONS'])
+@app.route('/api/nlp/parse',methods=['POST','OPTIONS'])
 def nlp_parse():
-    if request.method == 'OPTIONS':
-        return '', 204
-    data = request.get_json()
-    text = data.get('text', '')
-    result = parse_natural_language(text)
-    return jsonify(result)
+    if request.method=='OPTIONS': return '',204
+    return jsonify(parse_natural_language(request.get_json().get('text','')))
 
-# ─────────────────────────────────────────────
-# API: PROJECTS
-# ─────────────────────────────────────────────
+# ── Projects ──
 
-@app.route('/api/projects', methods=['GET', 'OPTIONS'])
+@app.route('/api/projects',methods=['GET','OPTIONS'])
 def get_projects():
-    if request.method == 'OPTIONS':
-        return '', 204
-    with get_db() as conn:
-        rows = conn.execute("""
-            SELECT p.*, COUNT(t.id) as task_count,
-                   SUM(CASE WHEN t.status='done' THEN 1 ELSE 0 END) as done_count
-            FROM projects p
-            LEFT JOIN tasks t ON t.project_id = p.id
-            GROUP BY p.id
-            ORDER BY p.created_at
-        """).fetchall()
+    if request.method=='OPTIONS': return '',204
+    conn=get_db()
+    try:
+        cur=conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("""SELECT p.*,COUNT(t.id) as task_count,
+            SUM(CASE WHEN t.status='done' THEN 1 ELSE 0 END) as done_count
+            FROM projects p LEFT JOIN tasks t ON t.project_id=p.id
+            GROUP BY p.id ORDER BY p.created_at""")
+        rows=cur.fetchall()
+    finally: conn.close()
     return jsonify([row_to_dict(r) for r in rows])
 
-@app.route('/api/projects', methods=['POST'])
+@app.route('/api/projects',methods=['POST'])
 def create_project():
-    data = request.get_json()
-    pid = str(uuid.uuid4())
-    with get_db() as conn:
-        conn.execute(
-            "INSERT INTO projects (id, name, color, icon) VALUES (?,?,?,?)",
-            (pid, data['name'], data.get('color','#6366f1'), data.get('icon','📁'))
-        )
-        row = conn.execute("SELECT * FROM projects WHERE id=?", (pid,)).fetchone()
-    return jsonify(row_to_dict(row)), 201
+    data=request.get_json(); pid=str(uuid.uuid4())
+    conn=get_db()
+    try:
+        cur=conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("INSERT INTO projects (id,name,color,icon) VALUES (%s,%s,%s,%s)",
+                    (pid,data['name'],data.get('color','#6366f1'),data.get('icon','📁')))
+        cur.execute("SELECT * FROM projects WHERE id=%s",(pid,)); row=cur.fetchone(); conn.commit()
+    finally: conn.close()
+    return jsonify(row_to_dict(row)),201
 
-@app.route('/api/projects/<pid>', methods=['PUT', 'PATCH'])
+@app.route('/api/projects/<pid>',methods=['PUT','PATCH'])
 def update_project(pid):
-    data = request.get_json()
-    with get_db() as conn:
-        if 'name' in data:
-            conn.execute("UPDATE projects SET name=?, updated_at=datetime('now') WHERE id=?", (data['name'], pid))
-        if 'color' in data:
-            conn.execute("UPDATE projects SET color=?, updated_at=datetime('now') WHERE id=?", (data['color'], pid))
-        if 'icon' in data:
-            conn.execute("UPDATE projects SET icon=?, updated_at=datetime('now') WHERE id=?", (data['icon'], pid))
-        row = conn.execute("SELECT * FROM projects WHERE id=?", (pid,)).fetchone()
+    data=request.get_json(); conn=get_db()
+    try:
+        cur=conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        for f in ('name','color','icon'):
+            if f in data: cur.execute(f"UPDATE projects SET {f}=%s,updated_at=NOW() WHERE id=%s",(data[f],pid))
+        cur.execute("SELECT * FROM projects WHERE id=%s",(pid,)); row=cur.fetchone(); conn.commit()
+    finally: conn.close()
     return jsonify(row_to_dict(row))
 
-@app.route('/api/projects/<pid>', methods=['DELETE'])
+@app.route('/api/projects/<pid>',methods=['DELETE'])
 def delete_project(pid):
-    if pid == 'inbox':
-        return jsonify({'error': 'Cannot delete inbox'}), 400
-    with get_db() as conn:
-        conn.execute("UPDATE tasks SET project_id='inbox' WHERE project_id=?", (pid,))
-        conn.execute("DELETE FROM projects WHERE id=?", (pid,))
-    return '', 204
+    if pid=='inbox': return jsonify({'error':'Cannot delete inbox'}),400
+    conn=get_db()
+    try:
+        cur=conn.cursor(); cur.execute("UPDATE tasks SET project_id='inbox' WHERE project_id=%s",(pid,))
+        cur.execute("DELETE FROM projects WHERE id=%s",(pid,)); conn.commit()
+    finally: conn.close()
+    return '',204
 
-# ─────────────────────────────────────────────
-# API: TASKS
-# ─────────────────────────────────────────────
+# ── Tasks helpers ──
 
-@app.route('/api/tasks', methods=['GET'])
+def _fetch_tasks(query,params=()):
+    conn=get_db()
+    try:
+        cur=conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(query,params); tasks=[row_to_dict(r) for r in cur.fetchall()]
+        for t in tasks:
+            cur.execute("SELECT * FROM subtasks WHERE task_id=%s ORDER BY position",(t['id'],))
+            t['subtasks']=[row_to_dict(s) for s in cur.fetchall()]
+    finally: conn.close()
+    return tasks
+
+# ── Tasks ──
+
+@app.route('/api/tasks',methods=['GET'])
 def get_tasks():
-    project_id = request.args.get('project_id')
-    status = request.args.get('status')
-    search = request.args.get('search')
+    pid=request.args.get('project_id'); status=request.args.get('status'); search=request.args.get('search')
+    q="SELECT * FROM tasks WHERE 1=1"; p=[]
+    if pid: q+=" AND project_id=%s"; p.append(pid)
+    if status: q+=" AND status=%s"; p.append(status)
+    if search: q+=" AND (title ILIKE %s OR description ILIKE %s)"; p+=[f'%{search}%',f'%{search}%']
+    q+=" ORDER BY position,created_at"
+    return jsonify(_fetch_tasks(q,p))
 
-    query = "SELECT * FROM tasks WHERE 1=1"
-    params = []
-
-    if project_id:
-        query += " AND project_id=?"
-        params.append(project_id)
-    if status:
-        query += " AND status=?"
-        params.append(status)
-    if search:
-        query += " AND (title LIKE ? OR description LIKE ?)"
-        params += [f'%{search}%', f'%{search}%']
-
-    query += " ORDER BY position, created_at"
-
-    with get_db() as conn:
-        rows = conn.execute(query, params).fetchall()
-        tasks = [row_to_dict(r) for r in rows]
-        for task in tasks:
-            subs = conn.execute(
-                "SELECT * FROM subtasks WHERE task_id=? ORDER BY position",
-                (task['id'],)
-            ).fetchall()
-            task['subtasks'] = [row_to_dict(s) for s in subs]
-    return jsonify(tasks)
-
-@app.route('/api/tasks', methods=['POST'])
+@app.route('/api/tasks',methods=['POST'])
 def create_task():
-    data = request.get_json()
-    tid = str(uuid.uuid4())
-    title = data.get('title', '').strip()
-    if not title:
-        return jsonify({'error': 'Title required'}), 400
-
-    # Auto-parse if nlp flag set
-    nlp_data = {}
-    if data.get('nlp', False):
-        nlp_data = parse_natural_language(title)
-        title = nlp_data.get('title', title)
-
-    tags = data.get('tags', nlp_data.get('labels', []))
-    due_date = data.get('due_date', nlp_data.get('due_date'))
-    due_time = data.get('due_time', nlp_data.get('due_time'))
-    priority = data.get('priority', nlp_data.get('priority', 'medium'))
-    status = data.get('status', 'todo')
-
-    # Resolve project: #word from NLP takes priority, then explicit project_id
-    project_id = data.get('project_id', 'inbox')
-    project_name = nlp_data.get('project_name')
-    if project_name:
-        with get_db() as conn:
-            # Case-insensitive name match
-            row = conn.execute(
-                "SELECT id FROM projects WHERE LOWER(name)=LOWER(?)", (project_name,)
-            ).fetchone()
-            if row:
-                project_id = row['id']
+    data=request.get_json(); tid=str(uuid.uuid4())
+    title=data.get('title','').strip()
+    if not title: return jsonify({'error':'Title required'}),400
+    nlp={}
+    if data.get('nlp'): nlp=parse_natural_language(title); title=nlp.get('title',title)
+    tags=data.get('tags',nlp.get('labels',[])); due_date=data.get('due_date',nlp.get('due_date'))
+    due_time=data.get('due_time',nlp.get('due_time')); priority=data.get('priority',nlp.get('priority','medium'))
+    status=data.get('status','todo'); project_id=data.get('project_id','inbox')
+    pname=nlp.get('project_name')
+    if pname:
+        conn=get_db()
+        try:
+            cur=conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cur.execute("SELECT id FROM projects WHERE LOWER(name)=LOWER(%s)",(pname,)); row=cur.fetchone()
+            if row: project_id=row['id']
             else:
-                # Auto-create the project
-                new_pid = str(uuid.uuid4())
-                PALETTE = ['#7c6af7','#f87171','#fbbf24','#4ade80','#60a5fa','#f472b6','#34d399','#fb923c']
-                color = PALETTE[hash(project_name) % len(PALETTE)]
-                conn.execute(
-                    "INSERT INTO projects (id, name, color, icon) VALUES (?,?,?,?)",
-                    (new_pid, project_name.capitalize(), color, '📁')
-                )
-                project_id = new_pid
+                new_pid=str(uuid.uuid4()); PALETTE=['#7c6af7','#f87171','#fbbf24','#4ade80','#60a5fa','#f472b6','#34d399','#fb923c']
+                cur.execute("INSERT INTO projects (id,name,color,icon) VALUES (%s,%s,%s,'📁')",
+                            (new_pid,pname.capitalize(),PALETTE[hash(pname)%len(PALETTE)])); project_id=new_pid
+            conn.commit()
+        finally: conn.close()
+    conn=get_db()
+    try:
+        cur=conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT COALESCE(MAX(position),0) FROM tasks WHERE project_id=%s AND status=%s",(project_id,status))
+        max_pos=cur.fetchone()['coalesce']
+        cur.execute("""INSERT INTO tasks (id,title,description,project_id,status,priority,due_date,due_time,tags,position)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+            (tid,title,data.get('description',''),project_id,status,priority,due_date,due_time,json.dumps(tags),max_pos+1))
+        cur.execute("SELECT * FROM tasks WHERE id=%s",(tid,)); task=row_to_dict(cur.fetchone())
+        task['subtasks']=[]; conn.commit()
+    finally: conn.close()
+    if nlp.get('nlp_summary'): task['nlp_summary']=nlp['nlp_summary']
+    if due_date:
+        eid=gcal_upsert(task)
+        if eid: _gcal_save(tid,eid); task['gcal_event_id']=eid
+    return jsonify(task),201
 
-    with get_db() as conn:
-        max_pos = conn.execute(
-            "SELECT COALESCE(MAX(position),0) FROM tasks WHERE project_id=? AND status=?",
-            (project_id, status)
-        ).fetchone()[0]
-        conn.execute("""
-            INSERT INTO tasks (id, title, description, project_id, status, priority,
-                               due_date, due_time, tags, position)
-            VALUES (?,?,?,?,?,?,?,?,?,?)
-        """, (tid, title, data.get('description',''), project_id, status, priority,
-              due_date, due_time, json.dumps(tags), max_pos + 1))
-        row = conn.execute("SELECT * FROM tasks WHERE id=?", (tid,)).fetchone()
-        task = row_to_dict(row)
-        task['subtasks'] = []
-        if nlp_data.get('nlp_summary'):
-            task['nlp_summary'] = nlp_data['nlp_summary']
-
-    return jsonify(task), 201
-
-@app.route('/api/tasks/<tid>', methods=['GET'])
+@app.route('/api/tasks/<tid>',methods=['GET'])
 def get_task(tid):
-    with get_db() as conn:
-        row = conn.execute("SELECT * FROM tasks WHERE id=?", (tid,)).fetchone()
-        if not row:
-            return jsonify({'error': 'Not found'}), 404
-        task = row_to_dict(row)
-        subs = conn.execute("SELECT * FROM subtasks WHERE task_id=? ORDER BY position", (tid,)).fetchall()
-        task['subtasks'] = [row_to_dict(s) for s in subs]
+    conn=get_db()
+    try:
+        cur=conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT * FROM tasks WHERE id=%s",(tid,)); row=cur.fetchone()
+        if not row: return jsonify({'error':'Not found'}),404
+        task=row_to_dict(row)
+        cur.execute("SELECT * FROM subtasks WHERE task_id=%s ORDER BY position",(tid,))
+        task['subtasks']=[row_to_dict(s) for s in cur.fetchall()]
+    finally: conn.close()
     return jsonify(task)
 
-@app.route('/api/tasks/<tid>', methods=['PUT', 'PATCH'])
+@app.route('/api/tasks/<tid>',methods=['PUT','PATCH'])
 def update_task(tid):
-    data = request.get_json()
-    with get_db() as conn:
-        task = conn.execute("SELECT * FROM tasks WHERE id=?", (tid,)).fetchone()
-        if not task:
-            return jsonify({'error': 'Not found'}), 404
-        task = dict(task)
-
-        fields = ['title','description','project_id','status','priority',
-                  'due_date','due_time','position']
-        for field in fields:
-            if field in data:
-                task[field] = data[field]
-
-        if 'tags' in data:
-            task['tags'] = json.dumps(data['tags'])
-
-        if data.get('status') == 'done' and task.get('status') != 'done':
-            task['completed_at'] = datetime.now().isoformat()
-        elif data.get('status') and data['status'] != 'done':
-            task['completed_at'] = None
-
-        conn.execute("""
-            UPDATE tasks SET title=?, description=?, project_id=?, status=?, priority=?,
-                due_date=?, due_time=?, tags=?, position=?, completed_at=?,
-                updated_at=datetime('now')
-            WHERE id=?
-        """, (task['title'], task['description'], task['project_id'], task['status'],
-              task['priority'], task['due_date'], task['due_time'],
-              task['tags'] if isinstance(task['tags'], str) else json.dumps(task['tags']),
-              task['position'], task.get('completed_at'), tid))
-
-        row = conn.execute("SELECT * FROM tasks WHERE id=?", (tid,)).fetchone()
-        result = row_to_dict(row)
-        subs = conn.execute("SELECT * FROM subtasks WHERE task_id=? ORDER BY position", (tid,)).fetchall()
-        result['subtasks'] = [row_to_dict(s) for s in subs]
+    data=request.get_json(); conn=get_db()
+    try:
+        cur=conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT * FROM tasks WHERE id=%s",(tid,)); row=cur.fetchone()
+        if not row: return jsonify({'error':'Not found'}),404
+        t=dict(row)
+        for f in ['title','description','project_id','status','priority','due_date','due_time','position']:
+            if f in data: t[f]=data[f]
+        if 'tags' in data: t['tags']=json.dumps(data['tags'])
+        if data.get('status')=='done' and t.get('status')!='done': t['completed_at']=datetime.now(timezone.utc)
+        elif data.get('status') and data['status']!='done': t['completed_at']=None
+        tags_val=t['tags'] if isinstance(t['tags'],str) else json.dumps(t['tags'])
+        cur.execute("""UPDATE tasks SET title=%s,description=%s,project_id=%s,status=%s,priority=%s,
+            due_date=%s,due_time=%s,tags=%s,position=%s,completed_at=%s,updated_at=NOW() WHERE id=%s""",
+            (t['title'],t['description'],t['project_id'],t['status'],t['priority'],
+             t['due_date'],t['due_time'],tags_val,t['position'],t.get('completed_at'),tid))
+        cur.execute("SELECT * FROM tasks WHERE id=%s",(tid,)); result=row_to_dict(cur.fetchone())
+        cur.execute("SELECT * FROM subtasks WHERE task_id=%s ORDER BY position",(tid,))
+        result['subtasks']=[row_to_dict(s) for s in cur.fetchall()]
+        conn.commit()
+    finally: conn.close()
+    if any(f in data for f in ('due_date','due_time','title')):
+        if result.get('due_date'):
+            eid=gcal_upsert(result)
+            if eid and eid!=result.get('gcal_event_id'): _gcal_save(tid,eid); result['gcal_event_id']=eid
+        elif result.get('gcal_event_id'):
+            gcal_delete(result['gcal_event_id']); _gcal_save(tid,None); result['gcal_event_id']=None
     return jsonify(result)
 
-@app.route('/api/tasks/<tid>', methods=['DELETE'])
+@app.route('/api/tasks/<tid>',methods=['DELETE'])
 def delete_task(tid):
-    with get_db() as conn:
-        conn.execute("DELETE FROM subtasks WHERE task_id=?", (tid,))
-        conn.execute("DELETE FROM tasks WHERE id=?", (tid,))
-    return '', 204
+    conn=get_db()
+    try:
+        cur=conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT gcal_event_id FROM tasks WHERE id=%s",(tid,)); row=cur.fetchone()
+        if row and row['gcal_event_id']: gcal_delete(row['gcal_event_id'])
+        cur.execute("DELETE FROM subtasks WHERE task_id=%s",(tid,))
+        cur.execute("DELETE FROM tasks WHERE id=%s",(tid,)); conn.commit()
+    finally: conn.close()
+    return '',204
 
-@app.route('/api/tasks/<tid>/subtasks', methods=['POST'])
+# ── Subtasks ──
+
+@app.route('/api/tasks/<tid>/subtasks',methods=['POST'])
 def add_subtask(tid):
-    data = request.get_json()
-    sid = str(uuid.uuid4())
-    raw_title = data.get('title', '').strip()
+    data=request.get_json(); sid=str(uuid.uuid4())
+    nlp=parse_natural_language(data.get('title','').strip()); conn=get_db()
+    try:
+        cur=conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT COALESCE(MAX(position),0) FROM subtasks WHERE task_id=%s",(tid,)); max_pos=cur.fetchone()['coalesce']
+        cur.execute("""INSERT INTO subtasks (id,task_id,title,position,due_date,due_time,priority,labels)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s)""",
+            (sid,tid,nlp.get('title') or data.get('title',''),max_pos+1,
+             nlp.get('due_date'),nlp.get('due_time'),nlp.get('priority','medium'),json.dumps(nlp.get('labels',[]))))
+        cur.execute("SELECT * FROM subtasks WHERE id=%s",(sid,)); row=row_to_dict(cur.fetchone()); conn.commit()
+    finally: conn.close()
+    if nlp.get('nlp_summary'): row['nlp_summary']=nlp['nlp_summary']
+    return jsonify(row),201
 
-    # Run NLP on subtask title just like tasks
-    nlp = parse_natural_language(raw_title)
-    title     = nlp.get('title', raw_title) or raw_title
-    due_date  = nlp.get('due_date')
-    due_time  = nlp.get('due_time')
-    priority  = nlp.get('priority', 'medium')
-    labels    = nlp.get('labels', [])
-
-    with get_db() as conn:
-        max_pos = conn.execute(
-            "SELECT COALESCE(MAX(position),0) FROM subtasks WHERE task_id=?", (tid,)
-        ).fetchone()[0]
-        conn.execute(
-            """INSERT INTO subtasks (id, task_id, title, position, due_date, due_time, priority, labels)
-               VALUES (?,?,?,?,?,?,?,?)""",
-            (sid, tid, title, max_pos + 1, due_date, due_time, priority, json.dumps(labels))
-        )
-        row = conn.execute("SELECT * FROM subtasks WHERE id=?", (sid,)).fetchone()
-    result = row_to_dict(row)
-    if nlp.get('nlp_summary'):
-        result['nlp_summary'] = nlp['nlp_summary']
-    return jsonify(result), 201
-
-@app.route('/api/tasks/<tid>/subtasks/<sid>', methods=['PATCH'])
-def update_subtask(tid, sid):
-    data = request.get_json()
-    with get_db() as conn:
-        if 'completed' in data:
-            conn.execute("UPDATE subtasks SET completed=? WHERE id=?",
-                         (1 if data['completed'] else 0, sid))
-        if 'title' in data:
-            conn.execute("UPDATE subtasks SET title=? WHERE id=?", (data['title'], sid))
-        if 'due_date' in data:
-            conn.execute("UPDATE subtasks SET due_date=? WHERE id=?", (data['due_date'], sid))
-        if 'due_time' in data:
-            conn.execute("UPDATE subtasks SET due_time=? WHERE id=?", (data['due_time'], sid))
-        if 'priority' in data:
-            conn.execute("UPDATE subtasks SET priority=? WHERE id=?", (data['priority'], sid))
-        if 'labels' in data:
-            conn.execute("UPDATE subtasks SET labels=? WHERE id=?",
-                         (json.dumps(data['labels']), sid))
-        row = conn.execute("SELECT * FROM subtasks WHERE id=?", (sid,)).fetchone()
+@app.route('/api/tasks/<tid>/subtasks/<sid>',methods=['PATCH'])
+def update_subtask(tid,sid):
+    data=request.get_json(); conn=get_db()
+    try:
+        cur=conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        for f in ('title','due_date','due_time','priority'):
+            if f in data: cur.execute(f"UPDATE subtasks SET {f}=%s WHERE id=%s",(data[f],sid))
+        if 'completed' in data: cur.execute("UPDATE subtasks SET completed=%s WHERE id=%s",(bool(data['completed']),sid))
+        if 'labels' in data: cur.execute("UPDATE subtasks SET labels=%s WHERE id=%s",(json.dumps(data['labels']),sid))
+        cur.execute("SELECT * FROM subtasks WHERE id=%s",(sid,)); row=cur.fetchone(); conn.commit()
+    finally: conn.close()
     return jsonify(row_to_dict(row))
 
-@app.route('/api/tasks/<tid>/subtasks/<sid>', methods=['DELETE'])
-def delete_subtask(tid, sid):
-    with get_db() as conn:
-        conn.execute("DELETE FROM subtasks WHERE id=?", (sid,))
-    return '', 204
-
-# ─────────────────────────────────────────────
-# API: BULK REORDER
-# ─────────────────────────────────────────────
-
-@app.route('/api/tasks/reorder', methods=['POST'])
-def reorder_tasks():
-    data = request.get_json()  # [{id, position, status}]
-    with get_db() as conn:
-        for item in data:
-            conn.execute(
-                "UPDATE tasks SET position=?, status=?, updated_at=datetime('now') WHERE id=?",
-                (item['position'], item['status'], item['id'])
-            )
-    return jsonify({'ok': True})
-
-# ─────────────────────────────────────────────
-# API: EXPORT (LLM-friendly JSON)
-# ─────────────────────────────────────────────
-
-@app.route('/api/export', methods=['GET'])
-def export_data():
-    with get_db() as conn:
-        projects = [row_to_dict(r) for r in conn.execute("SELECT * FROM projects ORDER BY created_at").fetchall()]
-        tasks = [row_to_dict(r) for r in conn.execute("SELECT * FROM tasks ORDER BY project_id, position").fetchall()]
-        subtasks = [row_to_dict(r) for r in conn.execute("SELECT * FROM subtasks ORDER BY task_id, position").fetchall()]
-
-    # Build human-readable structure
-    task_map = {t['id']: t for t in tasks}
-    for sub in subtasks:
-        task_map[sub['task_id']].setdefault('subtasks', []).append(sub)
-
-    proj_map = {p['id']: {**p, 'tasks': []} for p in projects}
-    for task in tasks:
-        pid = task.get('project_id', 'inbox')
-        if pid in proj_map:
-            proj_map[pid]['tasks'].append(task)
-
-    export = {
-        'exported_at': datetime.now().isoformat(),
-        'version': '1.0',
-        'projects': list(proj_map.values()),
-        'stats': {
-            'total_tasks': len(tasks),
-            'done': sum(1 for t in tasks if t['status'] == 'done'),
-            'todo': sum(1 for t in tasks if t['status'] == 'todo'),
-            'in_progress': sum(1 for t in tasks if t['status'] == 'doing'),
-        }
-    }
-    return jsonify(export)
-
-# ─────────────────────────────────────────────
-# API: TODAY / UPCOMING
-# ─────────────────────────────────────────────
-
-@app.route('/api/tasks/today', methods=['GET'])
-def get_today():
-    today = date.today().isoformat()
-    with get_db() as conn:
-        rows = conn.execute(
-            "SELECT * FROM tasks WHERE due_date=? AND status!='done' ORDER BY due_time, position",
-            (today,)
-        ).fetchall()
-        tasks = [row_to_dict(r) for r in rows]
-        for t in tasks:
-            subs = conn.execute("SELECT * FROM subtasks WHERE task_id=? ORDER BY position", (t['id'],)).fetchall()
-            t['subtasks'] = [row_to_dict(s) for s in subs]
-    return jsonify(tasks)
-
-@app.route('/api/tasks/upcoming', methods=['GET'])
-def get_upcoming():
-    today = date.today().isoformat()
-    week = (date.today() + timedelta(days=7)).isoformat()
-    with get_db() as conn:
-        rows = conn.execute(
-            "SELECT * FROM tasks WHERE due_date >= ? AND due_date <= ? AND status!='done' ORDER BY due_date, due_time",
-            (today, week)
-        ).fetchall()
-        tasks = [row_to_dict(r) for r in rows]
-        for t in tasks:
-            subs = conn.execute("SELECT * FROM subtasks WHERE task_id=? ORDER BY position", (t['id'],)).fetchall()
-            t['subtasks'] = [row_to_dict(s) for s in subs]
-    return jsonify(tasks)
-
-# ─────────────────────────────────────────────
-# MAIN
-# ─────────────────────────────────────────────
-
-# Always initialise DB on startup — works for both gunicorn (--preload) and direct python
-init_db()
-
-@app.before_request
-def ensure_db():
-    """Fallback: re-run init if tables vanished (e.g. volume race on first boot)."""
-    if not tables_exist():
-        init_db()
-
-if __name__ == '__main__':
-    import socket
-    hostname = socket.gethostname()
+@app.route('/api/tasks/<tid>/subtasks/<sid>',methods=['DELETE'])
+def delete_subtask(tid,sid):
+    conn=get_db()
     try:
-        local_ip = socket.gethostbyname(hostname)
-    except:
-        local_ip = '127.0.0.1'
+        cur=conn.cursor(); cur.execute("DELETE FROM subtasks WHERE id=%s",(sid,)); conn.commit()
+    finally: conn.close()
+    return '',204
 
-    print("\n" + "="*50)
-    print("  TaskFlow is running!")
-    print("="*50)
-    print(f"  Local:   http://localhost:5000")
-    print(f"  Network: http://{local_ip}:5000")
-    print("  (use Network URL on your phone)")
-    print("="*50 + "\n")
+# ── Misc ──
 
-    app.run(host='0.0.0.0', port=5000, debug=False)
+@app.route('/api/tasks/reorder',methods=['POST'])
+def reorder_tasks():
+    data=request.get_json(); conn=get_db()
+    try:
+        cur=conn.cursor()
+        for item in data:
+            cur.execute("UPDATE tasks SET position=%s,status=%s,updated_at=NOW() WHERE id=%s",
+                        (item['position'],item['status'],item['id']))
+        conn.commit()
+    finally: conn.close()
+    return jsonify({'ok':True})
+
+@app.route('/api/export',methods=['GET'])
+def export_data():
+    conn=get_db()
+    try:
+        cur=conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT * FROM projects ORDER BY created_at"); projects=[row_to_dict(r) for r in cur.fetchall()]
+        cur.execute("SELECT * FROM tasks ORDER BY project_id,position"); tasks=[row_to_dict(r) for r in cur.fetchall()]
+        cur.execute("SELECT * FROM subtasks ORDER BY task_id,position"); subtasks=[row_to_dict(r) for r in cur.fetchall()]
+    finally: conn.close()
+    task_map={t['id']:t for t in tasks}
+    for sub in subtasks: task_map.get(sub['task_id'],{}).setdefault('subtasks',[]).append(sub)
+    proj_map={p['id']:{**p,'tasks':[]} for p in projects}
+    for t in tasks: proj_map.get(t.get('project_id','inbox'),{}).get('tasks',[]).append(t)
+    return jsonify({'exported_at':datetime.now().isoformat(),'version':'2.0','projects':list(proj_map.values()),
+        'stats':{'total_tasks':len(tasks),'done':sum(1 for t in tasks if t['status']=='done'),
+                 'todo':sum(1 for t in tasks if t['status']=='todo'),'in_progress':sum(1 for t in tasks if t['status']=='doing')}})
+
+@app.route('/api/gcal/status',methods=['GET'])
+def gcal_status():
+    return jsonify({'enabled':GCAL_ENABLED,'calendar_id':GCAL_CALENDAR_ID if GCAL_ENABLED else None})
+
+@app.route('/api/gcal/sync',methods=['POST'])
+def gcal_sync_all():
+    if not GCAL_ENABLED: return jsonify({'error':'Google Calendar not configured'}),400
+    tasks=_fetch_tasks("SELECT * FROM tasks WHERE due_date IS NOT NULL AND status!='done'")
+    synced=0
+    for task in tasks:
+        eid=gcal_upsert(task)
+        if eid: _gcal_save(task['id'],eid); synced+=1
+    return jsonify({'synced':synced,'total':len(tasks)})
+
+@app.route('/api/tasks/today',methods=['GET'])
+def get_today():
+    return jsonify(_fetch_tasks("SELECT * FROM tasks WHERE due_date=CURRENT_DATE AND status!='done' ORDER BY due_time,position"))
+
+@app.route('/api/tasks/upcoming',methods=['GET'])
+def get_upcoming():
+    return jsonify(_fetch_tasks("SELECT * FROM tasks WHERE due_date>=CURRENT_DATE AND due_date<=CURRENT_DATE+INTERVAL '7 days' AND status!='done' ORDER BY due_date,due_time"))
+
+# ─────────────────────────────────────────────
+
+if __name__=='__main__':
+    import socket
+    try: ip=socket.gethostbyname(socket.gethostname())
+    except: ip='127.0.0.1'
+    print(f"\n{'='*50}\n  TD running!\n  Local:   http://localhost:5000\n  Network: http://{ip}:5000\n{'='*50}\n")
+    app.run(host='0.0.0.0',port=5000,debug=False)
