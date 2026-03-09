@@ -1012,6 +1012,7 @@ async function loadTasks() {
   const v = state.currentSpecial;
   let path = v === 'today' ? '/tasks/today'
     : v === 'overdue' ? '/tasks/overdue'
+    : v === 'review'  ? '/tasks/review'
     : v === 'upcoming' ? '/tasks/upcoming'
     : v === 'all' ? '/tasks'
     : v.startsWith('project:') ? `/tasks?project_id=${v.split(':')[1]}`
@@ -1176,6 +1177,57 @@ function renderTaskBadges(task) {
 function renderList(container) {
   const div = document.createElement('div');
   div.className = 'list-view';
+
+  // ── To Review view ──
+  if (state.currentSpecial === 'review') {
+    if (!state.tasks.length) {
+      div.innerHTML = `<div class="empty-state"><div class="empty-icon">✅</div><p>Nothing to review!<br>All tasks are organised.</p></div>`;
+      container.appendChild(div); return;
+    }
+    const sec = document.createElement('div');
+    sec.className = 'list-group';
+    sec.innerHTML = `<div class="list-group-header">
+      <span class="group-title">Needs triage</span>
+      <span style="font-size:11px;color:var(--text4);margin-left:4px">no project · no labels</span>
+      <span class="group-count">${state.tasks.length}</span>
+    </div>`;
+    const groupList = document.createElement('div');
+    groupList.className = 'task-group-list';
+    state.tasks.forEach(task => {
+      const item = document.createElement('div');
+      item.className = 'task-item review-item';
+      const sc = (task.subtasks||[]).length, sd = (task.subtasks||[]).filter(s=>s.completed).length;
+      // Project picker options
+      const projOpts = state.projects.filter(p=>p.id!=='inbox')
+        .map(p=>`<option value="${escH(p.id)}">${escH(p.name)}</option>`).join('');
+      item.innerHTML = `
+        <div class="task-check" onclick="toggleTask(event,'${task.id}')"></div>
+        <div class="task-body">
+          <div class="task-title">${escH(task.title)}</div>
+          ${task.due_date ? `<div class="task-meta">${renderTaskBadges(task)}</div>` : ''}
+          <div class="review-actions">
+            <select class="review-select" onchange="assignProject('${task.id}',this.value)" onclick="event.stopPropagation()">
+              <option value="">📂 Move to project…</option>
+              ${projOpts}
+            </select>
+            <input class="review-tag-input" placeholder="🏷 Add label…" onkeydown="addLabelFromReview(event,'${task.id}')" onclick="event.stopPropagation()">
+            <button class="review-btn review-btn-done" title="Mark done" onclick="event.stopPropagation();toggleTask(event,'${task.id}')">✓</button>
+          </div>
+        </div>
+        <svg class="task-chevron" width="7" height="12" viewBox="0 0 7 12" fill="none">
+          <path d="M1 1l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>`;
+      item.addEventListener('click', e => {
+        if (e.target.closest('.review-actions') || e.target.classList.contains('task-check')) return;
+        if (e.target.tagName === 'A') return;
+        openDetail(task.id);
+      });
+      groupList.appendChild(item);
+    });
+    sec.appendChild(groupList);
+    div.appendChild(sec);
+    container.appendChild(div); return;
+  }
 
   // Special header for overdue view with grouped-by-date sections
   if (state.currentSpecial === 'overdue') {
@@ -1422,6 +1474,22 @@ async function linkObsidianPrompt(taskId) {
   const t = state.tasks.find(t => t.id === taskId);
   if (t) { t.description = url; renderDetail(t); }
   renderContent();
+}
+
+async function assignProject(taskId, projectId) {
+  if (!projectId) return;
+  await api(`/tasks/${taskId}`, 'PATCH', { project_id: projectId });
+  await loadTasks(); await loadProjects(); renderSidebar(); renderContent();
+}
+
+async function addLabelFromReview(e, taskId) {
+  if (e.key !== 'Enter') return;
+  const label = e.target.value.trim().replace(/^@/, '');
+  if (!label) return;
+  const task = state.tasks.find(t => t.id === taskId);
+  const tags = [...(task?.tags || []), label];
+  await api(`/tasks/${taskId}`, 'PATCH', { tags });
+  await loadTasks(); renderSidebar(); renderContent();
 }
 
 async function unlinkObsidian(taskId) {
