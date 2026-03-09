@@ -675,6 +675,10 @@ def get_today():
 def get_upcoming():
     return jsonify(_fetch_tasks("SELECT * FROM tasks WHERE due_date>=CURRENT_DATE AND due_date<=CURRENT_DATE+INTERVAL '7 days' AND status!='done' ORDER BY due_date,due_time"))
 
+@app.route('/api/tasks/overdue',methods=['GET'])
+def get_overdue():
+    return jsonify(_fetch_tasks("SELECT * FROM tasks WHERE due_date<CURRENT_DATE AND status!='done' ORDER BY due_date,due_time"))
+
 # ─────────────────────────────────────────────
 
 if __name__=='__main__':

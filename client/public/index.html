@@ -1011,6 +1011,7 @@ async function loadProjects() { state.projects = await api('/projects') || []; }
 async function loadTasks() {
   const v = state.currentSpecial;
   let path = v === 'today' ? '/tasks/today'
+    : v === 'overdue' ? '/tasks/overdue'
     : v === 'upcoming' ? '/tasks/upcoming'
     : v === 'all' ? '/tasks'
     : v.startsWith('project:') ? `/tasks?project_id=${v.split(':')[1]}`
@@ -1175,6 +1176,43 @@ function renderTaskBadges(task) {
 function renderList(container) {
   const div = document.createElement('div');
   div.className = 'list-view';
+
+  // Special header for overdue view with grouped-by-date sections
+  if (state.currentSpecial === 'overdue') {
+    if (!state.tasks.length) {
+      div.innerHTML = `<div class="empty-state"><div class="empty-icon">✅</div><p>Nothing overdue!<br>You're all caught up.</p></div>`;
+      container.appendChild(div); return;
+    }
+    // Group by due_date
+    const byDate = {};
+    state.tasks.forEach(t => {
+      const d = t.due_date || 'none';
+      if (!byDate[d]) byDate[d] = [];
+      byDate[d].push(t);
+    });
+    // Sort dates oldest first
+    const sorted = Object.keys(byDate).sort();
+    sorted.forEach(d => {
+      const tasks = byDate[d];
+      const sec = document.createElement('div');
+      sec.className = 'list-group';
+      const label = d === 'none' ? 'No date' : new Date(d+'T12:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+      const daysAgo = d === 'none' ? 0 : Math.floor((Date.now() - new Date(d+'T12:00').getTime()) / 86400000);
+      const ago = daysAgo === 1 ? '1 day ago' : daysAgo > 1 ? `${daysAgo} days ago` : '';
+      sec.innerHTML = `<div class="list-group-header">
+        <span class="group-title" style="color:var(--red)">${label}</span>
+        ${ago ? `<span style="font-size:11px;color:var(--text4);margin-left:4px">${ago}</span>` : ''}
+        <span class="group-count">${tasks.length}</span>
+      </div>`;
+      const groupList = document.createElement('div');
+      groupList.className = 'task-group-list';
+      tasks.forEach(task => appendTaskItem(groupList, task));
+      sec.appendChild(groupList);
+      div.appendChild(sec);
+    });
+    container.appendChild(div); return;
+  }
+
   if (!state.tasks.length) {
     div.innerHTML = `<div class="empty-state"><div class="empty-icon">✨</div><p>No tasks here.<br>Tap <strong>+</strong> to add one.</p></div>`;
     container.appendChild(div); return;
@@ -1189,38 +1227,39 @@ function renderList(container) {
     sec.innerHTML = `<div class="list-group-header"><span class="group-title">${labels[status]}</span><span class="group-count">${groups[status].length}</span></div>`;
     const groupList = document.createElement('div');
     groupList.className = 'task-group-list';
-    groups[status].forEach(task => {
-      const item = document.createElement('div');
-      item.className = `task-item${task.status==='done'?' done':''}`;
-      const sc = (task.subtasks||[]).length, sd = (task.subtasks||[]).filter(s=>s.completed).length;
-      const hasMeta = task.due_date || task.priority !== 'medium' || (task.tags||[]).length || sc;
-      const noteSnippet = task.status !== 'done' ? renderNoteSnippet(task.description) : '';
-      item.innerHTML = `
-        <div class="task-check${task.status==='done'?' checked':''}" onclick="toggleTask(event,'${task.id}')"></div>
-        <div class="task-body">
-          <div class="task-title">${escH(task.title)}</div>
-          ${noteSnippet}
-          ${hasMeta ? `<div class="task-meta">
-            <div class="task-project-dot" style="background:${getProjectColor(task.project_id)}"></div>
-            ${renderTaskBadges(task)}
-            ${sc?`<span class="task-badge" style="color:var(--text3);background:var(--bg4)">${sd}/${sc}</span>`:''}
-          </div>` : ''}
-        </div>
-        <svg class="task-chevron" width="7" height="12" viewBox="0 0 7 12" fill="none">
-          <path d="M1 1l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>`;
-      // Open detail on row click, but NOT when clicking a link in the note
-      item.addEventListener('click', e => {
-        if (e.target.classList.contains('task-check')) return;
-        if (e.target.tagName === 'A') return;
-        openDetail(task.id);
-      });
-      groupList.appendChild(item);
-    });
+    groups[status].forEach(task => appendTaskItem(groupList, task));
     sec.appendChild(groupList);
     div.appendChild(sec);
   });
   container.appendChild(div);
+}
+
+function appendTaskItem(container, task) {
+  const item = document.createElement('div');
+  item.className = `task-item${task.status==='done'?' done':''}`;
+  const sc = (task.subtasks||[]).length, sd = (task.subtasks||[]).filter(s=>s.completed).length;
+  const hasMeta = task.due_date || task.priority !== 'medium' || (task.tags||[]).length || sc;
+  const noteSnippet = task.status !== 'done' ? renderNoteSnippet(task.description) : '';
+  item.innerHTML = `
+    <div class="task-check${task.status==='done'?' checked':''}" onclick="toggleTask(event,'${task.id}')"></div>
+    <div class="task-body">
+      <div class="task-title">${escH(task.title)}</div>
+      ${noteSnippet}
+      ${hasMeta ? `<div class="task-meta">
+        <div class="task-project-dot" style="background:${getProjectColor(task.project_id)}"></div>
+        ${renderTaskBadges(task)}
+        ${sc?`<span class="task-badge" style="color:var(--text3);background:var(--bg4)">${sd}/${sc}</span>`:''}
+      </div>` : ''}
+    </div>
+    <svg class="task-chevron" width="7" height="12" viewBox="0 0 7 12" fill="none">
+      <path d="M1 1l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>`;
+  item.addEventListener('click', e => {
+    if (e.target.classList.contains('task-check')) return;
+    if (e.target.tagName === 'A') return;
+    openDetail(task.id);
+  });
+  container.appendChild(item);
 }
 
 function renderKanban(container) {
