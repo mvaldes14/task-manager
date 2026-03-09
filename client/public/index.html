@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#000000" id="themeColorMeta">
+<meta name="theme-color" content="#1a1b26" id="themeColorMeta">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="TD">
@@ -14,29 +14,30 @@
 <style>
 /* ─── iOS-NATIVE DARK THEME ─── */
 :root {
-  --bg:          #000000;
-  --bg2:         #1c1c1e;
-  --bg3:         #2c2c2e;
-  --bg4:         #3a3a3c;
-  --bg5:         #48484a;
-  --border:      rgba(255,255,255,0.08);
-  --border2:     rgba(255,255,255,0.14);
-  --text:        #ffffff;
-  --text2:       #ebebf5cc;
-  --text3:       #ebebf560;
-  --text4:       #ebebf530;
-  --accent:      #0a84ff;
-  --accent2:     #409cff;
-  --accent-dim:  rgba(10,132,255,0.15);
-  --green:       #30d158;
-  --green-dim:   rgba(48,209,88,0.15);
-  --amber:       #ffd60a;
-  --amber-dim:   rgba(255,214,10,0.15);
-  --red:         #ff453a;
-  --red-dim:     rgba(255,69,58,0.15);
-  --purple:      #bf5af2;
-  --purple-dim:  rgba(191,90,242,0.15);
-  --teal:        #5ac8fa;
+  /* Tokyo Night dark */
+  --bg:          #1a1b26;
+  --bg2:         #16161e;
+  --bg3:         #1f2335;
+  --bg4:         #24283b;
+  --bg5:         #2f344d;
+  --border:      rgba(192,202,245,0.08);
+  --border2:     rgba(192,202,245,0.14);
+  --text:        #c0caf5;
+  --text2:       #a9b1d6;
+  --text3:       #565f89;
+  --text4:       #3b4261;
+  --accent:      #7aa2f7;
+  --accent2:     #2ac3de;
+  --accent-dim:  rgba(122,162,247,0.15);
+  --green:       #9ece6a;
+  --green-dim:   rgba(158,206,106,0.15);
+  --amber:       #e0af68;
+  --amber-dim:   rgba(224,175,104,0.15);
+  --red:         #f7768e;
+  --red-dim:     rgba(247,118,142,0.15);
+  --purple:      #bb9af7;
+  --purple-dim:  rgba(187,154,247,0.15);
+  --teal:        #2ac3de;
   --radius:      13px;
   --radius-sm:   10px;
   --radius-xs:   7px;
@@ -52,36 +53,37 @@
 
 /* ─── LIGHT THEME ─── */
 body.light {
-  --bg:         #f2f2f7;
-  --bg2:        #ffffff;
-  --bg3:        #f2f2f7;
-  --bg4:        #e5e5ea;
-  --bg5:        #d1d1d6;
-  --border:     rgba(60,60,67,0.1);
-  --border2:    rgba(60,60,67,0.18);
-  --text:       #000000;
-  --text2:      rgba(60,60,67,0.85);
-  --text3:      rgba(60,60,67,0.50);
-  --text4:      rgba(60,60,67,0.25);
-  --accent:     #007aff;
-  --accent2:    #0040dd;
-  --accent-dim: rgba(0,122,255,0.1);
-  --green:      #34c759;
-  --green-dim:  rgba(52,199,89,0.12);
-  --amber:      #ff9f0a;
-  --amber-dim:  rgba(255,159,10,0.12);
-  --red:        #ff3b30;
-  --red-dim:    rgba(255,59,48,0.12);
-  --purple:     #af52de;
-  --purple-dim: rgba(175,82,222,0.12);
+  /* Tokyo Night Day */
+  --bg:         #e1e2e7;
+  --bg2:        #d5d6db;
+  --bg3:        #c8c9cf;
+  --bg4:        #b9bac5;
+  --bg5:        #a8aecb;
+  --border:     rgba(52,59,88,0.12);
+  --border2:    rgba(52,59,88,0.20);
+  --text:       #3760bf;
+  --text2:      #343b58;
+  --text3:      #6172b0;
+  --text4:      #8990b3;
+  --accent:     #2e7de9;
+  --accent2:    #007197;
+  --accent-dim: rgba(46,125,233,0.12);
+  --green:      #587539;
+  --green-dim:  rgba(88,117,57,0.12);
+  --amber:      #8c6c3e;
+  --amber-dim:  rgba(140,108,62,0.12);
+  --red:        #f52a65;
+  --red-dim:    rgba(245,42,101,0.12);
+  --purple:     #7847bd;
+  --purple-dim: rgba(120,71,189,0.12);
 }
 
-body.light .sidebar { background: rgba(242,242,247,0.95); }
-body.light .topbar  { background: rgba(242,242,247,0.9); }
+body.light .sidebar { background: rgba(213,214,219,0.97); }
+body.light .topbar  { background: rgba(213,214,219,0.92); }
 body.light .task-item:hover { background: var(--bg4); }
 body.light .kanban-card { box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
 body.light .kanban-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
-body.light .fab { box-shadow: 0 4px 20px rgba(0,122,255,0.4); }
+body.light .fab { box-shadow: 0 4px 20px rgba(46,125,233,0.4); }
 body.light .task-check.checked::after,
 body.light .subtask-check.checked::after { border-color: #fff; }
 body.light .detail-panel { box-shadow: -1px 0 0 var(--border), -20px 0 60px rgba(0,0,0,0.08); }
@@ -126,7 +128,7 @@ body {
   border-radius: 10px;
   display: flex; align-items: center; justify-content: center;
   font-size: 18px; flex-shrink: 0;
-  box-shadow: 0 2px 8px rgba(10,132,255,0.4);
+  box-shadow: 0 2px 8px rgba(122,162,247,0.4);
 }
 
 .sidebar-logo span {
@@ -416,11 +418,11 @@ body.light .topbar { background: rgba(242,242,247,0.85); }
   border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   cursor: pointer; z-index: 90;
-  box-shadow: 0 4px 20px rgba(10,132,255,0.5), 0 1px 4px rgba(0,0,0,0.3);
+  box-shadow: 0 4px 20px rgba(122,162,247,0.45), 0 1px 4px rgba(0,0,0,0.3);
   transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s;
   user-select: none; -webkit-tap-highlight-color: transparent;
 }
-.fab:hover { transform: scale(1.06); box-shadow: 0 6px 28px rgba(10,132,255,0.6); }
+.fab:hover { transform: scale(1.06); box-shadow: 0 6px 28px rgba(122,162,247,0.55); }
 .fab:active { transform: scale(0.94); }
 .fab-icon {
   font-size: 28px; line-height: 1; color: white; font-weight: 300;
@@ -1049,7 +1051,7 @@ function applyTheme(theme, save=true) {
   document.body.classList.toggle('light', theme === 'light');
   const toggle = document.getElementById('themeToggle');
   if (toggle) toggle.textContent = theme === 'light' ? '🌙' : '☀️';
-  document.getElementById('themeColorMeta').content = theme === 'light' ? '#f2f2f7' : '#000000';
+  document.getElementById('themeColorMeta').content = theme === 'light' ? '#e1e2e7' : '#1a1b26';
   if (save) localStorage.setItem('tf-theme', theme);
 }
 
