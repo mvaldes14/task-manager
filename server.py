@@ -12,8 +12,10 @@ app = Flask(__name__, static_folder='client/public')
 # DATABASE — PostgreSQL
 # ─────────────────────────────────────────────
 
-DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://td:td@localhost:5432/td')
+DATABASE_URL    = os.environ.get('DATABASE_URL', 'postgresql://td:td@localhost:5432/td')
+OBSIDIAN_VAULT  = os.environ.get('OBSIDIAN_VAULT', '').strip()
 print(f"[startup] DATABASE_URL = {DATABASE_URL}", flush=True)
+if OBSIDIAN_VAULT: print(f"[startup] Obsidian vault: {OBSIDIAN_VAULT}", flush=True)
 
 def get_db():
     conn = psycopg2.connect(DATABASE_URL)
@@ -94,9 +96,31 @@ MONTHS = ['january','february','march','april','may','june','july','august','sep
 def parse_natural_language(text):
     original = text
     result = {'title': text, 'due_date': None, 'due_time': None, 'priority': 'medium',
-              'project_name': None, 'labels': [], 'nlp_summary': None}
+              'project_name': None, 'labels': [], 'nlp_summary': None, 'obsidian_url': None}
     today = date.today()
     found_date = found_time = None
+
+    # ── Obsidian [[wikilink]] → obsidian:// URL ──
+    wiki_match = re.search(r'!\[\[([^\]]+)\]\]', text)
+    if wiki_match:
+        note_name = wiki_match.group(1).strip()
+        vault = OBSIDIAN_VAULT or 'vault'
+        from urllib.parse import quote
+        result['obsidian_url'] = f"obsidian://open?vault={quote(vault)}&file={quote(note_name)}"
+        result['obsidian_note'] = note_name
+        text = text[:wiki_match.start()] + text[wiki_match.end():].strip()
+
+    # ── Raw obsidian:// URL anywhere in text ──
+    if not result['obsidian_url']:
+        obs_match = re.search(r'obsidian://\S+', text)
+        if obs_match:
+            result['obsidian_url'] = obs_match.group(0)
+            # Try to extract note name from URL for display
+            fn_match = re.search(r'[?&]file=([^&]+)', obs_match.group(0))
+            if fn_match:
+                from urllib.parse import unquote
+                result['obsidian_note'] = unquote(fn_match.group(1))
+            text = text[:obs_match.start()] + text[obs_match.end():].strip()
 
     m = re.search(r'#(\w+)', text)
     if m: result['project_name'] = m.group(1); text = re.sub(r'#\w+','',text).strip()
@@ -175,6 +199,7 @@ def parse_natural_language(text):
     if found_time: h,mi=map(int,found_time.split(':')); parts.append(f"at {h%12 or 12}:{mi:02d}{'am' if h<12 else 'pm'}")
     if result['priority']!='medium': parts.append(f"priority: {result['priority']}")
     if result['labels']: parts.append(' '.join(f"@{l}" for l in result['labels']))
+    if result.get('obsidian_url'): parts.append(f"📎 {result.get('obsidian_note','obsidian')}")
     if parts: result['nlp_summary']=' · '.join(parts)
     return result
 
@@ -334,7 +359,8 @@ def do_logout():
 @app.route('/auth/status')
 def auth_status():
     return jsonify({'password_set':bool(TD_PASSWORD),'authenticated':_is_authenticated(),
-                    'username':TD_USERNAME or None,'gcal_enabled':GCAL_ENABLED})
+                    'username':TD_USERNAME or None,'gcal_enabled':GCAL_ENABLED,
+                    'obsidian_vault':OBSIDIAN_VAULT or None})
 
 @app.before_request
 def auth_middleware():
@@ -489,6 +515,13 @@ def create_task():
         task['subtasks']=[]; conn.commit()
     finally: conn.close()
     if nlp.get('nlp_summary'): task['nlp_summary']=nlp['nlp_summary']
+    # Auto-set description to obsidian URL if parsed and no description given
+    if nlp.get('obsidian_url') and not data.get('description','').strip():
+        conn=get_db()
+        try:
+            cur=conn.cursor(); cur.execute("UPDATE tasks SET description=%s WHERE id=%s",(nlp['obsidian_url'],tid)); conn.commit()
+        finally: conn.close()
+        task['description']=nlp['obsidian_url']
     if due_date:
         eid=gcal_upsert(task)
         if eid: _gcal_save(tid,eid); task['gcal_event_id']=eid

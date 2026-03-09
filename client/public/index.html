@@ -474,6 +474,7 @@ body.light .topbar { background: rgba(242,242,247,0.85); }
 .fab-modal-hint .hint-hash { color: var(--purple); }
 .fab-modal-hint .hint-at   { color: var(--green); }
 .fab-modal-hint .hint-cal  { color: var(--teal); }
+.fab-modal-hint .hint-obs  { color: #9b72ff; }
 
 .fab-modal-footer { display: flex; justify-content: flex-end; }
 
@@ -755,6 +756,35 @@ body.light .color-swatch.selected { box-shadow: 0 0 0 2px var(--bg2), 0 0 0 4px 
   padding: 0 4px; margin-bottom: 6px; margin-top: 4px;
 }
 
+/* ─── OBSIDIAN LINK PILL ─── */
+.obsidian-pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: rgba(124,91,247,0.15); color: #9b72ff;
+  border: 1px solid rgba(124,91,247,0.3);
+  border-radius: 8px; padding: 4px 10px;
+  font-size: 13px; font-weight: 500; cursor: pointer;
+  text-decoration: none; transition: background 0.15s;
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.obsidian-pill:hover { background: rgba(124,91,247,0.25); }
+.obsidian-pill .obs-icon { font-size: 14px; flex-shrink: 0; }
+.obsidian-pill-lg {
+  padding: 8px 14px; font-size: 14px; border-radius: 10px;
+  flex: 1; min-width: 0; gap: 8px;
+}
+.obsidian-pill-lg .obs-label { font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+.obsidian-pill-lg .obs-hint { font-size: 11px; opacity: 0.6; margin-left: auto; flex-shrink: 0; }
+.detail-obs-row {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 8px;
+}
+.obs-unlink {
+  background: none; border: none; color: var(--text4);
+  cursor: pointer; font-size: 14px; padding: 4px 6px;
+  border-radius: 6px; flex-shrink: 0; line-height: 1;
+}
+.obs-unlink:hover { background: var(--bg3); color: var(--red); }
+
 /* ─── TASK NOTE SNIPPET ─── */
 .task-note {
   font-size: 12.5px; color: var(--text3); margin-top: 3px;
@@ -873,6 +903,7 @@ body.light .color-swatch.selected { box-shadow: 0 0 0 2px var(--bg2), 0 0 0 4px 
     <span><span class="hint-hash">#project</span> to assign</span>
     <span><span class="hint-at">@label</span> to tag</span>
     <span><span class="hint-cal">next monday · at 3pm</span> for dates</span>
+    <span><span class="hint-obs">![[Note Name]]</span> links Obsidian</span>
   </div>
   <div id="fabNlpChips" style="display:none;margin-bottom:10px;display:flex;gap:6px;flex-wrap:wrap;"></div>
   <div class="fab-modal-footer">
@@ -925,6 +956,7 @@ let state = {
   newProjectIcon: '📁',
   theme: localStorage.getItem('tf-theme') || 'dark',
   fabOpen: false,
+  obsidianVault: null,
 };
 
 const COLORS = ['#7c6af7','#f87171','#fbbf24','#4ade80','#60a5fa','#f472b6','#34d399','#fb923c'];
@@ -963,6 +995,7 @@ async function init() {
       const d = await r.json();
       const btn = document.getElementById('logoutBtn');
       if (btn && d.password_set) btn.style.display = '';
+      if (d.obsidian_vault) state.obsidianVault = d.obsidian_vault;
     }
   } catch(e) {}
   handleIncomingShare();
@@ -1066,12 +1099,16 @@ function formatDate(d) {
 // Renders a one-line note snippet with URLs converted to clickable links
 function renderNoteSnippet(text) {
   if (!text) return '';
-  // Match any scheme:// URL (https, http, obsidian, notion, etc.)
   const urlRe = /([a-zA-Z][a-zA-Z0-9+\-.]*:\/\/[^\s<>"']+)/g;
   const parts = text.split(urlRe);
   const html = parts.map(part => {
     if (urlRe.test(part)) {
       urlRe.lastIndex = 0;
+      if (part.startsWith('obsidian://')) {
+        const fn = part.match(/[?&]file=([^&]+)/);
+        const label = fn ? decodeURIComponent(fn[1]).replace(/%20/g,' ') : 'Obsidian note';
+        return `<a href="${escH(part)}" class="obsidian-pill" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()"><span class="obs-icon">🔮</span>${escH(label)}</a>`;
+      }
       const label = part.replace(/^[a-zA-Z][a-zA-Z0-9+\-.]*:\/\/(www\.)?/, '').replace(/\/$/, '');
       const shortLabel = label.length > 40 ? label.slice(0, 38) + '…' : label;
       return `<a href="${escH(part)}" target="_blank" rel="noopener noreferrer">${escH(shortLabel)}</a>`;
@@ -1090,6 +1127,11 @@ function renderDescLinks(text) {
   const html = parts.map(part => {
     if (urlRe.test(part)) {
       urlRe.lastIndex = 0;
+      if (part.startsWith('obsidian://')) {
+        const fn = part.match(/[?&]file=([^&]+)/);
+        const label = fn ? decodeURIComponent(fn[1]).replace(/%20/g,' ') : 'Obsidian note';
+        return `<a href="${escH(part)}" class="obsidian-pill" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()"><span class="obs-icon">🔮</span>${escH(label)}</a>`;
+      }
       return `<a href="${escH(part)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">${escH(part)}</a>`;
     }
     return escH(part);
@@ -1241,6 +1283,10 @@ async function updateFabChips(text) {
   const chips = document.getElementById('fabNlpChips');
   chips.innerHTML = '';
   let hasChips = false;
+  if (r?.obsidian_url) {
+    chips.appendChild(buildObsidianChip(r.obsidian_url, r.obsidian_note));
+    hasChips = true;
+  }
 
   if (r?.project_name) {
     chips.appendChild(makeChip('#' + r.project_name, 'var(--accent2)', 'var(--accent-dim)'));
@@ -1269,6 +1315,17 @@ async function updateFabChips(text) {
   }
 
   chips.style.display = hasChips ? 'flex' : 'none';
+}
+
+function buildObsidianChip(url, noteName) {
+  const span = document.createElement('a');
+  span.href = url;
+  span.className = 'obsidian-pill';
+  span.target = '_blank';
+  span.rel = 'noopener noreferrer';
+  span.innerHTML = `<span class="obs-icon">🔮</span>${escH(noteName || 'Obsidian note')}`;
+  span.onclick = e => e.stopPropagation();
+  return span;
 }
 
 function makeChip(text, color, bg) {
@@ -1314,6 +1371,25 @@ async function submitFab() {
     await loadTasks(); await loadProjects();
     renderSidebar(); renderContent();
   }
+}
+
+async function linkObsidianPrompt(taskId) {
+  const noteName = prompt('Obsidian note name (e.g. "My Note"):');
+  if (!noteName?.trim()) return;
+  const vault = state.obsidianVault || prompt('Vault name:');
+  if (!vault?.trim()) return;
+  const url = `obsidian://open?vault=${encodeURIComponent(vault)}&file=${encodeURIComponent(noteName.trim())}`;
+  await api(`/tasks/${taskId}`, 'PATCH', { description: url });
+  const t = state.tasks.find(t => t.id === taskId);
+  if (t) { t.description = url; renderDetail(t); }
+  renderContent();
+}
+
+async function unlinkObsidian(taskId) {
+  await api(`/tasks/${taskId}`, 'PATCH', { description: '' });
+  const t = state.tasks.find(t => t.id === taskId);
+  if (t) { t.description = ''; renderDetail(t); }
+  renderContent();
 }
 
 async function quickAddToStatus(status) {
@@ -1414,8 +1490,23 @@ function renderDetail(task) {
       </div>
     </div>
 
-    <div class="detail-desc-view${task.description?'':' empty'}" id="detailDescView" onclick="switchToDescEdit()">${task.description ? renderDescLinks(task.description) : 'Add notes…'}</div>
-    <textarea class="detail-desc" id="detailDesc" rows="3" placeholder="Add notes..." style="display:none">${escH(task.description||'')}</textarea>
+    ${(()=>{
+      const isObsidian = task.description && task.description.trim().startsWith('obsidian://');
+      if (isObsidian) {
+        const fn = task.description.match(/[?&]file=([^&]+)/);
+        const label = fn ? decodeURIComponent(fn[1]).replace(/\+/g,' ') : 'Open note';
+        return `<div class="detail-obs-row">
+          <a href="${escH(task.description)}" class="obsidian-pill obsidian-pill-lg" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">
+            <span class="obs-icon">🔮</span>
+            <span class="obs-label">${escH(label)}</span>
+            <span class="obs-hint">Open in Obsidian ↗</span>
+          </a>
+          <button class="obs-unlink" title="Remove Obsidian link" onclick="unlinkObsidian('${escH(task.id)}')">✕</button>
+        </div>`;
+      }
+      return `<div class="detail-desc-view${task.description ? '' : ' empty'}" id="detailDescView" onclick="switchToDescEdit()">${task.description ? renderDescLinks(task.description) : 'Add notes…'}</div>
+    <textarea class="detail-desc" id="detailDesc" rows="3" placeholder="Add notes..." style="display:none">${escH(task.description||'')}</textarea>`;
+    })()}
 
     <div class="detail-section-label">Subtasks</div>
     <div class="subtask-list" id="subtaskList">${subtasksHtml}</div>
