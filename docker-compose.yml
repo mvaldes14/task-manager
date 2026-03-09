@@ -1,0 +1,14 @@
+services:
+  td:
+    build: .
+    ports:
+      - "5001:5000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - DB_PATH=/app/data/td.db
+      # ── Authentication ────────────────────────────────────────────────────────
+      - TD_USERNAME=${TD_USERNAME:-}
+      - TD_PASSWORD=${TD_PASSWORD:-}
+      - TD_API_KEY=${TD_API_KEY:-}
+    restart: unless-stopped
