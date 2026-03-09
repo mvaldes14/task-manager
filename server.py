@@ -40,7 +40,10 @@ def init_db():
                 priority TEXT DEFAULT 'medium', due_date DATE, due_time TIME,
                 tags JSONB DEFAULT '[]', position INTEGER DEFAULT 0,
                 created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW(),
-                completed_at TIMESTAMPTZ, gcal_event_id TEXT
+                completed_at TIMESTAMPTZ, gcal_event_id TEXT,
+                recurrence TEXT,
+                recurrence_end DATE,
+                parent_task_id TEXT
             )""")
         cur.execute("""
             CREATE TABLE IF NOT EXISTS subtasks (
@@ -53,6 +56,10 @@ def init_db():
                 id TEXT PRIMARY KEY, created TIMESTAMPTZ DEFAULT NOW(),
                 expires TIMESTAMPTZ NOT NULL, remember BOOLEAN DEFAULT FALSE
             )""")
+        # Migrate existing tasks table to add recurrence columns
+        for col, defn in [('recurrence','TEXT'), ('recurrence_end','DATE'), ('parent_task_id','TEXT')]:
+            try: cur.execute(f"ALTER TABLE tasks ADD COLUMN {col} {defn}")
+            except Exception: conn.rollback(); conn.autocommit = False
         cur.execute("INSERT INTO projects (id,name,color,icon) VALUES ('inbox','Inbox','#6366f1','📥') ON CONFLICT (id) DO NOTHING")
         conn.commit()
         print("[init_db] done.", flush=True)
@@ -93,12 +100,203 @@ def row_to_dict(row):
 DAYS   = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday']
 MONTHS = ['january','february','march','april','may','june','july','august','september','october','november','december']
 
+
+# ─────────────────────────────────────────────
+# RECURRENCE ENGINE
+# ─────────────────────────────────────────────
+
+def parse_recurrence(text):
+    """
+    Extract a recurrence rule from natural language.
+    Returns (rule_string, cleaned_text) where rule_string is None if no recurrence found.
+
+    Rule format (stored as JSON string):
+      {"type": "daily"}
+      {"type": "weekly", "days": [0,2,4]}          # 0=Mon..6=Sun
+      {"type": "monthly_dom", "dom": 15}            # 15th of each month
+      {"type": "monthly_dow", "week": 2, "dow": 2}  # 3rd Wednesday (week=2, dow=2)
+      {"type": "interval", "days": 14}              # every 14 days
+      {"type": "yearly", "month": 3, "dom": 1}      # March 1st each year
+    """
+    tl = text.lower()
+    rule = None
+
+    # ── daily ──
+    if re.search(r'\bevery\s+day\b|\bdaily\b', tl):
+        rule = {"type": "daily"}
+        text = re.sub(r'\bevery\s+day\b|\bdaily\b', '', text, flags=re.IGNORECASE)
+
+    # ── every weekday / every weekend ──
+    elif re.search(r'\bevery\s+weekday\b', tl):
+        rule = {"type": "weekly", "days": [0,1,2,3,4]}
+        text = re.sub(r'\bevery\s+weekday\b', '', text, flags=re.IGNORECASE)
+    elif re.search(r'\bevery\s+weekend\b', tl):
+        rule = {"type": "weekly", "days": [5,6]}
+        text = re.sub(r'\bevery\s+weekend\b', '', text, flags=re.IGNORECASE)
+
+    # ── every monday/tuesday/... (one or more days) ──
+    elif re.search(r'\bevery\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)', tl):
+        day_names = re.findall(r'\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b', tl)
+        days = sorted(set(DAYS.index(d) for d in day_names))
+        rule = {"type": "weekly", "days": days}
+        text = re.sub(r'\bevery\s+((monday|tuesday|wednesday|thursday|friday|saturday|sunday)(\s*,?\s*and?\s*|\s*,\s*)?)+', '', text, flags=re.IGNORECASE)
+
+    # ── every N days/weeks ──
+    elif m := re.search(r'\bevery\s+(\d+)\s+(day|days|week|weeks)\b', tl):
+        n = int(m.group(1))
+        unit = m.group(2)
+        days = n * 7 if 'week' in unit else n
+        rule = {"type": "interval", "days": days}
+        text = text[:m.start()] + text[m.end():]
+
+    # ── every other week ──
+    elif re.search(r'\bevery\s+other\s+week\b', tl):
+        rule = {"type": "interval", "days": 14}
+        text = re.sub(r'\bevery\s+other\s+week\b', '', text, flags=re.IGNORECASE)
+
+    # ── monthly / every month ──
+    elif re.search(r'\bevery\s+month\b|\bmonthly\b', tl):
+        # Try to detect day-of-month from surrounding text: "1st", "15th" etc.
+        dom_m = re.search(r'\b(\d{1,2})(?:st|nd|rd|th)?\b', tl)
+        dom = int(dom_m.group(1)) if dom_m else None
+        if dom and 1 <= dom <= 31:
+            rule = {"type": "monthly_dom", "dom": dom}
+        else:
+            rule = {"type": "monthly_dom", "dom": None}  # use original due_date day
+        text = re.sub(r'\bevery\s+month\b|\bmonthly\b', '', text, flags=re.IGNORECASE)
+
+    # ── Nth weekday of month: "every 3rd wednesday", "first monday of the month" ──
+    elif m := re.search(r'\b(first|second|third|fourth|last|1st|2nd|3rd|4th)\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)(?:\s+of\s+(?:the\s+)?month)?\b', tl):
+        ord_map = {'first':0,'1st':0,'second':1,'2nd':1,'third':2,'3rd':2,'fourth':3,'4th':3,'last':-1}
+        week = ord_map.get(m.group(1), 0)
+        dow  = DAYS.index(m.group(2))
+        rule = {"type": "monthly_dow", "week": week, "dow": dow}
+        text = text[:m.start()] + text[m.end():]
+
+    # ── yearly / every year / annually ──
+    elif re.search(r'\byearly\b|\bannually\b|\bevery\s+year\b', tl):
+        rule = {"type": "yearly"}
+        text = re.sub(r'\byearly\b|\bannually\b|\bevery\s+year\b', '', text, flags=re.IGNORECASE)
+
+    # ── weekly (no day specified) ──
+    elif re.search(r'\bevery\s+week\b|\bweekly\b', tl):
+        rule = {"type": "interval", "days": 7}
+        text = re.sub(r'\bevery\s+week\b|\bweekly\b', '', text, flags=re.IGNORECASE)
+
+    rule_str = json.dumps(rule) if rule else None
+    return rule_str, text.strip()
+
+
+def next_due_date(rule_str: str, from_date: date) -> date | None:
+    """Calculate the next due date given a recurrence rule and a base date."""
+    if not rule_str:
+        return None
+    try:
+        rule = json.loads(rule_str)
+    except Exception:
+        return None
+
+    rtype = rule.get("type")
+
+    if rtype == "daily":
+        return from_date + timedelta(days=1)
+
+    if rtype == "weekly":
+        days = rule.get("days", [0])
+        current_dow = from_date.weekday()
+        # Find next matching weekday
+        for offset in range(1, 8):
+            candidate_dow = (current_dow + offset) % 7
+            if candidate_dow in days:
+                return from_date + timedelta(days=offset)
+        return from_date + timedelta(days=7)
+
+    if rtype == "interval":
+        return from_date + timedelta(days=rule.get("days", 7))
+
+    if rtype == "monthly_dom":
+        dom = rule.get("dom")
+        # Advance one month
+        month = from_date.month % 12 + 1
+        year  = from_date.year + (1 if from_date.month == 12 else 0)
+        if dom is None:
+            dom = from_date.day
+        # Clamp to valid day
+        import calendar
+        dom = min(dom, calendar.monthrange(year, month)[1])
+        return date(year, month, dom)
+
+    if rtype == "monthly_dow":
+        week = rule.get("week", 0)
+        dow  = rule.get("dow", 0)
+        # Advance one month
+        month = from_date.month % 12 + 1
+        year  = from_date.year + (1 if from_date.month == 12 else 0)
+        return _nth_weekday_of_month(year, month, dow, week)
+
+    if rtype == "yearly":
+        return date(from_date.year + 1, from_date.month, from_date.day)
+
+    return None
+
+
+def _nth_weekday_of_month(year: int, month: int, dow: int, n: int) -> date:
+    """Return the nth (0-indexed) weekday of a month, or last if n==-1."""
+    import calendar
+    if n == -1:
+        # Last occurrence
+        last_day = calendar.monthrange(year, month)[1]
+        d = date(year, month, last_day)
+        while d.weekday() != dow:
+            d -= timedelta(days=1)
+        return d
+    # Find first occurrence of dow in month
+    first = date(year, month, 1)
+    offset = (dow - first.weekday()) % 7
+    first_occ = first + timedelta(days=offset)
+    target = first_occ + timedelta(weeks=n)
+    if target.month != month:
+        # Overshot — fall back to last occurrence
+        target -= timedelta(weeks=1)
+    return target
+
+
+def clone_recurring_task(task: dict, next_date: date) -> dict:
+    """Insert a new task as the next recurrence of a completed task. Returns new task dict."""
+    new_id = str(uuid.uuid4())
+    conn = get_db()
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT COALESCE(MAX(position),0) FROM tasks WHERE project_id=%s AND status='todo'", (task['project_id'],))
+        max_pos = cur.fetchone()['coalesce']
+        cur.execute("""
+            INSERT INTO tasks (id, title, description, project_id, status, priority,
+                               due_date, due_time, tags, position, recurrence, recurrence_end, parent_task_id)
+            VALUES (%s,%s,%s,%s,'todo',%s,%s,%s,%s,%s,%s,%s,%s)
+        """, (new_id, task['title'], task.get('description',''), task['project_id'],
+              task.get('priority','medium'), next_date.isoformat(), task.get('due_time'),
+              json.dumps(task.get('tags',[])), max_pos+1,
+              task.get('recurrence'), task.get('recurrence_end'),
+              task.get('parent_task_id') or task['id']))
+        cur.execute("SELECT * FROM tasks WHERE id=%s", (new_id,))
+        new_task = row_to_dict(cur.fetchone())
+        new_task['subtasks'] = []
+        conn.commit()
+    finally:
+        conn.close()
+    return new_task
+
+
 def parse_natural_language(text):
     original = text
     result = {'title': text, 'due_date': None, 'due_time': None, 'priority': 'medium',
-              'project_name': None, 'labels': [], 'nlp_summary': None, 'obsidian_url': None}
+              'project_name': None, 'labels': [], 'nlp_summary': None, 'obsidian_url': None,
+              'recurrence': None}
     today = date.today()
     found_date = found_time = None
+
+    # ── Recurrence detection (before other parsing so phrases get consumed) ──
+    recurrence_rule, text = parse_recurrence(text)
 
     # ── Obsidian [[wikilink]] → obsidian:// URL ──
     wiki_match = re.search(r'!\[\[([^\]]+)\]\]', text)
@@ -191,6 +389,7 @@ def parse_natural_language(text):
 
     if found_date: result['due_date']=found_date.isoformat()
     if found_time: result['due_time']=found_time
+    if recurrence_rule: result['recurrence']=recurrence_rule
     title=re.sub(r'\s+',' ',text).strip(); title=re.sub(r'^[,.\-]\s*','',title); title=re.sub(r'\s*[,.]$','',title)
     result['title']=title or original
     parts=[]
@@ -199,6 +398,15 @@ def parse_natural_language(text):
     if found_time: h,mi=map(int,found_time.split(':')); parts.append(f"at {h%12 or 12}:{mi:02d}{'am' if h<12 else 'pm'}")
     if result['priority']!='medium': parts.append(f"priority: {result['priority']}")
     if result['labels']: parts.append(' '.join(f"@{l}" for l in result['labels']))
+    if result.get('recurrence'):
+        r = json.loads(result['recurrence'])
+        rtype = r.get('type','')
+        rlabel = {'daily':'daily','interval':f"every {r.get('days',7)}d",'yearly':'yearly'}.get(rtype)
+        if not rlabel:
+            if rtype == 'weekly': rlabel = 'weekly ' + ','.join(['M','T','W','Th','F','Sa','Su'][d] for d in r.get('days',[]))
+            elif rtype == 'monthly_dom': rlabel = f"monthly (day {r.get('dom','?')})"
+            elif rtype == 'monthly_dow': rlabel = 'monthly (weekday)'
+        parts.append(f"🔁 {rlabel}")
     if result.get('obsidian_url'): parts.append(f"📎 {result.get('obsidian_note','obsidian')}")
     if parts: result['nlp_summary']=' · '.join(parts)
     return result
@@ -490,6 +698,8 @@ def create_task():
     tags=data.get('tags',nlp.get('labels',[])); due_date=data.get('due_date',nlp.get('due_date'))
     due_time=data.get('due_time',nlp.get('due_time')); priority=data.get('priority',nlp.get('priority','medium'))
     status=data.get('status','todo'); project_id=data.get('project_id','inbox')
+    recurrence=data.get('recurrence',nlp.get('recurrence'))
+    recurrence_end=data.get('recurrence_end')
     pname=nlp.get('project_name')
     if pname:
         conn=get_db()
@@ -508,9 +718,9 @@ def create_task():
         cur=conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cur.execute("SELECT COALESCE(MAX(position),0) FROM tasks WHERE project_id=%s AND status=%s",(project_id,status))
         max_pos=cur.fetchone()['coalesce']
-        cur.execute("""INSERT INTO tasks (id,title,description,project_id,status,priority,due_date,due_time,tags,position)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
-            (tid,title,data.get('description',''),project_id,status,priority,due_date,due_time,json.dumps(tags),max_pos+1))
+        cur.execute("""INSERT INTO tasks (id,title,description,project_id,status,priority,due_date,due_time,tags,position,recurrence,recurrence_end)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+            (tid,title,data.get('description',''),project_id,status,priority,due_date,due_time,json.dumps(tags),max_pos+1,recurrence,recurrence_end))
         cur.execute("SELECT * FROM tasks WHERE id=%s",(tid,)); task=row_to_dict(cur.fetchone())
         task['subtasks']=[]; conn.commit()
     finally: conn.close()
@@ -548,21 +758,34 @@ def update_task(tid):
         cur.execute("SELECT * FROM tasks WHERE id=%s",(tid,)); row=cur.fetchone()
         if not row: return jsonify({'error':'Not found'}),404
         t=dict(row)
-        for f in ['title','description','project_id','status','priority','due_date','due_time','position']:
+        for f in ['title','description','project_id','status','priority','due_date','due_time','position','recurrence','recurrence_end']:
             if f in data: t[f]=data[f]
         if 'tags' in data: t['tags']=json.dumps(data['tags'])
         if data.get('status')=='done' and t.get('status')!='done': t['completed_at']=datetime.now(timezone.utc)
         elif data.get('status') and data['status']!='done': t['completed_at']=None
         tags_val=t['tags'] if isinstance(t['tags'],str) else json.dumps(t['tags'])
         cur.execute("""UPDATE tasks SET title=%s,description=%s,project_id=%s,status=%s,priority=%s,
-            due_date=%s,due_time=%s,tags=%s,position=%s,completed_at=%s,updated_at=NOW() WHERE id=%s""",
+            due_date=%s,due_time=%s,tags=%s,position=%s,completed_at=%s,recurrence=%s,recurrence_end=%s,updated_at=NOW() WHERE id=%s""",
             (t['title'],t['description'],t['project_id'],t['status'],t['priority'],
-             t['due_date'],t['due_time'],tags_val,t['position'],t.get('completed_at'),tid))
+             t['due_date'],t['due_time'],tags_val,t['position'],t.get('completed_at'),
+             t.get('recurrence'),t.get('recurrence_end'),tid))
         cur.execute("SELECT * FROM tasks WHERE id=%s",(tid,)); result=row_to_dict(cur.fetchone())
         cur.execute("SELECT * FROM subtasks WHERE task_id=%s ORDER BY position",(tid,))
         result['subtasks']=[row_to_dict(s) for s in cur.fetchall()]
         conn.commit()
     finally: conn.close()
+    # ── Recurrence: clone when completed ──
+    if data.get('status') == 'done' and result.get('recurrence'):
+        from_date = date.fromisoformat(result['due_date']) if result.get('due_date') else date.today()
+        rec_end   = date.fromisoformat(result['recurrence_end']) if result.get('recurrence_end') else None
+        next_d    = next_due_date(result['recurrence'], from_date)
+        if next_d and (rec_end is None or next_d <= rec_end):
+            new_task = clone_recurring_task(result, next_d)
+            if new_task.get('due_date'):
+                eid = gcal_upsert(new_task)
+                if eid: _gcal_save(new_task['id'], eid)
+            result['recurrence_next'] = new_task  # surface in response so UI can react
+
     if any(f in data for f in ('due_date','due_time','title')):
         if result.get('due_date'):
             eid=gcal_upsert(result)

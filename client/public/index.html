@@ -756,6 +756,28 @@ body.light .color-swatch.selected { box-shadow: 0 0 0 2px var(--bg2), 0 0 0 4px 
   padding: 0 4px; margin-bottom: 6px; margin-top: 4px;
 }
 
+/* ─── RECURRENCE BADGE ─── */
+.badge-recur {
+  display: inline-flex; align-items: center; gap: 3px;
+  background: rgba(52,211,153,0.12); color: #34d399;
+  border: 1px solid rgba(52,211,153,0.25);
+  border-radius: 6px; padding: 2px 7px; font-size: 11px; font-weight: 600;
+}
+.recur-editor {
+  background: var(--bg3); border: 1px solid var(--border); border-radius: 10px;
+  padding: 12px 14px; margin-bottom: 10px;
+}
+.recur-editor-title { font-size: 12px; font-weight: 600; color: var(--text3); margin-bottom: 8px; text-transform: uppercase; letter-spacing: .05em; }
+.recur-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.recur-select, .recur-input {
+  background: var(--bg4); border: 1px solid var(--border); color: var(--text);
+  border-radius: 7px; padding: 5px 9px; font-size: 13px; font-family: var(--font); outline: none;
+}
+.recur-select:focus, .recur-input:focus { border-color: var(--accent); }
+.recur-input { width: 130px; }
+.recur-clear { background: none; border: none; color: var(--text4); cursor: pointer; font-size: 13px; padding: 4px 6px; border-radius: 6px; }
+.recur-clear:hover { color: var(--red); background: var(--red-dim); }
+
 /* ─── OBSIDIAN LINK PILL ─── */
 .obsidian-pill {
   display: inline-flex; align-items: center; gap: 5px;
@@ -904,6 +926,7 @@ body.light .color-swatch.selected { box-shadow: 0 0 0 2px var(--bg2), 0 0 0 4px 
     <span><span class="hint-at">@label</span> to tag</span>
     <span><span class="hint-cal">next monday · at 3pm</span> for dates</span>
     <span><span class="hint-obs">![[Note Name]]</span> links Obsidian</span>
+    <span><span style="color:#34d399">every monday</span> recurs</span>
   </div>
   <div id="fabNlpChips" style="display:none;margin-bottom:10px;display:flex;gap:6px;flex-wrap:wrap;"></div>
   <div class="fab-modal-footer">
@@ -1155,6 +1178,21 @@ function switchToDescEdit() {
     view.style.display = '';
     ta.style.display = 'none';
   }, { once: true });
+}
+
+function recurrenceLabel(ruleStr) {
+  if (!ruleStr) return null;
+  try {
+    const r = JSON.parse(ruleStr);
+    const DAY_ABBR = ['Mo','Tu','We','Th','Fr','Sa','Su'];
+    if (r.type === 'daily') return 'daily';
+    if (r.type === 'interval') return r.days === 7 ? 'weekly' : r.days === 14 ? 'biweekly' : `every ${r.days}d`;
+    if (r.type === 'weekly') return r.days.map(d=>DAY_ABBR[d]).join('/');
+    if (r.type === 'monthly_dom') return r.dom ? `monthly ${r.dom}` : 'monthly';
+    if (r.type === 'monthly_dow') { const ord=['1st','2nd','3rd','4th','last']; return `${ord[r.week]??r.week} ${DAY_ABBR[r.dow]}`; }
+    if (r.type === 'yearly') return 'yearly';
+  } catch(e) {}
+  return '🔁';
 }
 
 function renderTaskBadges(task) {
@@ -1464,6 +1502,81 @@ async function submitFab() {
   }
 }
 
+// ── Recurrence helpers ──────────────────────────────────────
+const DAY_NAMES = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+
+function onRecurTypeChange(taskId) {
+  const type = document.getElementById('recurType').value;
+  const dayPicker = document.getElementById('recurDayPicker');
+  const detail = document.getElementById('recurDetail');
+  dayPicker.style.display = 'none';
+  detail.innerHTML = '';
+  if (!type) { saveRecurrence(taskId, null); return; }
+
+  if (type === 'weekly') {
+    dayPicker.style.display = 'flex';
+    const task = state.tasks.find(t => t.id === taskId);
+    const existing = task?.recurrence ? JSON.parse(task.recurrence) : {};
+    const currentDays = existing.days || [];
+    dayPicker.innerHTML = DAY_NAMES.map((d,i) =>
+      `<label style="cursor:pointer;display:flex;align-items:center;gap:3px;font-size:12px;background:var(--bg4);border-radius:6px;padding:4px 8px;border:1px solid var(--border)">
+        <input type="checkbox" value="${i}" ${currentDays.includes(i)?'checked':''} onchange="saveWeeklyRecurrence('${taskId}')"> ${d.slice(0,3)}
+      </label>`
+    ).join('');
+    return;
+  }
+
+  if (type === 'interval') {
+    detail.innerHTML = `<input class="recur-input" id="recurIntervalVal" type="number" min="1" max="365" value="14" placeholder="days" style="width:70px">
+      <select class="recur-select" id="recurIntervalUnit" style="width:100px">
+        <option value="days">days</option><option value="weeks">weeks</option>
+      </select>
+      <button class="btn btn-sm" onclick="saveIntervalRecurrence('${taskId}')" style="padding:4px 10px;font-size:12px">Set</button>`;
+    return;
+  }
+
+  if (type === 'monthly_dom') {
+    detail.innerHTML = `<span style="font-size:12px;color:var(--text3)">Uses due date's day-of-month</span>`;
+    saveRecurrence(taskId, JSON.stringify({type:'monthly_dom', dom: null}));
+    return;
+  }
+
+  if (type === 'monthly_dow') {
+    detail.innerHTML = `<span style="font-size:12px;color:var(--text3)">Uses due date's weekday position</span>`;
+    saveRecurrence(taskId, JSON.stringify({type:'monthly_dow', week: null, dow: null}));
+    return;
+  }
+
+  // daily / yearly — save immediately
+  saveRecurrence(taskId, JSON.stringify({type}));
+}
+
+async function saveRecurrence(taskId, ruleStr) {
+  const t = state.tasks.find(t => t.id === taskId);
+  if (t) t.recurrence = ruleStr;
+  await api(`/tasks/${taskId}`, 'PATCH', {recurrence: ruleStr});
+  renderContent();
+}
+
+async function saveWeeklyRecurrence(taskId) {
+  const checked = [...document.querySelectorAll('#recurDayPicker input:checked')].map(el => parseInt(el.value));
+  if (!checked.length) return;
+  await saveRecurrence(taskId, JSON.stringify({type:'weekly', days: checked.sort()}));
+}
+
+async function saveIntervalRecurrence(taskId) {
+  const n = parseInt(document.getElementById('recurIntervalVal')?.value || 14);
+  const unit = document.getElementById('recurIntervalUnit')?.value || 'days';
+  const days = unit === 'weeks' ? n * 7 : n;
+  await saveRecurrence(taskId, JSON.stringify({type:'interval', days}));
+}
+
+async function clearRecurrence(taskId) {
+  await saveRecurrence(taskId, null);
+  const t = state.tasks.find(t => t.id === taskId);
+  if (t) renderDetail(t);
+}
+
 async function linkObsidianPrompt(taskId) {
   const noteName = prompt('Obsidian note name (e.g. "My Note"):');
   if (!noteName?.trim()) return;
@@ -1614,6 +1727,25 @@ function renderDetail(task) {
       return `<div class="detail-desc-view${task.description ? '' : ' empty'}" id="detailDescView" onclick="switchToDescEdit()">${task.description ? renderDescLinks(task.description) : 'Add notes…'}</div>
     <textarea class="detail-desc" id="detailDesc" rows="3" placeholder="Add notes..." style="display:none">${escH(task.description||'')}</textarea>`;
     })()}
+
+    <!-- Recurrence editor -->
+    <div class="recur-editor" id="recurEditor">
+      <div class="recur-editor-title">Recurrence</div>
+      <div class="recur-row">
+        <select class="recur-select" id="recurType" onchange="onRecurTypeChange('${task.id}')">
+          <option value="">Does not repeat</option>
+          <option value="daily" ${task.recurrence && JSON.parse(task.recurrence).type==='daily' ? 'selected' : ''}>Daily</option>
+          <option value="weekly" ${task.recurrence && JSON.parse(task.recurrence).type==='weekly' ? 'selected' : ''}>Weekly (pick days)</option>
+          <option value="interval" ${task.recurrence && JSON.parse(task.recurrence).type==='interval' ? 'selected' : ''}>Every N days/weeks</option>
+          <option value="monthly_dom" ${task.recurrence && JSON.parse(task.recurrence).type==='monthly_dom' ? 'selected' : ''}>Monthly (same date)</option>
+          <option value="monthly_dow" ${task.recurrence && JSON.parse(task.recurrence).type==='monthly_dow' ? 'selected' : ''}>Monthly (same weekday)</option>
+          <option value="yearly" ${task.recurrence && JSON.parse(task.recurrence).type==='yearly' ? 'selected' : ''}>Yearly</option>
+        </select>
+        <span id="recurDetail"></span>
+        ${task.recurrence ? `<button class="recur-clear" onclick="clearRecurrence('${task.id}')">Remove</button>` : ''}
+      </div>
+      <div id="recurDayPicker" style="display:none;margin-top:8px;display:flex;gap:5px;flex-wrap:wrap;"></div>
+    </div>
 
     <div class="detail-section-label">Subtasks</div>
     <div class="subtask-list" id="subtaskList">${subtasksHtml}</div>
