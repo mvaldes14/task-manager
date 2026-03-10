@@ -163,14 +163,18 @@ body {
   border-radius: 7px;
   display: flex; align-items: center; justify-content: center;
   font-size: 14px; flex-shrink: 0; transition: background 0.15s;
+  color: var(--text3);
 }
+.nav-item .nav-icon svg { display: block; }
+.nav-item:hover .nav-icon { color: var(--text2); }
+.nav-item.active .nav-icon { color: var(--accent); }
 .nav-item.active .nav-icon { background: var(--accent-dim); }
 
 .nav-item .nav-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 
 .nav-item .nav-count {
   margin-left: auto;
-  font-size: 12px; font-weight: 500;
+  font-size: 14px; font-weight: 600;
   color: var(--text3);
   min-width: 20px; text-align: right;
 }
@@ -341,6 +345,8 @@ body.light .topbar { background: rgba(242,242,247,0.85); }
 .badge-date.overdue { color: var(--red); background: var(--red-dim); }
 .nav-count-overdue { color: var(--red) !important; }
 .nav-count-review  { color: var(--amber) !important; }
+#nav-overdue .nav-icon { color: var(--red); }
+#nav-review .nav-icon  { color: var(--amber); }
 .badge-date.today { color: var(--amber); background: var(--amber-dim); }
 .badge-high { color: var(--red); background: var(--red-dim); }
 .badge-low { color: var(--text3); background: var(--bg4); }
@@ -852,27 +858,27 @@ body.light .color-swatch.selected { box-shadow: 0 0 0 2px var(--bg2), 0 0 0 4px 
     <div class="sidebar-section">
       <div class="sidebar-label">Views</div>
       <div class="nav-item active" id="nav-inbox" onclick="selectView('inbox')">
-        <div class="nav-icon">📥</div><span>Inbox</span>
+        <div class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></div><span>Inbox</span>
         <span class="nav-count" id="count-inbox">0</span>
       </div>
       <div class="nav-item" id="nav-today" onclick="selectView('today')">
-        <div class="nav-icon">☀️</div><span>Today</span>
+        <div class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></div><span>Today</span>
         <span class="nav-count" id="count-today">0</span>
       </div>
       <div class="nav-item" id="nav-upcoming" onclick="selectView('upcoming')">
-        <div class="nav-icon">📅</div><span>Upcoming</span>
+        <div class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div><span>Upcoming</span>
         <span class="nav-count" id="count-upcoming">0</span>
       </div>
       <div class="nav-item" id="nav-all" onclick="selectView('all')">
-        <div class="nav-icon">🗂️</div><span>All Tasks</span>
+        <div class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg></div><span>All Tasks</span>
         <span class="nav-count" id="count-all">0</span>
       </div>
       <div class="nav-item" id="nav-overdue" onclick="selectView('overdue')" style="display:none">
-        <div class="nav-icon">🔴</div><span>Overdue</span>
+        <div class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div><span>Overdue</span>
         <span class="nav-count nav-count-overdue" id="count-overdue">0</span>
       </div>
       <div class="nav-item" id="nav-review" onclick="selectView('review')" style="display:none">
-        <div class="nav-icon">🗂️</div><span>To Review</span>
+        <div class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg></div><span>To Review</span>
         <span class="nav-count nav-count-review" id="count-review">0</span>
       </div>
     </div>
