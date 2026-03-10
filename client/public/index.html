@@ -1549,7 +1549,8 @@ function renderKanban(container) {
     tasks.forEach(task => {
       const card = document.createElement('div');
       card.className = `kanban-card${task.status==='done'?' done':''}`; card.draggable = true;
-      card.innerHTML = `<div class="card-title">${escH(task.title)}</div><div class="card-footer">${renderTaskBadges(task)}</div>`;
+      const obsPill = task.obsidian_url ? obsidianPillHtml(task.obsidian_url) : '';
+      card.innerHTML = `<div class="card-title">${escH(task.title)}</div><div class="card-footer">${renderTaskBadges(task)}${obsPill}</div>`;
       card.addEventListener('click', () => openDetail(task.id));
       card.addEventListener('dragstart', () => { state.dragTask=task.id; card.style.opacity='0.5'; });
       card.addEventListener('dragend',   () => { card.style.opacity='1'; state.dragTask=null; });
