@@ -2042,9 +2042,13 @@ async function saveDetail() {
     project_id:  document.getElementById('detailProject').value,
     due_date:    document.getElementById('detailDate').value || null,
     due_time:    document.getElementById('detailTime').value || null,
-    description: (document.getElementById('detailDesc').style.display !== 'none'
-      ? document.getElementById('detailDesc').value.trim()
-      : document.getElementById('detailDescView')?.dataset.raw || document.getElementById('detailDesc').value.trim()),
+    description: (() => {
+      const ta = document.getElementById('detailDesc');
+      const view = document.getElementById('detailDescView');
+      if (ta && ta.style.display !== 'none') return ta.value.trim();
+      if (view) return view.dataset.raw || '';
+      return state.selectedTask?.description || '';
+    })(),
   };
   await api(`/tasks/${task.id}`,'PATCH',updates);
   toast('✓ Saved'); closeDetail();
