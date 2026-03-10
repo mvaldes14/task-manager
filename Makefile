@@ -16,6 +16,11 @@ up: ## Start all services (build if needed)
 down: ## Stop all services
 	docker compose down
 
+pull: ## Pull latest pre-built image from ghcr.io and start
+	TD_IMAGE=ghcr.io/mvaldes14/task-manager:latest docker compose pull app
+	TD_IMAGE=ghcr.io/mvaldes14/task-manager:latest docker compose up -d
+	@echo "\n✓ TD running → http://localhost:$(PORT)\n"
+
 build: ## Force rebuild without cache
 	docker compose build --no-cache
 	docker compose up -d
