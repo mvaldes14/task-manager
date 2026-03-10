@@ -391,6 +391,7 @@ body.light .topbar { background: rgba(242,242,247,0.85); }
 .kanban-cards {
   flex: 1; overflow-y: auto; padding: 10px 8px;
   display: flex; flex-direction: column; gap: 8px; scrollbar-width: none;
+  align-items: center;
 }
 .kanban-cards::-webkit-scrollbar { display: none; }
 
@@ -399,6 +400,7 @@ body.light .topbar { background: rgba(242,242,247,0.85); }
   border-radius: var(--radius-sm); padding: 12px 14px; cursor: pointer;
   transition: transform 0.15s, box-shadow 0.15s;
   -webkit-tap-highlight-color: transparent;
+  width: 100%; box-sizing: border-box;
 }
 .kanban-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.35); }
 .kanban-card:active { transform: scale(0.98); }
@@ -1447,6 +1449,7 @@ function renderList(container) {
   }
 
   if (!state.tasks.length) {
+    div.style.cssText = "flex:1;display:flex;align-items:center;justify-content:center;min-height:300px;";
     div.innerHTML = `<div class="empty-state"><div class="empty-icon">✨</div><p>No tasks here.<br>Tap <strong>+</strong> to add one.</p></div>`;
     container.appendChild(div); return;
   }
@@ -1939,7 +1942,7 @@ function renderDetail(task) {
           <button class="obs-unlink" title="Remove link" onclick="unlinkObsidian('${escH(task.id)}')">✕</button>
         </div>`;
       }
-      return `<div class="detail-desc-view${task.description ? '' : ' empty'}" id="detailDescView" onclick="switchToDescEdit()">${task.description ? renderDescLinks(task.description) : 'Add notes…'}</div>
+      return `<div class="detail-desc-view${task.description ? '' : ' empty'}" id="detailDescView" data-raw="${escH(task.description||'')}" onclick="switchToDescEdit()">${task.description ? renderDescLinks(task.description) : 'Add notes…'}</div>
     <textarea class="detail-desc" id="detailDesc" rows="3" placeholder="Add notes..." style="display:none">${escH(task.description||'')}</textarea>
     <div class="obs-link-row" id="obsLinkRow">
       <button class="obs-link-toggle" onclick="toggleObsLinkForm('${task.id}')">
@@ -2005,7 +2008,9 @@ async function saveDetail() {
     project_id:  document.getElementById('detailProject').value,
     due_date:    document.getElementById('detailDate').value || null,
     due_time:    document.getElementById('detailTime').value || null,
-    description: document.getElementById('detailDesc').value.trim(),
+    description: (document.getElementById('detailDesc').style.display !== 'none'
+      ? document.getElementById('detailDesc').value.trim()
+      : document.getElementById('detailDescView')?.dataset.raw || document.getElementById('detailDesc').value.trim()),
   };
   await api(`/tasks/${task.id}`,'PATCH',updates);
   toast('✓ Saved'); closeDetail();
