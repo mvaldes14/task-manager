@@ -30,6 +30,10 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Generate timestamp tag
+        id: ts
+        run: echo "tag=$(date -u +'%Y%m%d-%H%M%S')" >> $GITHUB_OUTPUT
+
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -37,7 +41,7 @@ jobs:
           images: ${{ env.IMAGE }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
-            type=sha,prefix=sha-,format=short
+            type=raw,value=${{ steps.ts.outputs.tag }}
 
       - name: Build and push
         uses: docker/build-push-action@v5
