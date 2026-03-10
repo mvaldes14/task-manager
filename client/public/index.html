@@ -788,6 +788,33 @@ body.light .color-swatch.selected { box-shadow: 0 0 0 2px var(--bg2), 0 0 0 4px 
 .recur-clear { background: none; border: none; color: var(--text4); cursor: pointer; font-size: 13px; padding: 4px 6px; border-radius: 6px; }
 .recur-clear:hover { color: var(--red); background: var(--red-dim); }
 
+/* ─── TO REVIEW TRIAGE ─── */
+.review-item { border-left: 2px solid var(--amber) !important; }
+.review-actions {
+  display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; align-items: center;
+}
+.review-select {
+  appearance: none; -webkit-appearance: none;
+  background: var(--bg3); border: 1px solid var(--border2);
+  color: var(--text2); border-radius: 8px;
+  padding: 5px 28px 5px 10px; font-size: 12px; font-family: var(--font);
+  outline: none; cursor: pointer; min-width: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23565f89' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 9px center;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+.review-select:hover { border-color: var(--accent); background-color: var(--bg4); }
+.review-select:focus { border-color: var(--accent); }
+.review-tag-input {
+  background: var(--bg3); border: 1px solid var(--border2);
+  color: var(--text2); border-radius: 8px;
+  padding: 5px 10px; font-size: 12px; font-family: var(--font);
+  outline: none; width: 110px; transition: border-color 0.15s, background-color 0.15s;
+}
+.review-tag-input::placeholder { color: var(--text4); }
+.review-tag-input:hover { border-color: var(--accent); background-color: var(--bg4); }
+.review-tag-input:focus { border-color: var(--accent); background-color: var(--bg4); }
+
 /* ─── OBSIDIAN LINK PILL ─── */
 .obsidian-pill {
   display: inline-flex; align-items: center; gap: 5px;
@@ -1272,11 +1299,10 @@ function renderList(container) {
           ${task.due_date ? `<div class="task-meta">${renderTaskBadges(task)}</div>` : ''}
           <div class="review-actions">
             <select class="review-select" onchange="assignProject('${task.id}',this.value)" onclick="event.stopPropagation()">
-              <option value="">📂 Move to project…</option>
+              <option value="">Move to project…</option>
               ${projOpts}
             </select>
-            <input class="review-tag-input" placeholder="🏷 Add label…" onkeydown="addLabelFromReview(event,'${task.id}')" onclick="event.stopPropagation()">
-            <button class="review-btn review-btn-done" title="Mark done" onclick="event.stopPropagation();toggleTask(event,'${task.id}')">✓</button>
+            <input class="review-tag-input" placeholder="Add label + Enter" onkeydown="addLabelFromReview(event,'${task.id}')" onclick="event.stopPropagation()">
           </div>
         </div>
         <svg class="task-chevron" width="7" height="12" viewBox="0 0 7 12" fill="none">
