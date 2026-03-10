@@ -1,0 +1,29 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: td
+  namespace: td
+  annotations:
+    # Adjust for your ingress controller:
+    # nginx:
+    # kubernetes.io/ingress.class: nginx
+    # traefik:
+    # traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    # traefik.ingress.kubernetes.io/router.tls: "true"
+spec:
+  rules:
+    - host: td.example.com   # ← change this
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: td
+                port:
+                  number: 80
+  # Uncomment if using cert-manager:
+  # tls:
+  #   - hosts:
+  #       - td.example.com
+  #     secretName: td-tls

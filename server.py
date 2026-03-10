@@ -44,7 +44,8 @@ def init_db():
                 completed_at TIMESTAMPTZ, gcal_event_id TEXT,
                 recurrence TEXT,
                 recurrence_end DATE,
-                parent_task_id TEXT
+                parent_task_id TEXT,
+                obsidian_url TEXT
             )""")
         cur.execute("""
             CREATE TABLE IF NOT EXISTS subtasks (
@@ -739,20 +740,21 @@ def create_task():
         cur=conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cur.execute("SELECT COALESCE(MAX(position),0) FROM tasks WHERE project_id=%s AND status=%s",(project_id,status))
         max_pos=cur.fetchone()['coalesce']
-        cur.execute("""INSERT INTO tasks (id,title,description,project_id,status,priority,due_date,due_time,tags,position,recurrence,recurrence_end)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
-            (tid,title,data.get('description',''),project_id,status,priority,due_date,due_time,json.dumps(tags),max_pos+1,recurrence,recurrence_end))
+        obsidian_url = nlp.get('obsidian_url') or data.get('obsidian_url')
+        cur.execute("""INSERT INTO tasks (id,title,description,project_id,status,priority,due_date,due_time,tags,position,recurrence,recurrence_end,obsidian_url)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+            (tid,title,data.get('description',''),project_id,status,priority,due_date,due_time,json.dumps(tags),max_pos+1,recurrence,recurrence_end,obsidian_url))
         cur.execute("SELECT * FROM tasks WHERE id=%s",(tid,)); task=row_to_dict(cur.fetchone())
         task['subtasks']=[]; conn.commit()
     finally: conn.close()
     if nlp.get('nlp_summary'): task['nlp_summary']=nlp['nlp_summary']
-    # Auto-set description to obsidian URL if parsed and no description given
-    if nlp.get('obsidian_url') and not data.get('description','').strip():
+    # Keep description in sync with obsidian_url for pill rendering
+    if obsidian_url and not data.get('description','').strip():
         conn=get_db()
         try:
-            cur=conn.cursor(); cur.execute("UPDATE tasks SET description=%s WHERE id=%s",(nlp['obsidian_url'],tid)); conn.commit()
+            cur=conn.cursor(); cur.execute("UPDATE tasks SET description=%s WHERE id=%s",(obsidian_url,tid)); conn.commit()
         finally: conn.close()
-        task['description']=nlp['obsidian_url']
+        task['description']=obsidian_url
     if due_date:
         eid=gcal_upsert(task)
         if eid: _gcal_save(tid,eid); task['gcal_event_id']=eid
@@ -779,17 +781,17 @@ def update_task(tid):
         cur.execute("SELECT * FROM tasks WHERE id=%s",(tid,)); row=cur.fetchone()
         if not row: return jsonify({'error':'Not found'}),404
         t=dict(row)
-        for f in ['title','description','project_id','status','priority','due_date','due_time','position','recurrence','recurrence_end']:
+        for f in ['title','description','project_id','status','priority','due_date','due_time','position','recurrence','recurrence_end','obsidian_url']:
             if f in data: t[f]=data[f]
         if 'tags' in data: t['tags']=json.dumps(data['tags'])
         if data.get('status')=='done' and t.get('status')!='done': t['completed_at']=datetime.now(timezone.utc)
         elif data.get('status') and data['status']!='done': t['completed_at']=None
         tags_val=t['tags'] if isinstance(t['tags'],str) else json.dumps(t['tags'])
         cur.execute("""UPDATE tasks SET title=%s,description=%s,project_id=%s,status=%s,priority=%s,
-            due_date=%s,due_time=%s,tags=%s,position=%s,completed_at=%s,recurrence=%s,recurrence_end=%s,updated_at=NOW() WHERE id=%s""",
+            due_date=%s,due_time=%s,tags=%s,position=%s,completed_at=%s,recurrence=%s,recurrence_end=%s,obsidian_url=%s,updated_at=NOW() WHERE id=%s""",
             (t['title'],t['description'],t['project_id'],t['status'],t['priority'],
              t['due_date'],t['due_time'],tags_val,t['position'],t.get('completed_at'),
-             t.get('recurrence'),t.get('recurrence_end'),tid))
+             t.get('recurrence'),t.get('recurrence_end'),t.get('obsidian_url'),tid))
         cur.execute("SELECT * FROM tasks WHERE id=%s",(tid,)); result=row_to_dict(cur.fetchone())
         cur.execute("SELECT * FROM subtasks WHERE task_id=%s ORDER BY position",(tid,))
         result['subtasks']=[row_to_dict(s) for s in cur.fetchall()]

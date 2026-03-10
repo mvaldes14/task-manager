@@ -1757,9 +1757,9 @@ async function saveObsidianLink(taskId) {
   const url = vault
     ? `obsidian://open?vault=${encodeURIComponent(vault)}&file=${encodeURIComponent(filePath)}`
     : `obsidian://open?file=${encodeURIComponent(filePath)}`;
-  await api(`/tasks/${taskId}`, 'PATCH', { description: url });
+  await api(`/tasks/${taskId}`, 'PATCH', { description: url, obsidian_url: url });
   const t = state.tasks.find(t => t.id === taskId);
-  if (t) { t.description = url; renderDetail(t); }
+  if (t) { t.description = url; t.obsidian_url = url; renderDetail(t); }
   renderContent();
 }
 
@@ -1804,9 +1804,9 @@ async function addLabelFromReview(e, taskId) {
 }
 
 async function unlinkObsidian(taskId) {
-  await api(`/tasks/${taskId}`, 'PATCH', { description: '' });
+  await api(`/tasks/${taskId}`, 'PATCH', { description: '', obsidian_url: null });
   const t = state.tasks.find(t => t.id === taskId);
-  if (t) { t.description = ''; renderDetail(t); }
+  if (t) { t.description = ''; t.obsidian_url = null; renderDetail(t); }
   renderContent();
 }
 
