@@ -175,6 +175,14 @@ body {
 .nav-item.active .nav-icon { background: var(--accent-dim); }
 
 .nav-item .nav-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.nav-project-icon { font-size: 15px; line-height: 1; flex-shrink: 0; }
+.nav-gear {
+  background: none; border: none; padding: 2px 4px; cursor: pointer;
+  color: var(--text3); border-radius: 4px; display: none; align-items: center;
+  transition: color 0.15s, background 0.15s;
+}
+.nav-gear:hover { color: var(--text); background: var(--bg4); }
+.nav-item:hover .nav-gear { display: flex; }
 
 .nav-item .nav-count {
   margin-left: auto;
@@ -1065,13 +1073,30 @@ body.light .color-swatch.selected { box-shadow: 0 0 0 2px var(--bg2), 0 0 0 4px 
     <div class="modal" onclick="event.stopPropagation()">
       <h3>New Project</h3>
       <input class="modal-input" id="projectName" placeholder="Project name">
-      <div style="font-size:12px;color:var(--text3);margin-bottom:8px;">Color</div>
-      <div class="color-picker" id="colorPicker"></div>
       <div style="font-size:12px;color:var(--text3);margin-bottom:8px;">Icon</div>
       <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;" id="iconPicker"></div>
       <div class="modal-actions">
         <button class="btn btn-ghost" onclick="hideProjectModal()">Cancel</button>
         <button class="btn btn-primary" onclick="createProject()">Create</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Project Modal -->
+<div id="editProjectModal" style="display:none">
+  <div class="modal-overlay" onclick="hideEditProject()">
+    <div class="modal" onclick="event.stopPropagation()">
+      <h3>Edit Project</h3>
+      <input class="modal-input" id="editProjectName" placeholder="Project name">
+      <div style="font-size:12px;color:var(--text3);margin-bottom:8px;">Icon</div>
+      <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;" id="editIconPicker"></div>
+      <div class="modal-actions" style="justify-content:space-between;">
+        <button class="btn btn-ghost" style="color:var(--red);" onclick="deleteCurrentProject()">Delete</button>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-ghost" onclick="hideEditProject()">Cancel</button>
+          <button class="btn btn-primary" onclick="saveEditProject()">Save</button>
+        </div>
       </div>
     </div>
   </div>
@@ -1087,6 +1112,8 @@ let state = {
   dragTask: null,
   newProjectColor: '#7c6af7',
   newProjectIcon: '📁',
+  editingProjectId: null,
+  editProjectIcon: '📁',
   theme: localStorage.getItem('tf-theme') || 'dark',
   fabOpen: false,
   fabTargetStatus: null,
@@ -1120,7 +1147,6 @@ async function init() {
   await loadTasks();
   renderSidebar();
   renderContent();
-  setupColorPicker();
   setupIconPicker();
   setupFab();
   // Show logout button if the server has password auth enabled
@@ -1180,9 +1206,10 @@ function renderSidebar() {
     div.className = 'nav-item' + (state.currentSpecial === `project:${p.id}` ? ' active' : '');
     div.onclick = () => selectView(`project:${p.id}`);
     div.innerHTML = `
-      <div class="nav-dot" style="background:${p.color}"></div>
+      <span class="nav-project-icon">${escH(p.icon||'📁')}</span>
       <span style="flex:1">${escH(p.name)}</span>
-      <span class="nav-count">${Math.max(0,(p.task_count||0)-(p.done_count||0))}</span>`;
+      <span class="nav-count">${Math.max(0,(p.task_count||0)-(p.done_count||0))}</span>
+      <button class="nav-gear" title="Edit project" onclick="event.stopPropagation();openEditProject('${escH(p.id)}')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>`;
     el.appendChild(div);
   });
   updateNavCounts();
@@ -2154,7 +2181,56 @@ async function createProject() {
   await loadProjects(); renderSidebar();
 }
 
-// ── VIEW MODE ──
+function openEditProject(pid) {
+  const p = state.projects.find(p => p.id === pid);
+  if (!p) return;
+  state.editingProjectId = pid;
+  document.getElementById('editProjectName').value = p.name;
+  // Build icon picker for edit modal
+  const el = document.getElementById('editIconPicker');
+  el.innerHTML = '';
+  ICONS.forEach(icon => {
+    const div = document.createElement('div');
+    div.style.cssText = 'cursor:pointer;font-size:20px;padding:4px;border-radius:6px;transition:background 0.1s;';
+    if (icon === p.icon) div.style.background = 'var(--bg4)';
+    div.textContent = icon;
+    div.onclick = () => {
+      state.editProjectIcon = icon;
+      document.querySelectorAll('#editIconPicker div').forEach(d => d.style.background = '');
+      div.style.background = 'var(--bg4)';
+    };
+    el.appendChild(div);
+  });
+  state.editProjectIcon = p.icon || '📁';
+  document.getElementById('editProjectModal').style.display = 'block';
+  document.getElementById('editProjectName').focus();
+}
+
+function hideEditProject() {
+  document.getElementById('editProjectModal').style.display = 'none';
+  state.editingProjectId = null;
+}
+
+async function saveEditProject() {
+  const pid = state.editingProjectId;
+  if (!pid) return;
+  const name = document.getElementById('editProjectName').value.trim();
+  if (!name) return;
+  await api(`/projects/${pid}`, 'PATCH', { name, icon: state.editProjectIcon });
+  hideEditProject(); toast('✓ Project updated');
+  await loadProjects(); renderSidebar(); renderContent();
+}
+
+async function deleteCurrentProject() {
+  const pid = state.editingProjectId;
+  if (!pid || !confirm('Delete this project? Tasks will move to Inbox.')) return;
+  await api(`/projects/${pid}`, 'DELETE');
+  hideEditProject(); toast('Project deleted');
+  state.currentSpecial = 'inbox';
+  await loadProjects(); await loadTasks(); renderSidebar(); renderContent();
+}
+
+
 function setView(mode) {
   state.viewMode = mode;
   document.getElementById('btn-list').classList.toggle('active', mode==='list');
