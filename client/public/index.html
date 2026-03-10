@@ -1575,7 +1575,7 @@ function buildObsidianChip(url, noteName) {
   span.className = 'obsidian-pill';
   span.target = '_blank';
   span.rel = 'noopener noreferrer';
-  span.innerHTML = `<span class="obs-icon">🔮</span>${escH(noteName || 'Obsidian note')}`;
+  span.innerHTML = `<span class="obs-icon">🔮</span>${escH(obsidianLabel(url) || noteName || 'Obsidian note')}`;
   span.onclick = e => e.stopPropagation();
   return span;
 }
@@ -1902,9 +1902,8 @@ function renderDetail(task) {
         const label = obsidianLabel(task.description);
         const vm = task.description.match(/[?&]vault=([^&]+)/);
         const vault = vm ? decodeURIComponent(vm[1]) : '';
-        // Always use obsidian://new — opens if exists, creates if not
-        const openUrl = (vault ? 'obsidian://new?vault=' + encodeURIComponent(vault) + '&' : 'obsidian://new?')
-          + 'file=' + encodeURIComponent(label);
+        // Keep the full original URL (includes inbox path) — just display the stripped label
+        const openUrl = task.description;
         return `<div class="detail-obs-row">
           <a href="${escH(openUrl)}" class="obsidian-pill obsidian-pill-lg" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">
             <span class="obs-icon">🔮</span>
