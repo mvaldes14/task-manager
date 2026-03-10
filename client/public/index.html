@@ -1850,7 +1850,7 @@ function renderDetail(task) {
         const label = fn ? decodeURIComponent(fn[1]).replace(/\+/g,' ') : 'Open note';
         const vm = task.description.match(/[?&]vault=([^&]+)/);
         const vault = vm ? decodeURIComponent(vm[1]) : '';
-        // obsidian://new opens existing note OR creates it if missing — best of both
+        // Always use obsidian://new — opens if exists, creates if not
         const openUrl = (vault ? 'obsidian://new?vault=' + encodeURIComponent(vault) + '&' : 'obsidian://new?')
           + 'file=' + encodeURIComponent(label);
         return `<div class="detail-obs-row">

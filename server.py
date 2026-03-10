@@ -65,6 +65,8 @@ def init_db():
             except Exception:
                 cur.execute("ROLLBACK TO SAVEPOINT sp")
         cur.execute("INSERT INTO projects (id,name,color,icon) VALUES ('inbox','Inbox','#6366f1','📥') ON CONFLICT (id) DO NOTHING")
+        # Migrate old obsidian://open URLs to obsidian://new
+        cur.execute("UPDATE tasks SET description = REPLACE(description, 'obsidian://open?', 'obsidian://new?') WHERE description LIKE 'obsidian://open?%'")
         conn.commit()
         print("[init_db] done.", flush=True)
     except Exception as e:
@@ -308,7 +310,7 @@ def parse_natural_language(text):
         note_name = wiki_match.group(1).strip()
         vault = OBSIDIAN_VAULT or 'vault'
         from urllib.parse import quote
-        result['obsidian_url'] = f"obsidian://open?vault={quote(vault)}&file={quote(note_name)}"
+        result['obsidian_url'] = f"obsidian://new?vault={quote(vault)}&file={quote(note_name)}"
         result['obsidian_note'] = note_name
         text = text[:wiki_match.start()] + text[wiki_match.end():].strip()
 
