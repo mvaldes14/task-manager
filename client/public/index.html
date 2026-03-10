@@ -1753,8 +1753,8 @@ async function saveObsidianLink(taskId) {
   const prefix = state.obsidianInbox ? state.obsidianInbox + '/' : '';
   const filePath = prefix + noteName;
   const url = vault
-    ? `obsidian://new?vault=${encodeURIComponent(vault)}&file=${encodeURIComponent(filePath)}`
-    : `obsidian://new?file=${encodeURIComponent(filePath)}`;
+    ? `obsidian://open?vault=${encodeURIComponent(vault)}&file=${encodeURIComponent(filePath)}`
+    : `obsidian://open?file=${encodeURIComponent(filePath)}`;
   await api(`/tasks/${taskId}`, 'PATCH', { description: url });
   const t = state.tasks.find(t => t.id === taskId);
   if (t) { t.description = url; renderDetail(t); }
@@ -1927,14 +1927,22 @@ function renderDetail(task) {
         const label = obsidianLabel(task.description);
         const vm = task.description.match(/[?&]vault=([^&]+)/);
         const vault = vm ? decodeURIComponent(vm[1]) : '';
-        // Keep the full original URL (includes inbox path) — just display the stripped label
+        // Use open for existing notes (stored as obsidian://open), new only if stored as obsidian://new
         const openUrl = task.description;
+        const isNew = task.description.startsWith('obsidian://new');
+        const hintText = isNew ? 'Open / Create ↗' : 'Open in Obsidian ↗';
+        // Always provide a create fallback using obsidian://new
+        const filePath = fn ? decodeURIComponent(fn[1]) : label;
+        const createUrl = vault
+          ? `obsidian://new?vault=${encodeURIComponent(vault)}&file=${encodeURIComponent(filePath)}`
+          : `obsidian://new?file=${encodeURIComponent(filePath)}`;
         return `<div class="detail-obs-row">
           <a href="${escH(openUrl)}" class="obsidian-pill obsidian-pill-lg" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">
             <span class="obs-icon">🔮</span>
             <span class="obs-label">${escH(label)}</span>
-            <span class="obs-hint">Open / Create ↗</span>
+            <span class="obs-hint">${hintText}</span>
           </a>
+          ${!isNew ? `<a href="${escH(createUrl)}" class="obs-create-btn" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="Create new note">+ New</a>` : ''}
           <button class="obs-unlink" title="Remove link" onclick="unlinkObsidian('${escH(task.id)}')">✕</button>
         </div>`;
       }
