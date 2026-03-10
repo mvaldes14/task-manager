@@ -1126,16 +1126,13 @@ function formatDate(d) {
 // Renders a one-line note snippet with URLs converted to clickable links
 function renderNoteSnippet(text) {
   if (!text) return '';
+  // Pure obsidian link — rendered in the meta row instead, skip here
+  if (text.trim().startsWith('obsidian://')) return '';
   const urlRe = /([a-zA-Z][a-zA-Z0-9+\-.]*:\/\/[^\s<>"']+)/g;
   const parts = text.split(urlRe);
   const html = parts.map(part => {
     if (urlRe.test(part)) {
       urlRe.lastIndex = 0;
-      if (part.startsWith('obsidian://')) {
-        const fn = part.match(/[?&]file=([^&]+)/);
-        const label = fn ? decodeURIComponent(fn[1]).replace(/%20/g,' ') : 'Obsidian note';
-        return `<a href="${escH(part)}" class="obsidian-pill" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()"><span class="obs-icon">🔮</span>${escH(label)}</a>`;
-      }
       const label = part.replace(/^[a-zA-Z][a-zA-Z0-9+\-.]*:\/\/(www\.)?/, '').replace(/\/$/, '');
       const shortLabel = label.length > 40 ? label.slice(0, 38) + '…' : label;
       return `<a href="${escH(part)}" target="_blank" rel="noopener noreferrer">${escH(shortLabel)}</a>`;
@@ -1144,6 +1141,12 @@ function renderNoteSnippet(text) {
   }).join('');
   urlRe.lastIndex = 0;
   return `<div class="task-note">${html}</div>`;
+}
+
+function obsidianPillHtml(url) {
+  const fn = url.match(/[?&]file=([^&]+)/);
+  const label = fn ? decodeURIComponent(fn[1]).replace(/\+/g,' ').replace(/%20/g,' ') : 'Note';
+  return `<a href="${escH(url)}" class="obsidian-pill" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()"><span class="obs-icon">🔮</span>${escH(label)}</a>`;
 }
 
 // Renders description text with clickable links (for detail panel)
@@ -1330,7 +1333,8 @@ function appendTaskItem(container, task) {
   const item = document.createElement('div');
   item.className = `task-item${task.status==='done'?' done':''}`;
   const sc = (task.subtasks||[]).length, sd = (task.subtasks||[]).filter(s=>s.completed).length;
-  const hasMeta = task.due_date || task.priority !== 'medium' || (task.tags||[]).length || sc;
+  const hasObsidian = task.description && task.description.trim().startsWith('obsidian://');
+  const hasMeta = task.due_date || task.priority !== 'medium' || (task.tags||[]).length || sc || hasObsidian;
   const noteSnippet = task.status !== 'done' ? renderNoteSnippet(task.description) : '';
   item.innerHTML = `
     <div class="task-check${task.status==='done'?' checked':''}" onclick="toggleTask(event,'${task.id}')"></div>
@@ -1341,6 +1345,7 @@ function appendTaskItem(container, task) {
         <div class="task-project-dot" style="background:${getProjectColor(task.project_id)}"></div>
         ${renderTaskBadges(task)}
         ${sc?`<span class="task-badge" style="color:var(--text3);background:var(--bg4)">${sd}/${sc}</span>`:''}
+        ${hasObsidian && task.status!=='done' ? obsidianPillHtml(task.description) : ''}
       </div>` : ''}
     </div>
     <svg class="task-chevron" width="7" height="12" viewBox="0 0 7 12" fill="none">
