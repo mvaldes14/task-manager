@@ -981,9 +981,7 @@ body.light .color-swatch.selected { box-shadow: 0 0 0 2px var(--bg2), 0 0 0 4px 
     </div>
 
     <div class="sidebar-footer">
-      <button class="btn btn-ghost" style="flex:1;font-size:12px;" onclick="exportData()">⬇ Export</button>
       <button class="btn btn-ghost" id="notifBtn" style="font-size:14px;" onclick="toggleNotifications()" title="Click to enable notifications">🔔</button>
-      <button class="btn btn-ghost" id="testNotifBtn" style="font-size:11px;display:none;" onclick="testNotification()" title="Send a test notification">Test</button>
       <button class="btn btn-ghost" id="logoutBtn" style="font-size:12px;display:none;" onclick="doLogout()" title="Sign out">⎋</button>
     </div>
   </aside>
@@ -2132,15 +2130,6 @@ function toggleSidebar() { document.getElementById('sidebar').classList.toggle('
 function closeSidebar()  { document.getElementById('sidebar').classList.remove('open'); document.getElementById('sidebarOverlay').classList.remove('open'); }
 
 // ── EXPORT ──
-async function exportData() {
-  const data = await api('/export');
-  const blob = new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href = url; a.download = `td-export-${new Date().toISOString().split('T')[0]}.json`;
-  a.click(); URL.revokeObjectURL(url); toast('✓ Exported as JSON');
-}
-
 // ── TOAST ──
 function toast(msg) {
   const el = document.createElement('div');
@@ -2245,31 +2234,10 @@ async function checkDueNotifications() {
   });
 }
 
-async function testNotification() {
-  console.log('[TD] Notification.permission:', Notification.permission);
-  if (Notification.permission !== 'granted') {
-    toast('Permission not granted — click 🔔 first');
-    return;
-  }
-  try {
-    const n = new Notification('TD Test ⏰', {
-      body: 'Notifications are working!',
-      icon: '/icons/icon-192.png',
-      requireInteraction: false,
-    });
-    n.onclick = () => { n.close(); };
-    toast('✓ Test notification sent — check your system notifications');
-    console.log('[TD] Test notification fired:', n);
-  } catch(e) {
-    console.error('[TD] Notification error:', e);
-    toast('Error: ' + e.message);
-  }
-}
-
 function updateNotifBellUI(permission) {
   const btn = document.getElementById('notifBtn');
   if (!btn) return;
-  if (permission === 'granted')  { btn.textContent = '🔔'; btn.title = 'Notifications on'; btn.style.opacity = '0.5'; const tb = document.getElementById('testNotifBtn'); if(tb) tb.style.display=''; }
+  if (permission === 'granted')  { btn.textContent = '🔔'; btn.title = 'Notifications on'; btn.style.opacity = '0.5'; }
   if (permission === 'denied')   { btn.textContent = '🔕'; btn.title = 'Notifications blocked in browser settings'; }
   if (permission === 'default')  { btn.textContent = '🔔'; btn.title = 'Click to enable notifications'; btn.style.opacity = '1'; }
 }

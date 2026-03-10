@@ -58,8 +58,6 @@ def init_db():
                 expires TIMESTAMPTZ NOT NULL, remember BOOLEAN DEFAULT FALSE
             )""")
         cur.execute("INSERT INTO projects (id,name,color,icon) VALUES ('inbox','Inbox','#6366f1','📥') ON CONFLICT (id) DO NOTHING")
-        # Migrate old obsidian://open URLs to obsidian://new
-        cur.execute("UPDATE tasks SET description = REPLACE(description, 'obsidian://open?', 'obsidian://new?') WHERE description LIKE 'obsidian://open?%'")
         conn.commit()
         print("[init_db] done.", flush=True)
     except Exception as e:
@@ -880,23 +878,6 @@ def reorder_tasks():
         conn.commit()
     finally: conn.close()
     return jsonify({'ok':True})
-
-@app.route('/api/export',methods=['GET'])
-def export_data():
-    conn=get_db()
-    try:
-        cur=conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        cur.execute("SELECT * FROM projects ORDER BY created_at"); projects=[row_to_dict(r) for r in cur.fetchall()]
-        cur.execute("SELECT * FROM tasks ORDER BY project_id,position"); tasks=[row_to_dict(r) for r in cur.fetchall()]
-        cur.execute("SELECT * FROM subtasks ORDER BY task_id,position"); subtasks=[row_to_dict(r) for r in cur.fetchall()]
-    finally: conn.close()
-    task_map={t['id']:t for t in tasks}
-    for sub in subtasks: task_map.get(sub['task_id'],{}).setdefault('subtasks',[]).append(sub)
-    proj_map={p['id']:{**p,'tasks':[]} for p in projects}
-    for t in tasks: proj_map.get(t.get('project_id','inbox'),{}).get('tasks',[]).append(t)
-    return jsonify({'exported_at':datetime.now().isoformat(),'version':'2.0','projects':list(proj_map.values()),
-        'stats':{'total_tasks':len(tasks),'done':sum(1 for t in tasks if t['status']=='done'),
-                 'todo':sum(1 for t in tasks if t['status']=='todo'),'in_progress':sum(1 for t in tasks if t['status']=='doing')}})
 
 @app.route('/api/gcal/status',methods=['GET'])
 def gcal_status():
