@@ -787,6 +787,55 @@ body.light .color-swatch.selected { box-shadow: 0 0 0 2px var(--bg2), 0 0 0 4px 
   border: 1px solid rgba(52,211,153,0.25);
   border-radius: 6px; padding: 2px 7px; font-size: 11px; font-weight: 600;
 }
+
+/* ─── CALENDAR VIEW ─── */
+.calendar-view { padding: 16px 16px 120px; flex: 1; }
+.calendar-nav {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 16px;
+}
+.calendar-nav-title { font-size: 16px; font-weight: 600; color: var(--text); }
+.calendar-nav-btn {
+  background: var(--bg3); border: none; border-radius: 8px;
+  color: var(--text2); cursor: pointer; padding: 6px 12px; font-size: 14px;
+  transition: background 0.15s;
+}
+.calendar-nav-btn:hover { background: var(--bg4); }
+.calendar-grid {
+  display: grid; grid-template-columns: repeat(7, 1fr);
+  gap: 2px; margin-bottom: 4px;
+}
+.calendar-dow {
+  text-align: center; font-size: 11px; font-weight: 600;
+  color: var(--text3); padding: 4px 0; text-transform: uppercase; letter-spacing: .05em;
+}
+.calendar-cell {
+  min-height: 80px; background: var(--bg3); border-radius: 8px;
+  padding: 6px; cursor: default; transition: background 0.1s;
+  position: relative;
+}
+.calendar-cell.other-month { background: var(--bg2); opacity: 0.5; }
+.calendar-cell.today { outline: 2px solid var(--accent); outline-offset: -2px; }
+.calendar-cell-date {
+  font-size: 12px; font-weight: 600; color: var(--text3);
+  margin-bottom: 4px;
+}
+.calendar-cell.today .calendar-cell-date { color: var(--accent); }
+.calendar-task-pill {
+  font-size: 11px; padding: 2px 6px; border-radius: 4px;
+  background: var(--accent-dim); color: var(--accent);
+  margin-bottom: 2px; cursor: pointer; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+  transition: background 0.1s;
+  display: flex; align-items: center; gap: 4px;
+}
+.calendar-task-pill:hover { background: var(--bg5); }
+.calendar-task-pill.done { text-decoration: line-through; opacity: 0.5; }
+.calendar-task-pill.high { background: rgba(247,118,142,0.15); color: var(--red); }
+.calendar-task-pill.overdue { background: rgba(247,118,142,0.15); color: var(--red); }
+.calendar-more { font-size: 10px; color: var(--text3); padding: 1px 4px; cursor: pointer; }
+.calendar-more:hover { color: var(--text); }
+
 .recur-editor {
   background: var(--bg3); border: 1px solid var(--border); border-radius: 10px;
   padding: 12px 14px; margin-bottom: 10px;
@@ -968,7 +1017,7 @@ body.light .color-swatch.selected { box-shadow: 0 0 0 2px var(--bg2), 0 0 0 4px 
         <span class="nav-count" id="count-today">0</span>
       </div>
       <div class="nav-item" id="nav-upcoming" onclick="selectView('upcoming')">
-        <div class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div><span>Upcoming</span>
+        <div class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div><span>Calendar</span>
         <span class="nav-count" id="count-upcoming">0</span>
       </div>
       <div class="nav-item" id="nav-all" onclick="selectView('all')">
@@ -1009,7 +1058,7 @@ body.light .color-swatch.selected { box-shadow: 0 0 0 2px var(--bg2), 0 0 0 4px 
       </div>
       <div class="topbar-title" id="topbarTitle">Inbox</div>
       <div class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle light/dark mode">🌙</div>
-      <div class="view-toggle">
+      <div class="view-toggle" id="viewToggle">
         <div class="view-btn active" id="btn-list" onclick="setView('list')">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
@@ -1107,6 +1156,7 @@ const API = window.location.origin + '/api';
 let state = {
   projects: [], tasks: [],
   currentSpecial: 'inbox',
+  calendarYear: null, calendarMonth: null,
   viewMode: 'list',
   selectedTask: null,
   dragTask: null,
@@ -1175,7 +1225,7 @@ async function loadTasks() {
   let path = v === 'today' ? '/tasks/today'
     : v === 'overdue' ? '/tasks/overdue'
     : v === 'review'  ? '/tasks/review'
-    : v === 'upcoming' ? '/tasks/upcoming'
+    : v === 'upcoming' ? '/tasks'
     : v === 'all' ? '/tasks'
     : v.startsWith('project:') ? `/tasks?project_id=${v.split(':')[1]}`
     : '/tasks?project_id=inbox';
@@ -1233,11 +1283,14 @@ async function updateNavCounts() {
 
 function selectView(v) {
   state.currentSpecial = v;
+  // Hide list/board toggle in calendar view
+  const viewToggle = document.getElementById('viewToggle');
+  if (viewToggle) viewToggle.style.display = v === 'upcoming' ? 'none' : '';
   document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'));
   if (['inbox','today','upcoming','all'].includes(v)) {
     document.getElementById(`nav-${v}`)?.classList.add('active');
   }
-  const titles = {inbox:'Inbox',today:'Today',upcoming:'Upcoming',all:'All Tasks'};
+  const titles = {inbox:'Inbox',today:'Today',upcoming:'Calendar',all:'All Tasks'};
   if (v.startsWith('project:')) {
     const p = state.projects.find(p=>p.id===v.split(':')[1]);
     document.getElementById('topbarTitle').textContent = p ? `${p.icon} ${p.name}` : 'Project';
@@ -1252,6 +1305,7 @@ function selectView(v) {
 function renderContent() {
   const el = document.getElementById('contentArea');
   el.innerHTML = '';
+  if (state.currentSpecial === 'upcoming') { renderCalendar(el); return; }
   state.viewMode === 'list' ? renderList(el) : renderKanban(el);
 }
 
@@ -1528,6 +1582,126 @@ function appendTaskItem(container, task) {
     openDetail(task.id);
   });
   container.appendChild(item);
+}
+
+function renderCalendar(container) {
+  if (!state.calendarYear) {
+    const now = new Date();
+    state.calendarYear  = now.getFullYear();
+    state.calendarMonth = now.getMonth(); // 0-indexed
+  }
+  const year  = state.calendarYear;
+  const month = state.calendarMonth;
+  const today = new Date().toISOString().split('T')[0];
+
+  // tasks with due dates keyed by date string
+  const byDate = {};
+  state.tasks.forEach(t => {
+    if (t.due_date) (byDate[t.due_date] = byDate[t.due_date] || []).push(t);
+  });
+
+  const div = document.createElement('div');
+  div.className = 'calendar-view';
+
+  const monthName = new Date(year, month, 1).toLocaleString('default', {month:'long', year:'numeric'});
+
+  div.innerHTML = `
+    <div class="calendar-nav">
+      <button class="calendar-nav-btn" id="calPrev">‹</button>
+      <span class="calendar-nav-title">${monthName}</span>
+      <button class="calendar-nav-btn" id="calNext">›</button>
+    </div>
+    <div class="calendar-grid" id="calDows"></div>
+    <div class="calendar-grid" id="calCells"></div>`;
+
+  container.appendChild(div);
+
+  // Day-of-week headers
+  const dowEl = div.querySelector('#calDows');
+  ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(d => {
+    const el = document.createElement('div');
+    el.className = 'calendar-dow';
+    el.textContent = d;
+    dowEl.appendChild(el);
+  });
+
+  // Build cells
+  const cellsEl = div.querySelector('#calCells');
+  const firstDay = new Date(year, month, 1).getDay(); // 0=Sun
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const daysInPrev  = new Date(year, month, 0).getDate();
+
+  // Leading cells from prev month
+  for (let i = firstDay - 1; i >= 0; i--) {
+    cellsEl.appendChild(makeCalCell(year, month - 1, daysInPrev - i, true, byDate, today));
+  }
+  // Current month
+  for (let d = 1; d <= daysInMonth; d++) {
+    cellsEl.appendChild(makeCalCell(year, month, d, false, byDate, today));
+  }
+  // Trailing cells
+  const total = firstDay + daysInMonth;
+  const trailing = total % 7 === 0 ? 0 : 7 - (total % 7);
+  for (let d = 1; d <= trailing; d++) {
+    cellsEl.appendChild(makeCalCell(year, month + 1, d, true, byDate, today));
+  }
+
+  // Nav buttons
+  div.querySelector('#calPrev').onclick = () => {
+    if (state.calendarMonth === 0) { state.calendarMonth = 11; state.calendarYear--; }
+    else state.calendarMonth--;
+    renderContent();
+  };
+  div.querySelector('#calNext').onclick = () => {
+    if (state.calendarMonth === 11) { state.calendarMonth = 0; state.calendarYear++; }
+    else state.calendarMonth++;
+    renderContent();
+  };
+}
+
+function makeCalCell(year, month, day, otherMonth, byDate, today) {
+  const d = new Date(year, month, day);
+  const dateStr = d.toISOString().split('T')[0];
+  const tasks = byDate[dateStr] || [];
+
+  const cell = document.createElement('div');
+  cell.className = 'calendar-cell'
+    + (otherMonth ? ' other-month' : '')
+    + (dateStr === today ? ' today' : '');
+
+  const isPast = dateStr < today;
+  const dateLabel = document.createElement('div');
+  dateLabel.className = 'calendar-cell-date';
+  dateLabel.textContent = day;
+  cell.appendChild(dateLabel);
+
+  const MAX = 3;
+  tasks.slice(0, MAX).forEach(t => {
+    const pill = document.createElement('div');
+    pill.className = 'calendar-task-pill'
+      + (t.status === 'done' ? ' done' : '')
+      + (t.priority === 'high' ? ' high' : '')
+      + (isPast && t.status !== 'done' ? ' overdue' : '');
+    pill.title = t.title;
+
+    // obsidian link icon if present
+    const obsIcon = t.obsidian_url
+      ? `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`
+      : '';
+    pill.innerHTML = obsIcon + escH(t.title);
+    pill.onclick = (e) => { e.stopPropagation(); openDetail(t.id); };
+    cell.appendChild(pill);
+  });
+
+  if (tasks.length > MAX) {
+    const more = document.createElement('div');
+    more.className = 'calendar-more';
+    more.textContent = `+${tasks.length - MAX} more`;
+    more.onclick = (e) => { e.stopPropagation(); openDetail(tasks[MAX].id); };
+    cell.appendChild(more);
+  }
+
+  return cell;
 }
 
 function renderKanban(container) {
