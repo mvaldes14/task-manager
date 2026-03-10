@@ -1364,6 +1364,10 @@ async function updateNavCounts() {
   document.getElementById('count-today').textContent    = todayCount;
   document.getElementById('count-upcoming').textContent = all.filter(t=>t.due_date&&t.status!=='done').length;
   document.getElementById('count-overdue').textContent  = overdueCount;
+  // Update home screen badge with overdue count
+  if ('setAppBadge' in navigator) {
+    overdueCount > 0 ? navigator.setAppBadge(overdueCount) : navigator.clearAppBadge();
+  }
   document.getElementById('count-all').textContent      = allCount;
   // Tab bar badges
   setTabBadge('inbox', inboxCount);
