@@ -1782,21 +1782,23 @@ function toggleObsLinkForm(taskId) {
 
 async function saveObsidianLink(taskId) {
   const input = document.getElementById('obsLinkInput');
-  let noteName = input?.value?.trim();
-  if (!noteName) return;
-  // Strip any accidental obsidian:// URL pasted into the field — extract just the note name
-  if (noteName.startsWith('obsidian://')) {
-    noteName = obsidianLabel(noteName);
+  let raw = input?.value?.trim();
+  if (!raw) return;
+  let url;
+  if (raw.startsWith('obsidian://')) {
+    // Full URL pasted — use as-is, just extract display label from it
+    url = raw;
+  } else {
+    // Plain note name — build obsidian://open with vault + inbox prefix
+    const slash = raw.lastIndexOf('/');
+    const noteName = slash !== -1 ? raw.slice(slash + 1) : raw;
+    const vault = state.obsidianVault;
+    const prefix = state.obsidianInbox ? state.obsidianInbox + '/' : '';
+    const filePath = prefix + noteName;
+    url = vault
+      ? `obsidian://open?vault=${encodeURIComponent(vault)}&file=${encodeURIComponent(filePath)}`
+      : `obsidian://open?file=${encodeURIComponent(filePath)}`;
   }
-  // Strip any folder prefix the user may have typed — we'll add inbox prefix ourselves
-  const slash = noteName.lastIndexOf('/');
-  if (slash !== -1) noteName = noteName.slice(slash + 1);
-  const vault = state.obsidianVault;
-  const prefix = state.obsidianInbox ? state.obsidianInbox + '/' : '';
-  const filePath = prefix + noteName;
-  const url = vault
-    ? `obsidian://open?vault=${encodeURIComponent(vault)}&file=${encodeURIComponent(filePath)}`
-    : `obsidian://open?file=${encodeURIComponent(filePath)}`;
   await api(`/tasks/${taskId}`, 'PATCH', { description: url, obsidian_url: url });
   const t = state.tasks.find(t => t.id === taskId);
   if (t) { t.description = url; t.obsidian_url = url; renderDetail(t); }
@@ -1962,7 +1964,8 @@ function renderDetail(task) {
       const isObsidian = task.description && task.description.trim().startsWith('obsidian://');
       if (isObsidian) {
         const label = obsidianLabel(task.description);
-        return `<div class="detail-obs-row">
+        return `<div class="detail-section-label" style="margin-top:16px;">Obsidian</div>
+        <div class="detail-obs-row">
           <a href="${escH(task.description)}" class="obsidian-pill obsidian-pill-lg" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">
             <span class="obs-icon">🔮</span>
             <span class="obs-label">${escH(label)}</span>
@@ -1973,12 +1976,13 @@ function renderDetail(task) {
       }
       return `<div class="detail-desc-view${task.description ? '' : ' empty'}" id="detailDescView" data-raw="${escH(task.description||'')}" onclick="switchToDescEdit()">${task.description ? renderDescLinks(task.description) : 'Add notes…'}</div>
     <textarea class="detail-desc" id="detailDesc" rows="3" placeholder="Add notes..." style="display:none">${escH(task.description||'')}</textarea>
+    <div class="detail-section-label" style="margin-top:16px;">Obsidian</div>
     <div class="obs-link-row" id="obsLinkRow">
       <button class="obs-link-toggle" onclick="toggleObsLinkForm('${task.id}')">
-        <span style="font-size:13px">🔮</span> Link Obsidian note
+        <span style="font-size:13px">🔮</span> Link note
       </button>
       <div class="obs-link-form" id="obsLinkForm" style="display:none">
-        <input class="obs-link-input" id="obsLinkInput" placeholder="Note name…"
+        <input class="obs-link-input" id="obsLinkInput" placeholder="Note name or obsidian:// URL"
           onkeydown="if(event.key==='Enter')saveObsidianLink('${task.id}')">
         <button class="btn btn-primary" style="font-size:12px;padding:5px 12px"
           onclick="saveObsidianLink('${task.id}')">Link</button>
@@ -1988,7 +1992,7 @@ function renderDetail(task) {
     })()}
 
     <!-- Recurrence editor -->
-    <div class="recur-editor" id="recurEditor">
+    <div class="recur-editor" id="recurEditor" style="margin-top:16px;">
       <div class="recur-editor-title">Recurrence</div>
       <div class="recur-row">
         <select class="recur-select" id="recurType" onchange="onRecurTypeChange('${task.id}')">
