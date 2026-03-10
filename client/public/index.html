@@ -870,7 +870,7 @@ body.light .color-swatch.selected { box-shadow: 0 0 0 2px var(--bg2), 0 0 0 4px 
   max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .obsidian-pill:hover { background: rgba(124,91,247,0.25); }
-.obsidian-pill .obs-icon { font-size: 14px; flex-shrink: 0; }
+.obsidian-pill .obs-icon { font-size: 14px; flex-shrink: 0; display:flex; align-items:center; }
 .obsidian-pill-lg {
   padding: 8px 14px; font-size: 14px; border-radius: 10px;
   flex: 1; min-width: 0; gap: 8px;
@@ -1316,7 +1316,7 @@ function obsidianLabel(url) {
 }
 
 function obsidianPillHtml(url) {
-  return `<a href="${escH(url)}" class="obsidian-pill" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()"><span class="obs-icon">🔮</span>${escH(obsidianLabel(url))}</a>`;
+  return `<a href="${escH(url)}" class="obsidian-pill" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()"><span class="obs-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span>${escH(obsidianLabel(url))}</a>`;
 }
 
 // Renders description text with clickable links (for detail panel)
@@ -1329,7 +1329,7 @@ function renderDescLinks(text) {
       urlRe.lastIndex = 0;
       if (part.startsWith('obsidian://')) {
         const fn = part.match(/[?&]file=([^&]+)/);
-        return `<a href="${escH(part)}" class="obsidian-pill" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()"><span class="obs-icon">🔮</span>${escH(obsidianLabel(part))}</a>`;
+        return `<a href="${escH(part)}" class="obsidian-pill" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()"><span class="obs-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span>${escH(obsidianLabel(part))}</a>`;
       }
       return `<a href="${escH(part)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">${escH(part)}</a>`;
     }
@@ -1632,7 +1632,7 @@ function buildObsidianChip(url, noteName) {
   span.className = 'obsidian-pill';
   span.target = '_blank';
   span.rel = 'noopener noreferrer';
-  span.innerHTML = `<span class="obs-icon">🔮</span>${escH(obsidianLabel(url) || noteName || 'Obsidian note')}`;
+  span.innerHTML = `<span class="obs-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span>${escH(obsidianLabel(url) || noteName || 'Obsidian note')}`;
   span.onclick = e => e.stopPropagation();
   return span;
 }
@@ -1967,7 +1967,7 @@ function renderDetail(task) {
         return `<div class="detail-section-label" style="margin-top:16px;">Obsidian</div>
         <div class="detail-obs-row">
           <a href="${escH(task.description)}" class="obsidian-pill obsidian-pill-lg" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">
-            <span class="obs-icon">🔮</span>
+            <span class="obs-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span>
             <span class="obs-label">${escH(label)}</span>
             <span class="obs-hint">Open in Obsidian ↗</span>
           </a>
@@ -1979,7 +1979,7 @@ function renderDetail(task) {
     <div class="detail-section-label" style="margin-top:16px;">Obsidian</div>
     <div class="obs-link-row" id="obsLinkRow">
       <button class="obs-link-toggle" onclick="toggleObsLinkForm('${task.id}')">
-        <span style="font-size:13px">🔮</span> Link note
+        <span class="obs-icon" style="display:inline-flex;align-items:center;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span> Link note
       </button>
       <div class="obs-link-form" id="obsLinkForm" style="display:none">
         <input class="obs-link-input" id="obsLinkInput" placeholder="Note name or obsidian:// URL"
