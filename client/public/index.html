@@ -267,6 +267,7 @@ body.light .topbar { background: rgba(242,242,247,0.85); }
 .content {
   flex: 1; overflow-y: auto; overflow-x: hidden;
   scrollbar-width: none;
+  display: flex; flex-direction: column;
 }
 .content::-webkit-scrollbar { display: none; }
 
@@ -372,7 +373,7 @@ body.light .topbar { background: rgba(242,242,247,0.85); }
 /* ─── KANBAN ─── */
 .kanban-view {
   display: flex; gap: 12px; padding: 16px 16px 120px;
-  height: 100%; align-items: flex-start;
+  flex: 1; align-items: flex-start;
   overflow-x: auto; scrollbar-width: none;
 }
 .kanban-view::-webkit-scrollbar { display: none; }
@@ -1392,6 +1393,7 @@ function renderList(container) {
   // ── To Review view ──
   if (state.currentSpecial === 'review') {
     if (!state.tasks.length) {
+      div.style.cssText="flex:1;display:flex;align-items:center;justify-content:center;";
       div.innerHTML = `<div class="empty-state"><div class="empty-icon">✅</div><p>Nothing to review!<br>All tasks are organised.</p></div>`;
       container.appendChild(div); return;
     }
@@ -1442,6 +1444,7 @@ function renderList(container) {
   // Special header for overdue view with grouped-by-date sections
   if (state.currentSpecial === 'overdue') {
     if (!state.tasks.length) {
+      div.style.cssText="flex:1;display:flex;align-items:center;justify-content:center;";
       div.innerHTML = `<div class="empty-state"><div class="empty-icon">✅</div><p>Nothing overdue!<br>You're all caught up.</p></div>`;
       container.appendChild(div); return;
     }
@@ -1476,7 +1479,7 @@ function renderList(container) {
   }
 
   if (!state.tasks.length) {
-    div.style.cssText = "flex:1;display:flex;align-items:center;justify-content:center;min-height:300px;";
+    div.style.cssText = "flex:1;display:flex;align-items:center;justify-content:center;";
     div.innerHTML = `<div class="empty-state"><div class="empty-icon">✨</div><p>No tasks here.<br>Tap <strong>+</strong> to add one.</p></div>`;
     container.appendChild(div); return;
   }
