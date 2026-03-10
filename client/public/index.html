@@ -1253,10 +1253,18 @@ function renderNoteSnippet(text) {
   return `<div class="task-note">${html}</div>`;
 }
 
-function obsidianPillHtml(url) {
+function obsidianLabel(url) {
   const fn = url.match(/[?&]file=([^&]+)/);
-  const label = fn ? decodeURIComponent(fn[1]).replace(/\+/g,' ').replace(/%20/g,' ') : 'Note';
-  return `<a href="${escH(url)}" class="obsidian-pill" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()"><span class="obs-icon">🔮</span>${escH(label)}</a>`;
+  if (!fn) return 'Note';
+  let name = decodeURIComponent(fn[1]).replace(/\+/g,' ');
+  // Strip leading folder path — show just the filename
+  const slash = name.lastIndexOf('/');
+  if (slash !== -1) name = name.slice(slash + 1);
+  return name;
+}
+
+function obsidianPillHtml(url) {
+  return `<a href="${escH(url)}" class="obsidian-pill" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()"><span class="obs-icon">🔮</span>${escH(obsidianLabel(url))}</a>`;
 }
 
 // Renders description text with clickable links (for detail panel)
