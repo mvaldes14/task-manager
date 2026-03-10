@@ -58,15 +58,6 @@ def init_db():
                 expires TIMESTAMPTZ NOT NULL, remember BOOLEAN DEFAULT FALSE
             )""")
         cur.execute("INSERT INTO projects (id,name,color,icon) VALUES ('inbox','Inbox','#6366f1','📥') ON CONFLICT (id) DO NOTHING")
-        # Fix corrupted obsidian URLs where the inbox prefix got prepended to an existing URL
-        cur.execute("""
-            UPDATE tasks SET description = regexp_replace(
-                description,
-                '^obsidian://new\\?vault=[^&]+&file=[^o]*obsidian://(open|new)\\?',
-                'obsidian://new?',
-                'g'
-            ) WHERE description ~ 'obsidian://new\\?.*obsidian://(open|new)\\?'
-        """)
         conn.commit()
         print("[init_db] done.", flush=True)
     except Exception as e:
