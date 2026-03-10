@@ -14,8 +14,9 @@ app = Flask(__name__, static_folder='client/public')
 
 DATABASE_URL    = os.environ.get('DATABASE_URL', 'postgresql://td:td@localhost:5432/td')
 OBSIDIAN_VAULT  = os.environ.get('OBSIDIAN_VAULT', '').strip()
+OBSIDIAN_INBOX  = os.environ.get('OBSIDIAN_INBOX', '').strip().strip('/')
 print(f"[startup] DATABASE_URL = {DATABASE_URL}", flush=True)
-if OBSIDIAN_VAULT: print(f"[startup] Obsidian vault: {OBSIDIAN_VAULT}", flush=True)
+if OBSIDIAN_VAULT: print(f"[startup] Obsidian vault: {OBSIDIAN_VAULT}" + (f" inbox: {OBSIDIAN_INBOX}" if OBSIDIAN_INBOX else ""), flush=True)
 
 def get_db():
     conn = psycopg2.connect(DATABASE_URL)
@@ -302,7 +303,8 @@ def parse_natural_language(text):
         note_name = wiki_match.group(1).strip()
         vault = OBSIDIAN_VAULT or 'vault'
         from urllib.parse import quote
-        result['obsidian_url'] = f"obsidian://new?vault={quote(vault)}&file={quote(note_name)}"
+        inbox_prefix = (OBSIDIAN_INBOX + '/') if OBSIDIAN_INBOX else ''
+        result['obsidian_url'] = f"obsidian://new?vault={quote(vault)}&file={quote(inbox_prefix + note_name)}"
         result['obsidian_note'] = note_name
         text = text[:wiki_match.start()] + text[wiki_match.end():].strip()
 
@@ -587,7 +589,8 @@ def do_logout():
 def auth_status():
     return jsonify({'password_set':bool(TD_PASSWORD),'authenticated':_is_authenticated(),
                     'username':TD_USERNAME or None,'gcal_enabled':GCAL_ENABLED,
-                    'obsidian_vault':OBSIDIAN_VAULT or None})
+                    'obsidian_vault':OBSIDIAN_VAULT or None,
+                    'obsidian_inbox':OBSIDIAN_INBOX or None})
 
 @app.before_request
 def auth_middleware():

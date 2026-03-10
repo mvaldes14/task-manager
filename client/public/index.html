@@ -1086,6 +1086,7 @@ let state = {
   theme: localStorage.getItem('tf-theme') || 'dark',
   fabOpen: false,
   obsidianVault: null,
+  obsidianInbox: null,
 };
 
 const COLORS = ['#7c6af7','#f87171','#fbbf24','#4ade80','#60a5fa','#f472b6','#34d399','#fb923c'];
@@ -1125,6 +1126,7 @@ async function init() {
       const btn = document.getElementById('logoutBtn');
       if (btn && d.password_set) btn.style.display = '';
       if (d.obsidian_vault) state.obsidianVault = d.obsidian_vault;
+      if (d.obsidian_inbox) state.obsidianInbox = d.obsidian_inbox;
     }
   } catch(e) {}
   handleIncomingShare();
@@ -1718,9 +1720,11 @@ async function saveObsidianLink(taskId) {
   const noteName = input?.value?.trim();
   if (!noteName) return;
   const vault = state.obsidianVault;
+  const prefix = state.obsidianInbox ? state.obsidianInbox + '/' : '';
+  const filePath = prefix + noteName;
   const url = vault
-    ? `obsidian://new?vault=${encodeURIComponent(vault)}&file=${encodeURIComponent(noteName)}`
-    : `obsidian://new?file=${encodeURIComponent(noteName)}`;
+    ? `obsidian://new?vault=${encodeURIComponent(vault)}&file=${encodeURIComponent(filePath)}`
+    : `obsidian://new?file=${encodeURIComponent(filePath)}`;
   await api(`/tasks/${taskId}`, 'PATCH', { description: url });
   const t = state.tasks.find(t => t.id === taskId);
   if (t) { t.description = url; renderDetail(t); }

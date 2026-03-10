@@ -32,4 +32,5 @@ services:
       - GCAL_CALENDAR_ID=${GCAL_CALENDAR_ID:-primary}
       # Obsidian vault name (used to build obsidian:// links from ![[Note]] syntax)
       - OBSIDIAN_VAULT=${OBSIDIAN_VAULT:-}
+      - OBSIDIAN_INBOX=${OBSIDIAN_INBOX:-}
     restart: unless-stopped
