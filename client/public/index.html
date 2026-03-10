@@ -746,8 +746,49 @@ body.light .color-swatch.selected { box-shadow: 0 0 0 2px var(--bg2), 0 0 0 4px 
 }
 
 /* ─── MOBILE ─── */
+/* ─── BOTTOM TAB BAR (mobile only) ─── */
+.tab-bar { display: none; }
+
 @media (max-width: 700px) {
   :root { --sidebar: 280px; }
+
+  .tab-bar {
+    display: flex;
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;
+    background: var(--bg2);
+    border-top: 0.5px solid var(--border);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    height: calc(56px + env(safe-area-inset-bottom, 0px));
+    align-items: stretch;
+  }
+  .tab-item {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 3px; background: none; border: none;
+    color: var(--text3); font-size: 10px; font-weight: 500;
+    cursor: pointer; padding: 8px 4px 4px;
+    position: relative; transition: color 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .tab-item.active { color: var(--accent); }
+  .tab-icon { display: flex; align-items: center; justify-content: center; }
+  .tab-badge {
+    position: absolute; top: 6px;
+    left: calc(50% + 6px);
+    background: var(--red); color: white;
+    font-size: 9px; font-weight: 700;
+    min-width: 14px; height: 14px;
+    border-radius: 7px; padding: 0 3px;
+    display: none; align-items: center; justify-content: center;
+    line-height: 1;
+  }
+  .tab-badge.visible { display: flex; }
+
+  /* push content up so tab bar doesn't overlap */
+  .content { padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px)); }
+  .fab { bottom: calc(72px + env(safe-area-inset-bottom, 0px)); right: 16px; }
+  /* hide hamburger menu btn on mobile since we have tab bar */
+  .menu-btn { display: none !important; }
   .sidebar {
     position: fixed; left: 0; top: 0; bottom: 0; z-index: 50;
     transform: translateX(-100%);
@@ -1151,6 +1192,33 @@ body.light .color-swatch.selected { box-shadow: 0 0 0 2px var(--bg2), 0 0 0 4px 
       </div>
     </div>
   </div>
+  <!-- Mobile bottom tab bar -->
+  <nav class="tab-bar" id="tabBar">
+    <button class="tab-item active" id="tab-inbox" onclick="selectView('inbox')">
+      <div class="tab-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></div>
+      <span>Inbox</span>
+      <span class="tab-badge" id="tab-badge-inbox"></span>
+    </button>
+    <button class="tab-item" id="tab-today" onclick="selectView('today')">
+      <div class="tab-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></div>
+      <span>Today</span>
+      <span class="tab-badge" id="tab-badge-today"></span>
+    </button>
+    <button class="tab-item" id="tab-upcoming" onclick="selectView('upcoming')">
+      <div class="tab-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
+      <span>Calendar</span>
+    </button>
+    <button class="tab-item" id="tab-all" onclick="selectView('all')">
+      <div class="tab-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg></div>
+      <span>All</span>
+      <span class="tab-badge" id="tab-badge-all"></span>
+    </button>
+    <button class="tab-item" id="tab-more" onclick="openSidebar()">
+      <div class="tab-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></div>
+      <span>More</span>
+    </button>
+  </nav>
+
 </div>
 
 <script>
@@ -1270,13 +1338,26 @@ async function updateNavCounts() {
   const all = await api('/tasks') || [];
   const today = new Date().toISOString().split('T')[0];
   const week  = new Date(Date.now()+7*86400000).toISOString().split('T')[0];
-  document.getElementById('count-inbox').textContent    = all.filter(t=>t.project_id==='inbox'&&t.status!=='done').length;
-  document.getElementById('count-today').textContent    = all.filter(t=>t.due_date===today&&t.status!=='done').length;
-  document.getElementById('count-upcoming').textContent = all.filter(t=>t.due_date&&t.status!=='done').length;
+  const inboxCount   = all.filter(t=>t.project_id==='inbox'&&t.status!=='done').length;
+  const todayCount   = all.filter(t=>t.due_date===today&&t.status!=='done').length;
+  const allCount     = all.filter(t=>t.status!=='done').length;
   const overdueCount = all.filter(t=>t.due_date&&t.due_date<today&&t.status!=='done').length;
-  document.getElementById('count-overdue').textContent = overdueCount;
-  // overdue count only — always visible
-  document.getElementById('count-all').textContent      = all.filter(t=>t.status!=='done').length;
+  document.getElementById('count-inbox').textContent    = inboxCount;
+  document.getElementById('count-today').textContent    = todayCount;
+  document.getElementById('count-upcoming').textContent = all.filter(t=>t.due_date&&t.status!=='done').length;
+  document.getElementById('count-overdue').textContent  = overdueCount;
+  document.getElementById('count-all').textContent      = allCount;
+  // Tab bar badges
+  setTabBadge('inbox', inboxCount);
+  setTabBadge('today', todayCount);
+  setTabBadge('all',   allCount);
+}
+
+function setTabBadge(tab, count) {
+  const el = document.getElementById(`tab-badge-${tab}`);
+  if (!el) return;
+  if (count > 0) { el.textContent = count > 99 ? '99+' : count; el.classList.add('visible'); }
+  else { el.textContent = ''; el.classList.remove('visible'); }
 }
 
 function selectView(v) {
@@ -1288,6 +1369,10 @@ function selectView(v) {
   if (['inbox','today','upcoming','all'].includes(v)) {
     document.getElementById(`nav-${v}`)?.classList.add('active');
   }
+  // Sync tab bar active state
+  document.querySelectorAll('.tab-item').forEach(el=>el.classList.remove('active'));
+  const tabMap = {inbox:'tab-inbox', today:'tab-today', upcoming:'tab-upcoming', all:'tab-all'};
+  if (tabMap[v]) document.getElementById(tabMap[v])?.classList.add('active');
   const titles = {inbox:'Inbox',today:'Today',upcoming:'Calendar',overdue:'Overdue',all:'All Tasks'};
   if (v.startsWith('project:')) {
     const p = state.projects.find(p=>p.id===v.split(':')[1]);
