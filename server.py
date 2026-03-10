@@ -513,7 +513,7 @@ def _check_rate_limit(ip):
 def _record_failure(ip): _failed.setdefault(ip,[]).append(_time.time())
 def _clear_failures(ip): _failed.pop(ip,None)
 
-_PUBLIC_PATHS={'/login','/auth/login','/auth/logout','/auth/status'}
+_PUBLIC_PATHS={'/login','/auth/login','/auth/logout','/auth/status','/manifest.json','/sw.js','/favicon.ico'}
 
 def _hash_pw(pw): return hashlib.sha256(pw.encode()).hexdigest()
 
@@ -593,7 +593,7 @@ def auth_status():
 @app.before_request
 def auth_middleware():
     path=request.path
-    if path in _PUBLIC_PATHS or request.method=='OPTIONS': return None
+    if path in _PUBLIC_PATHS or path.startswith('/icons/') or request.method=='OPTIONS': return None
     if not TD_PASSWORD:
         if path.startswith('/api/') and API_KEY:
             auth=request.headers.get('Authorization',''); xkey=request.headers.get('X-API-Key','')
