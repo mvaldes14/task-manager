@@ -1089,6 +1089,7 @@ let state = {
   newProjectIcon: '📁',
   theme: localStorage.getItem('tf-theme') || 'dark',
   fabOpen: false,
+  fabTargetStatus: null,
   obsidianVault: null,
   obsidianInbox: null,
 };
@@ -1632,6 +1633,7 @@ function openFab() {
 
 function closeFab() {
   state.fabOpen = false;
+  state.fabTargetStatus = null;
   document.getElementById('fab').classList.remove('open');
   document.getElementById('fabModal').classList.remove('open');
   document.getElementById('fabOverlay').classList.remove('open');
@@ -1643,7 +1645,9 @@ async function submitFab() {
   const input = document.getElementById('fabInput');
   const text  = input.value.trim();
   if (!text) return;
-  const task = await api('/tasks', 'POST', { title: text, nlp: true });
+  const body = { title: text, nlp: true };
+  if (state.fabTargetStatus) body.status = state.fabTargetStatus;
+  const task = await api('/tasks', 'POST', body);
   if (task) {
     closeFab();
     toast(`✓ Added${task.nlp_summary ? ' · ' + task.nlp_summary : ''}`);
@@ -1818,12 +1822,8 @@ async function unlinkObsidian(taskId) {
 }
 
 async function quickAddToStatus(status) {
-  const title = prompt('Task title:');
-  if (!title?.trim()) return;
-  const v = state.currentSpecial;
-  const project_id = v.startsWith('project:') ? v.split(':')[1] : 'inbox';
-  await api('/tasks','POST',{title:title.trim(), project_id, status, nlp:true});
-  await loadTasks(); renderContent();
+  state.fabTargetStatus = status;
+  openFab();
 }
 
 // ── TASK ACTIONS ──
