@@ -788,6 +788,36 @@ body.light .color-swatch.selected { box-shadow: 0 0 0 2px var(--bg2), 0 0 0 4px 
 .recur-clear { background: none; border: none; color: var(--text4); cursor: pointer; font-size: 13px; padding: 4px 6px; border-radius: 6px; }
 .recur-clear:hover { color: var(--red); background: var(--red-dim); }
 
+/* ─── DETAIL TAGS EDITOR ─── */
+.detail-tags-row {
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+  padding: 8px 0 4px;
+}
+.detail-tag-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--purple-dim); color: var(--purple);
+  border: 1px solid rgba(187,154,247,0.25);
+  border-radius: 20px; padding: 3px 10px 3px 10px;
+  font-size: 12px; font-weight: 500; cursor: default;
+}
+.detail-tag-remove {
+  background: none; border: none; color: var(--purple);
+  opacity: 0.6; cursor: pointer; font-size: 13px;
+  padding: 0 0 0 2px; line-height: 1; display: flex; align-items: center;
+}
+.detail-tag-remove:hover { opacity: 1; }
+.detail-tag-add {
+  background: var(--bg3); border: 1px dashed var(--border2);
+  color: var(--text3); border-radius: 20px;
+  padding: 3px 10px; font-size: 12px; font-family: var(--font);
+  outline: none; width: 100px; transition: all 0.15s;
+}
+.detail-tag-add::placeholder { color: var(--text4); }
+.detail-tag-add:focus {
+  border-color: var(--purple); border-style: solid;
+  background: var(--bg4); color: var(--text); width: 130px;
+}
+
 /* ─── TO REVIEW TRIAGE ─── */
 .review-item { border-left: 2px solid var(--amber) !important; }
 .review-actions {
@@ -1649,6 +1679,28 @@ async function linkObsidianPrompt(taskId) {
   renderContent();
 }
 
+async function addDetailTag(e, taskId) {
+  if (e.key !== 'Enter' && e.key !== ',') return;
+  e.preventDefault();
+  const input = document.getElementById('detailTagInput');
+  const tag = input.value.trim().replace(/^#/, '').replace(/,/g, '').trim();
+  if (!tag) return;
+  const task = state.tasks.find(t => t.id === taskId);
+  if (!task) return;
+  const tags = [...new Set([...(task.tags || []), tag])];
+  const updated = await api(`/tasks/${taskId}`, 'PATCH', { tags });
+  if (updated) { task.tags = updated.tags; renderDetail(task); renderContent(); }
+  input.value = '';
+}
+
+async function removeDetailTag(taskId, tag) {
+  const task = state.tasks.find(t => t.id === taskId);
+  if (!task) return;
+  const tags = (task.tags || []).filter(t => t !== tag);
+  const updated = await api(`/tasks/${taskId}`, 'PATCH', { tags });
+  if (updated) { task.tags = updated.tags; renderDetail(task); renderContent(); }
+}
+
 async function assignProject(taskId, projectId) {
   if (!projectId) return;
   await api(`/tasks/${taskId}`, 'PATCH', { project_id: projectId });
@@ -1768,6 +1820,19 @@ function renderDetail(task) {
           <input type="time" id="detailTime" value="${task.due_time||''}">
         </div>
       </div>
+    </div>
+
+    <!-- Tags -->
+    <div class="detail-section-label" style="margin-top:4px">Labels</div>
+    <div class="detail-tags-row" id="detailTagsRow">
+      ${(task.tags||[]).map(tag => `
+        <span class="detail-tag-pill">
+          #${escH(tag)}
+          <button class="detail-tag-remove" onclick="removeDetailTag('${task.id}','${escH(tag)}')" title="Remove">×</button>
+        </span>`).join('')}
+      <input class="detail-tag-add" id="detailTagInput" placeholder="+ add label"
+        onkeydown="addDetailTag(event,'${task.id}')"
+        onclick="event.stopPropagation()">
     </div>
 
     ${(()=>{
