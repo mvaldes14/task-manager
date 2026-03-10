@@ -778,6 +778,7 @@ def create_task():
         task['subtasks']=[]; conn.commit()
     finally: release_db(conn)
     if nlp.get('nlp_summary'): task['nlp_summary']=nlp['nlp_summary']
+    if nlp.get('obsidian_new_url'): task['obsidian_new_url']=nlp['obsidian_new_url']
     # Keep description in sync with obsidian_url for pill rendering
     if obsidian_url and not data.get('description','').strip():
         conn=get_db()

@@ -1591,8 +1591,6 @@ async function updateFabChips(text) {
   chips.innerHTML = '';
   let hasChips = false;
   if (r?.obsidian_url) {
-    // Fire obsidian://new once to create the note as soon as user sees the chip
-    if (r.obsidian_new_url) window.open(r.obsidian_new_url, '_blank');
     chips.appendChild(buildObsidianChip(r.obsidian_url, r.obsidian_note));
     hasChips = true;
   }
@@ -1678,6 +1676,8 @@ async function submitFab() {
   if (state.fabTargetStatus) body.status = state.fabTargetStatus;
   const task = await api('/tasks', 'POST', body);
   if (task) {
+    // Fire obsidian://new after task is saved, not during preview
+    if (task.obsidian_new_url) window.open(task.obsidian_new_url, '_blank');
     closeFab();
     toast(`✓ Added${task.nlp_summary ? ' · ' + task.nlp_summary : ''}`);
     await loadTasks(); await loadProjects();
