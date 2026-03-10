@@ -880,6 +880,30 @@ body.light .color-swatch.selected { box-shadow: 0 0 0 2px var(--bg2), 0 0 0 4px 
   white-space: nowrap; transition: background 0.15s;
 }
 .obs-create-btn:hover { background: var(--purple-dim); }
+.obs-link-row { margin-top: 8px; }
+.obs-link-toggle {
+  background: none; border: 1px dashed rgba(187,154,247,0.3);
+  color: var(--text3); border-radius: 8px; padding: 5px 12px;
+  font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px;
+  transition: all 0.15s; font-family: var(--font);
+}
+.obs-link-toggle:hover { border-color: var(--purple); color: var(--purple); background: var(--purple-dim); }
+.obs-link-form {
+  display: flex; align-items: center; gap: 6px; margin-top: 8px; flex-wrap: wrap;
+}
+.obs-link-input {
+  background: var(--bg3); border: 1px solid var(--border2);
+  color: var(--text); border-radius: 8px; padding: 6px 10px;
+  font-size: 13px; font-family: var(--font); outline: none; flex: 1; min-width: 140px;
+  transition: border-color 0.15s;
+}
+.obs-link-input:focus { border-color: var(--purple); }
+.obs-link-cancel {
+  background: none; border: none; color: var(--text3); font-size: 12px;
+  cursor: pointer; padding: 5px 8px; border-radius: 6px;
+  transition: color 0.15s; font-family: var(--font);
+}
+.obs-link-cancel:hover { color: var(--text); }
 
 /* ─── TASK NOTE SNIPPET ─── */
 .task-note {
@@ -1674,17 +1698,36 @@ async function clearRecurrence(taskId) {
   if (t) renderDetail(t);
 }
 
-async function linkObsidianPrompt(taskId) {
-  const noteName = prompt('Obsidian note name (e.g. "My Note"):');
-  if (!noteName?.trim()) return;
-  const vault = state.obsidianVault || prompt('Vault name:');
-  if (!vault?.trim()) return;
-  const url = `obsidian://open?vault=${encodeURIComponent(vault)}&file=${encodeURIComponent(noteName.trim())}`;
+function toggleObsLinkForm(taskId) {
+  const form = document.getElementById('obsLinkForm');
+  const toggle = document.querySelector('.obs-link-toggle');
+  if (!form) return;
+  const showing = form.style.display !== 'none';
+  form.style.display = showing ? 'none' : 'flex';
+  if (!showing) {
+    const input = document.getElementById('obsLinkInput');
+    if (input) { input.focus(); }
+    if (toggle) toggle.style.display = 'none';
+  } else {
+    if (toggle) toggle.style.display = '';
+  }
+}
+
+async function saveObsidianLink(taskId) {
+  const input = document.getElementById('obsLinkInput');
+  const noteName = input?.value?.trim();
+  if (!noteName) return;
+  const vault = state.obsidianVault;
+  const url = vault
+    ? `obsidian://new?vault=${encodeURIComponent(vault)}&file=${encodeURIComponent(noteName)}`
+    : `obsidian://new?file=${encodeURIComponent(noteName)}`;
   await api(`/tasks/${taskId}`, 'PATCH', { description: url });
   const t = state.tasks.find(t => t.id === taskId);
   if (t) { t.description = url; renderDetail(t); }
   renderContent();
 }
+
+async function linkObsidianPrompt(taskId) { toggleObsLinkForm(taskId); }
 
 async function addDetailTag(e, taskId) {
   if (e.key !== 'Enter' && e.key !== ',') return;
@@ -1863,7 +1906,19 @@ function renderDetail(task) {
         </div>`;
       }
       return `<div class="detail-desc-view${task.description ? '' : ' empty'}" id="detailDescView" onclick="switchToDescEdit()">${task.description ? renderDescLinks(task.description) : 'Add notes…'}</div>
-    <textarea class="detail-desc" id="detailDesc" rows="3" placeholder="Add notes..." style="display:none">${escH(task.description||'')}</textarea>`;
+    <textarea class="detail-desc" id="detailDesc" rows="3" placeholder="Add notes..." style="display:none">${escH(task.description||'')}</textarea>
+    <div class="obs-link-row" id="obsLinkRow">
+      <button class="obs-link-toggle" onclick="toggleObsLinkForm('${task.id}')">
+        <span style="font-size:13px">🔮</span> Link Obsidian note
+      </button>
+      <div class="obs-link-form" id="obsLinkForm" style="display:none">
+        <input class="obs-link-input" id="obsLinkInput" placeholder="Note name…"
+          onkeydown="if(event.key==='Enter')saveObsidianLink('${task.id}')">
+        <button class="btn btn-primary" style="font-size:12px;padding:5px 12px"
+          onclick="saveObsidianLink('${task.id}')">Link</button>
+        <button class="obs-link-cancel" onclick="toggleObsLinkForm('${task.id}')">Cancel</button>
+      </div>
+    </div>`;
     })()}
 
     <!-- Recurrence editor -->
