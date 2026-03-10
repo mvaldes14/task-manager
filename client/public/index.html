@@ -1040,10 +1040,28 @@ body.light .color-swatch.selected { box-shadow: 0 0 0 2px var(--bg2), 0 0 0 4px 
 .detail-desc-view a { color: var(--accent); text-decoration: none; font-weight: 500; }
 .detail-desc-view a:hover { text-decoration: underline; }
 .detail-desc-view.empty { color: var(--text4); font-style: italic; }
+
+@keyframes ptr-spin {
+  to { transform: rotate(360deg); }
+}
 </style>
 </head>
 <body>
 <div id="app">
+  <!-- Pull to refresh indicator -->
+  <div id="ptrIndicator" style="
+    position:fixed;top:0;left:0;right:0;z-index:100;
+    display:flex;align-items:center;justify-content:center;
+    height:56px;transform:translateY(-56px);
+    transition:transform 0.2s ease;pointer-events:none;
+  ">
+    <div id="ptrSpinner" style="
+      width:24px;height:24px;border-radius:50%;
+      border:2.5px solid var(--bg4);
+      border-top-color:var(--accent);
+      transition:transform 0.1s;
+    "></div>
+  </div>
   <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
 
   <aside class="sidebar" id="sidebar">
@@ -2649,6 +2667,49 @@ document.addEventListener('keydown', e => {
   const isTyping = tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.isContentEditable;
   if (e.key === 'q' && !e.metaKey && !e.ctrlKey && !isTyping) { e.preventDefault(); openFab(); }
 });
+
+// ── PULL TO REFRESH ──
+(function() {
+  const THRESHOLD = 80;
+  let startY = 0, pulling = false, refreshing = false;
+  const indicator = document.getElementById('ptrIndicator');
+  const spinner   = document.getElementById('ptrSpinner');
+  const content   = document.getElementById('contentArea');
+
+  document.addEventListener('touchstart', e => {
+    if (refreshing) return;
+    startY = e.touches[0].clientY;
+    pulling = (content?.scrollTop ?? 0) === 0;
+  }, { passive: true });
+
+  document.addEventListener('touchmove', e => {
+    if (!pulling || refreshing) return;
+    const dy = e.touches[0].clientY - startY;
+    if (dy <= 0) { pulling = false; return; }
+    const offset = Math.min(dy * 0.5, 56);
+    indicator.style.transform = `translateY(${offset - 56}px)`;
+    spinner.style.transform = `rotate(${Math.min(dy / THRESHOLD, 1) * 360}deg)`;
+  }, { passive: true });
+
+  document.addEventListener('touchend', async e => {
+    if (!pulling || refreshing) return;
+    pulling = false;
+    const dy = e.changedTouches[0].clientY - startY;
+    if (dy < THRESHOLD) {
+      indicator.style.transform = 'translateY(-56px)';
+      return;
+    }
+    refreshing = true;
+    indicator.style.transform = 'translateY(0)';
+    spinner.style.animation = 'ptr-spin 0.6s linear infinite';
+    await loadTasks();
+    await loadProjects();
+    renderSidebar(); renderContent(); updateNavCounts();
+    indicator.style.transition = 'transform 0.3s ease';
+    indicator.style.transform  = 'translateY(-56px)';
+    setTimeout(() => { spinner.style.animation = ''; refreshing = false; }, 300);
+  });
+})();
 </script>
 </body>
 </html>
