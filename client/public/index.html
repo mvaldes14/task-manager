@@ -1254,13 +1254,31 @@ function renderNoteSnippet(text) {
 }
 
 function obsidianLabel(url) {
+  if (!url) return 'Note';
+  // Handle double-encoded or mangled URLs — find the last file= param anywhere
+  // First try to extract from a clean obsidian:// URL
+  let target = url;
+  // If the url contains an encoded obsidian:// inside, decode and use that
+  if (url.includes('obsidian%3A%2F%2F') || url.includes('obsidian://open') || url.includes('obsidian://new')) {
+    // Find the last occurrence of file= and grab its value
+    const allFileParams = [...url.matchAll(/[?&]file=([^&]+)/g)];
+    if (allFileParams.length) {
+      // Use the last match — most likely the actual filename
+      let name = decodeURIComponent(allFileParams[allFileParams.length - 1][1]).replace(/\+/g,' ');
+      // Strip any remaining URL cruft (if name itself looks like a URL)
+      if (name.includes('obsidian://')) name = name.split('obsidian://')[0].trim();
+      // Strip folder prefix — show just the filename
+      const slash = name.lastIndexOf('/');
+      if (slash !== -1) name = name.slice(slash + 1);
+      return name || 'Note';
+    }
+  }
   const fn = url.match(/[?&]file=([^&]+)/);
   if (!fn) return 'Note';
   let name = decodeURIComponent(fn[1]).replace(/\+/g,' ');
-  // Strip leading folder path — show just the filename
   const slash = name.lastIndexOf('/');
   if (slash !== -1) name = name.slice(slash + 1);
-  return name;
+  return name || 'Note';
 }
 
 function obsidianPillHtml(url) {
@@ -1722,8 +1740,15 @@ function toggleObsLinkForm(taskId) {
 
 async function saveObsidianLink(taskId) {
   const input = document.getElementById('obsLinkInput');
-  const noteName = input?.value?.trim();
+  let noteName = input?.value?.trim();
   if (!noteName) return;
+  // Strip any accidental obsidian:// URL pasted into the field — extract just the note name
+  if (noteName.startsWith('obsidian://')) {
+    noteName = obsidianLabel(noteName);
+  }
+  // Strip any folder prefix the user may have typed — we'll add inbox prefix ourselves
+  const slash = noteName.lastIndexOf('/');
+  if (slash !== -1) noteName = noteName.slice(slash + 1);
   const vault = state.obsidianVault;
   const prefix = state.obsidianInbox ? state.obsidianInbox + '/' : '';
   const filePath = prefix + noteName;
