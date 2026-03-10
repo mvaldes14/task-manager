@@ -339,6 +339,8 @@ body.light .topbar { background: rgba(242,242,247,0.85); }
 }
 .badge-date { color: var(--teal); background: rgba(90,200,250,0.12); }
 .badge-date.overdue { color: var(--red); background: var(--red-dim); }
+.nav-count-overdue { background: var(--red-dim) !important; color: var(--red) !important; }
+.nav-count-review  { background: var(--amber-dim) !important; color: var(--amber) !important; }
 .badge-date.today { color: var(--amber); background: var(--amber-dim); }
 .badge-high { color: var(--red); background: var(--red-dim); }
 .badge-low { color: var(--text3); background: var(--bg4); }
@@ -865,6 +867,14 @@ body.light .color-swatch.selected { box-shadow: 0 0 0 2px var(--bg2), 0 0 0 4px 
         <div class="nav-icon">🗂️</div><span>All Tasks</span>
         <span class="nav-count" id="count-all">0</span>
       </div>
+      <div class="nav-item" id="nav-overdue" onclick="selectView('overdue')" style="display:none">
+        <div class="nav-icon">🔴</div><span>Overdue</span>
+        <span class="nav-count nav-count-overdue" id="count-overdue">0</span>
+      </div>
+      <div class="nav-item" id="nav-review" onclick="selectView('review')" style="display:none">
+        <div class="nav-icon">🗂️</div><span>To Review</span>
+        <span class="nav-count nav-count-review" id="count-review">0</span>
+      </div>
     </div>
 
     <div class="sidebar-section" style="flex:1;overflow:hidden;display:flex;flex-direction:column;">
@@ -1084,6 +1094,12 @@ async function updateNavCounts() {
   document.getElementById('count-inbox').textContent    = all.filter(t=>t.project_id==='inbox'&&t.status!=='done').length;
   document.getElementById('count-today').textContent    = all.filter(t=>t.due_date===today&&t.status!=='done').length;
   document.getElementById('count-upcoming').textContent = all.filter(t=>t.due_date>=today&&t.due_date<=week&&t.status!=='done').length;
+  const overdueCount = all.filter(t=>t.due_date&&t.due_date<today&&t.status!=='done').length;
+  document.getElementById('count-overdue').textContent = overdueCount;
+  document.getElementById('nav-overdue').style.display = overdueCount > 0 ? '' : 'none';
+  const reviewCount = all.filter(t=>t.status!=='done'&&(t.project_id==='inbox'||!t.project_id)&&(!t.tags||!t.tags.length)).length;
+  document.getElementById('count-review').textContent = reviewCount;
+  document.getElementById('nav-review').style.display = reviewCount > 0 ? '' : 'none';
   document.getElementById('count-all').textContent      = all.filter(t=>t.status!=='done').length;
 }
 
