@@ -502,6 +502,37 @@ body.light .topbar { background: rgba(242,242,247,0.85); }
 
 .fab-modal-footer { display: flex; justify-content: flex-end; }
 
+/* ── Mobile: full-width bottom sheet ── */
+@media (max-width: 700px) {
+  .fab-modal {
+    top: auto;
+    bottom: 0; left: 0; right: 0;
+    max-width: 100%;
+    border-radius: 20px 20px 0 0;
+    padding: 20px 20px calc(16px + env(safe-area-inset-bottom, 0px));
+    transform: translateY(100%);
+    transition: transform 0.3s cubic-bezier(0.32,0.72,0,1), opacity 0.2s;
+    opacity: 1;
+  }
+  .fab-modal.open { transform: translateY(0); opacity: 1; }
+  .fab-modal-input {
+    font-size: 22px; font-weight: 400;
+    padding: 4px 0 16px;
+    letter-spacing: -0.3px;
+  }
+  .fab-modal-hint { font-size: 12px; gap: 10px; }
+  .fab-modal-footer { display: none; }
+  /* drag handle */
+  .fab-modal::before {
+    content: '';
+    display: block;
+    width: 36px; height: 4px;
+    background: var(--border2);
+    border-radius: 2px;
+    margin: 0 auto 16px;
+  }
+}
+
 /* ── Mobile bottom sheet FAB ── */
 @media (max-width: 700px) {
   .fab-modal {
@@ -908,6 +939,8 @@ body.light .color-swatch.selected { box-shadow: 0 0 0 2px var(--bg2), 0 0 0 4px 
   /* push content up so tab bar doesn't overlap */
   .content { padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px)); }
   .fab { bottom: calc(72px + env(safe-area-inset-bottom, 0px)); right: 16px; }
+  /* overlay: lighter scrim for bottom sheet */
+  .fab-modal-overlay { backdrop-filter: none; -webkit-backdrop-filter: none; background: rgba(0,0,0,0.4); }
   /* hide hamburger menu btn on mobile since we have tab bar */
   .menu-btn { display: none !important; }
   .sidebar {
