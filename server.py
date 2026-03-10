@@ -295,10 +295,10 @@ def parse_natural_language(text):
     # ── Recurrence detection (before other parsing so phrases get consumed) ──
     recurrence_rule, text = parse_recurrence(text)
 
-    # ── Obsidian note shorthand: !notename or ![[notename]] ──
-    wiki_match = re.search(r'!\[\[([^\]]+)\]\]|!(\S+)', text)
+    # ── Obsidian new note shorthand: !notename (FAB only — creates new note) ──
+    wiki_match = re.search(r'!(\S+)', text)
     if wiki_match:
-        note_name = (wiki_match.group(1) or wiki_match.group(2)).strip()
+        note_name = wiki_match.group(1).strip()
         vault = OBSIDIAN_VAULT or 'vault'
         from urllib.parse import quote
         inbox_prefix = (OBSIDIAN_INBOX + '/') if OBSIDIAN_INBOX else ''
