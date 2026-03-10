@@ -356,9 +356,8 @@ body.light .topbar { background: rgba(242,242,247,0.85); }
 .badge-date { color: var(--teal); background: rgba(90,200,250,0.12); }
 .badge-date.overdue { color: var(--red); background: var(--red-dim); }
 .nav-count-overdue { color: var(--red) !important; }
-.nav-count-review  { color: var(--amber) !important; }
+
 #nav-overdue .nav-icon { color: var(--red); }
-#nav-review .nav-icon  { color: var(--amber); }
 .badge-date.today { color: var(--amber); background: var(--amber-dim); }
 .badge-high { color: var(--red); background: var(--red-dim); }
 .badge-low { color: var(--text3); background: var(--bg4); }
@@ -1030,14 +1029,11 @@ body.light .color-swatch.selected { box-shadow: 0 0 0 2px var(--bg2), 0 0 0 4px 
         <div class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg></div><span>All Tasks</span>
         <span class="nav-count" id="count-all">0</span>
       </div>
-      <div class="nav-item" id="nav-overdue" onclick="selectView('overdue')" style="display:none">
+      <div class="nav-item" id="nav-overdue" onclick="selectView('overdue')" >
         <div class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div><span>Overdue</span>
         <span class="nav-count nav-count-overdue" id="count-overdue">0</span>
       </div>
-      <div class="nav-item" id="nav-review" onclick="selectView('review')" style="display:none">
-        <div class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg></div><span>To Review</span>
-        <span class="nav-count nav-count-review" id="count-review">0</span>
-      </div>
+
     </div>
 
     <div class="sidebar-section" style="flex:1;overflow:hidden;display:flex;flex-direction:column;">
@@ -1230,7 +1226,6 @@ async function loadTasks() {
   const v = state.currentSpecial;
   let path = v === 'today' ? '/tasks/today'
     : v === 'overdue' ? '/tasks/overdue'
-    : v === 'review'  ? '/tasks/review'
     : v === 'upcoming' ? '/tasks'
     : v === 'all' ? '/tasks'
     : v.startsWith('project:') ? `/tasks?project_id=${v.split(':')[1]}`
@@ -1280,10 +1275,7 @@ async function updateNavCounts() {
   document.getElementById('count-upcoming').textContent = all.filter(t=>t.due_date&&t.status!=='done').length;
   const overdueCount = all.filter(t=>t.due_date&&t.due_date<today&&t.status!=='done').length;
   document.getElementById('count-overdue').textContent = overdueCount;
-  document.getElementById('nav-overdue').style.display = overdueCount > 0 ? '' : 'none';
-  const reviewCount = all.filter(t=>t.status!=='done'&&(t.project_id==='inbox'||!t.project_id)&&(!t.tags||!t.tags.length)).length;
-  document.getElementById('count-review').textContent = reviewCount;
-  document.getElementById('nav-review').style.display = reviewCount > 0 ? '' : 'none';
+  // overdue count only — always visible
   document.getElementById('count-all').textContent      = all.filter(t=>t.status!=='done').length;
 }
 
@@ -1296,7 +1288,7 @@ function selectView(v) {
   if (['inbox','today','upcoming','all'].includes(v)) {
     document.getElementById(`nav-${v}`)?.classList.add('active');
   }
-  const titles = {inbox:'Inbox',today:'Today',upcoming:'Calendar',all:'All Tasks'};
+  const titles = {inbox:'Inbox',today:'Today',upcoming:'Calendar',overdue:'Overdue',all:'All Tasks'};
   if (v.startsWith('project:')) {
     const p = state.projects.find(p=>p.id===v.split(':')[1]);
     document.getElementById('topbarTitle').textContent = p ? `${p.icon} ${p.name}` : 'Project';
@@ -1450,58 +1442,7 @@ function renderList(container) {
   const div = document.createElement('div');
   div.className = 'list-view';
 
-  // ── To Review view ──
-  if (state.currentSpecial === 'review') {
-    if (!state.tasks.length) {
-      div.style.cssText="flex:1;display:flex;align-items:center;justify-content:center;";
-      div.innerHTML = `<div class="empty-state"><div class="empty-icon">✅</div><p>Nothing to review!<br>All tasks are organised.</p></div>`;
-      container.appendChild(div); return;
-    }
-    const sec = document.createElement('div');
-    sec.className = 'list-group';
-    sec.innerHTML = `<div class="list-group-header">
-      <span class="group-title">Needs triage</span>
-      <span style="font-size:11px;color:var(--text4);margin-left:4px">no project · no labels</span>
-      <span class="group-count">${state.tasks.length}</span>
-    </div>`;
-    const groupList = document.createElement('div');
-    groupList.className = 'task-group-list';
-    state.tasks.forEach(task => {
-      const item = document.createElement('div');
-      item.className = 'task-item review-item';
-      const sc = (task.subtasks||[]).length, sd = (task.subtasks||[]).filter(s=>s.completed).length;
-      // Project picker options
-      const projOpts = state.projects.filter(p=>p.id!=='inbox')
-        .map(p=>`<option value="${escH(p.id)}">${escH(p.name)}</option>`).join('');
-      item.innerHTML = `
-        <div class="task-check" onclick="toggleTask(event,'${task.id}')"></div>
-        <div class="task-body">
-          <div class="task-title">${escH(task.title)}</div>
-          ${task.due_date ? `<div class="task-meta">${renderTaskBadges(task)}</div>` : ''}
-          <div class="review-actions">
-            <select class="review-select" onchange="assignProject('${task.id}',this.value)" onclick="event.stopPropagation()">
-              <option value="">Move to project…</option>
-              ${projOpts}
-            </select>
-            <input class="review-tag-input" placeholder="Add label + Enter" onkeydown="addLabelFromReview(event,'${task.id}')" onclick="event.stopPropagation()">
-          </div>
-        </div>
-        <svg class="task-chevron" width="7" height="12" viewBox="0 0 7 12" fill="none">
-          <path d="M1 1l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>`;
-      item.addEventListener('click', e => {
-        if (e.target.closest('.review-actions') || e.target.classList.contains('task-check')) return;
-        if (e.target.tagName === 'A') return;
-        openDetail(task.id);
-      });
-      groupList.appendChild(item);
-    });
-    sec.appendChild(groupList);
-    div.appendChild(sec);
-    container.appendChild(div); return;
-  }
-
-  // Special header for overdue view with grouped-by-date sections
+    // Special header for overdue view with grouped-by-date sections
   if (state.currentSpecial === 'overdue') {
     if (!state.tasks.length) {
       div.style.cssText="flex:1;display:flex;align-items:center;justify-content:center;";
@@ -2019,21 +1960,6 @@ async function removeDetailTag(taskId, tag) {
   if (updated) { task.tags = updated.tags; renderDetail(task); renderContent(); }
 }
 
-async function assignProject(taskId, projectId) {
-  if (!projectId) return;
-  await api(`/tasks/${taskId}`, 'PATCH', { project_id: projectId });
-  await loadTasks(); await loadProjects(); renderSidebar(); renderContent();
-}
-
-async function addLabelFromReview(e, taskId) {
-  if (e.key !== 'Enter') return;
-  const label = e.target.value.trim().replace(/^@/, '');
-  if (!label) return;
-  const task = state.tasks.find(t => t.id === taskId);
-  const tags = [...(task?.tags || []), label];
-  await api(`/tasks/${taskId}`, 'PATCH', { tags });
-  await loadTasks(); renderSidebar(); renderContent();
-}
 
 async function unlinkObsidian(taskId) {
   await api(`/tasks/${taskId}`, 'PATCH', { description: '', obsidian_url: null });

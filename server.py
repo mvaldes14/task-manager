@@ -939,16 +939,6 @@ def get_upcoming():
 def get_overdue():
     return jsonify(_fetch_tasks("SELECT * FROM tasks WHERE due_date<CURRENT_DATE AND status!='done' ORDER BY due_date,due_time"))
 
-@app.route('/api/tasks/review',methods=['GET'])
-def get_review():
-    # Tasks that need triage: in inbox (or no project), no labels/tags, not done
-    return jsonify(_fetch_tasks("""
-        SELECT * FROM tasks
-        WHERE status != 'done'
-          AND (project_id = 'inbox' OR project_id IS NULL)
-          AND (tags = '[]' OR tags IS NULL)
-        ORDER BY created_at
-    """))
 
 # ─────────────────────────────────────────────
 
