@@ -393,7 +393,28 @@ def parse_natural_language(text):
 
     if found_date: result['due_date']=found_date.isoformat()
     if found_time: result['due_time']=found_time
-    if recurrence_rule: result['recurrence']=recurrence_rule
+    if recurrence_rule:
+        result['recurrence'] = recurrence_rule
+        # Auto-set first due date from the rule if none was explicitly given
+        if not found_date:
+            rule = json.loads(recurrence_rule)
+            rtype = rule.get('type')
+            if rtype == 'daily':
+                found_date = today + timedelta(days=1)
+            elif rtype == 'weekly':
+                # Next occurrence of the first listed day
+                days = rule.get('days', [0])
+                current_dow = today.weekday()
+                delta = min((d - current_dow) % 7 or 7 for d in days)
+                found_date = today + timedelta(days=delta)
+            elif rtype == 'interval':
+                found_date = today + timedelta(days=rule.get('days', 7))
+            elif rtype in ('monthly_dom', 'monthly_dow'):
+                found_date = next_due_date(recurrence_rule, today)
+            elif rtype == 'yearly':
+                found_date = next_due_date(recurrence_rule, today)
+            if found_date:
+                result['due_date'] = found_date.isoformat()
     title=re.sub(r'\s+',' ',text).strip(); title=re.sub(r'^[,.\-]\s*','',title); title=re.sub(r'\s*[,.]$','',title)
     result['title']=title or original
     parts=[]
