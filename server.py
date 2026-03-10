@@ -4,6 +4,7 @@
 import json, re, os, uuid, hashlib, secrets, time as _time
 from datetime import datetime, date, timedelta, timezone
 import psycopg2, psycopg2.extras
+from psycopg2 import pool as psycopg2_pool
 from flask import Flask, request, jsonify, send_from_directory, redirect, make_response
 
 app = Flask(__name__, static_folder='client/public')
@@ -18,10 +19,21 @@ OBSIDIAN_INBOX  = os.environ.get('OBSIDIAN_INBOX', '').strip().strip('/')
 print(f"[startup] DATABASE_URL = {DATABASE_URL}", flush=True)
 if OBSIDIAN_VAULT: print(f"[startup] Obsidian vault: {OBSIDIAN_VAULT}" + (f" inbox: {OBSIDIAN_INBOX}" if OBSIDIAN_INBOX else ""), flush=True)
 
+_pool = None
+
+def get_pool():
+    global _pool
+    if _pool is None:
+        _pool = psycopg2_pool.ThreadedConnectionPool(2, 10, DATABASE_URL)
+    return _pool
+
 def get_db():
-    conn = psycopg2.connect(DATABASE_URL)
+    conn = get_pool().getconn()
     conn.autocommit = False
     return conn
+
+def release_db(conn):
+    get_pool().putconn(conn)
 
 def init_db():
     print("[init_db] creating tables...", flush=True)
@@ -59,12 +71,17 @@ def init_db():
                 expires TIMESTAMPTZ NOT NULL, remember BOOLEAN DEFAULT FALSE
             )""")
         cur.execute("INSERT INTO projects (id,name,color,icon) VALUES ('inbox','Inbox','#6366f1','📥') ON CONFLICT (id) DO NOTHING")
+        # Indexes for common query patterns
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_tasks_project_id ON tasks(project_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_tasks_due_date ON tasks(due_date)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_subtasks_task_id ON subtasks(task_id)")
         conn.commit()
         print("[init_db] done.", flush=True)
     except Exception as e:
         conn.rollback(); print(f"[init_db] error: {e}", flush=True); raise
     finally:
-        conn.close()
+        release_db(conn)
 
 init_db()
 
@@ -72,7 +89,7 @@ def tables_exist():
     try:
         conn = get_db(); cur = conn.cursor()
         cur.execute("SELECT COUNT(*) FROM information_schema.tables WHERE table_name IN ('projects','tasks','subtasks')")
-        count = cur.fetchone()[0]; conn.close(); return count == 3
+        count = cur.fetchone()[0]; release_db(conn); return count == 3
     except: return False
 
 def row_to_dict(row):
@@ -281,7 +298,7 @@ def clone_recurring_task(task: dict, next_date: date) -> dict:
         new_task['subtasks'] = []
         conn.commit()
     finally:
-        conn.close()
+        release_db(conn)
     return new_task
 
 
@@ -493,7 +510,7 @@ def _gcal_save(task_id, event_id):
         cur = conn.cursor()
         cur.execute("UPDATE tasks SET gcal_event_id=%s WHERE id=%s",(event_id,task_id))
         conn.commit()
-    finally: conn.close()
+    finally: release_db(conn)
 
 # ─────────────────────────────────────────────
 # AUTH
@@ -525,14 +542,14 @@ def _create_session(remember):
     conn=get_db()
     try:
         cur=conn.cursor(); cur.execute("INSERT INTO sessions (id,expires,remember) VALUES (%s,%s,%s)",(sid,expires,remember)); conn.commit()
-    finally: conn.close()
+    finally: release_db(conn)
     return sid,expires
 
 def _valid_session(sid):
     if not sid: return False
     try:
         conn=get_db(); cur=conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        cur.execute("SELECT expires FROM sessions WHERE id=%s",(sid,)); row=cur.fetchone(); conn.close()
+        cur.execute("SELECT expires FROM sessions WHERE id=%s",(sid,)); row=cur.fetchone(); release_db(conn)
         if not row: return False
         exp=row['expires']; exp=exp.replace(tzinfo=timezone.utc) if exp.tzinfo is None else exp
         return datetime.now(timezone.utc)<exp
@@ -540,12 +557,12 @@ def _valid_session(sid):
 
 def _delete_session(sid):
     try:
-        conn=get_db(); cur=conn.cursor(); cur.execute("DELETE FROM sessions WHERE id=%s",(sid,)); conn.commit(); conn.close()
+        conn=get_db(); cur=conn.cursor(); cur.execute("DELETE FROM sessions WHERE id=%s",(sid,)); conn.commit(); release_db(conn)
     except: pass
 
 def _purge_expired_sessions():
     try:
-        conn=get_db(); cur=conn.cursor(); cur.execute("DELETE FROM sessions WHERE expires<NOW()"); conn.commit(); conn.close()
+        conn=get_db(); cur=conn.cursor(); cur.execute("DELETE FROM sessions WHERE expires<NOW()"); conn.commit(); release_db(conn)
     except: pass
 
 def _is_authenticated():
@@ -649,7 +666,7 @@ def get_projects():
             FROM projects p LEFT JOIN tasks t ON t.project_id=p.id
             GROUP BY p.id ORDER BY p.created_at""")
         rows=cur.fetchall()
-    finally: conn.close()
+    finally: release_db(conn)
     return jsonify([row_to_dict(r) for r in rows])
 
 @app.route('/api/projects',methods=['POST'])
@@ -661,7 +678,7 @@ def create_project():
         cur.execute("INSERT INTO projects (id,name,color,icon) VALUES (%s,%s,%s,%s)",
                     (pid,data['name'],data.get('color','#6366f1'),data.get('icon','📁')))
         cur.execute("SELECT * FROM projects WHERE id=%s",(pid,)); row=cur.fetchone(); conn.commit()
-    finally: conn.close()
+    finally: release_db(conn)
     return jsonify(row_to_dict(row)),201
 
 @app.route('/api/projects/<pid>',methods=['PUT','PATCH'])
@@ -672,7 +689,7 @@ def update_project(pid):
         for f in ('name','color','icon'):
             if f in data: cur.execute(f"UPDATE projects SET {f}=%s,updated_at=NOW() WHERE id=%s",(data[f],pid))
         cur.execute("SELECT * FROM projects WHERE id=%s",(pid,)); row=cur.fetchone(); conn.commit()
-    finally: conn.close()
+    finally: release_db(conn)
     return jsonify(row_to_dict(row))
 
 @app.route('/api/projects/<pid>',methods=['DELETE'])
@@ -682,20 +699,33 @@ def delete_project(pid):
     try:
         cur=conn.cursor(); cur.execute("UPDATE tasks SET project_id='inbox' WHERE project_id=%s",(pid,))
         cur.execute("DELETE FROM projects WHERE id=%s",(pid,)); conn.commit()
-    finally: conn.close()
+    finally: release_db(conn)
     return '',204
 
 # ── Tasks helpers ──
 
-def _fetch_tasks(query,params=()):
-    conn=get_db()
+def _fetch_tasks(query, params=()):
+    conn = get_db()
     try:
-        cur=conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        cur.execute(query,params); tasks=[row_to_dict(r) for r in cur.fetchall()]
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(query, params)
+        tasks = [row_to_dict(r) for r in cur.fetchall()]
+        if not tasks:
+            return tasks
+        # Single query for all subtasks instead of N+1
+        task_ids = [t['id'] for t in tasks]
+        cur.execute(
+            "SELECT * FROM subtasks WHERE task_id = ANY(%s) ORDER BY task_id, position",
+            (task_ids,)
+        )
+        subtasks_by_task = {}
+        for s in cur.fetchall():
+            s = row_to_dict(s)
+            subtasks_by_task.setdefault(s['task_id'], []).append(s)
         for t in tasks:
-            cur.execute("SELECT * FROM subtasks WHERE task_id=%s ORDER BY position",(t['id'],))
-            t['subtasks']=[row_to_dict(s) for s in cur.fetchall()]
-    finally: conn.close()
+            t['subtasks'] = subtasks_by_task.get(t['id'], [])
+    finally:
+        release_db(conn)
     return tasks
 
 # ── Tasks ──
@@ -734,7 +764,7 @@ def create_task():
                 cur.execute("INSERT INTO projects (id,name,color,icon) VALUES (%s,%s,%s,'📁')",
                             (new_pid,pname.capitalize(),PALETTE[hash(pname)%len(PALETTE)])); project_id=new_pid
             conn.commit()
-        finally: conn.close()
+        finally: release_db(conn)
     conn=get_db()
     try:
         cur=conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
@@ -746,14 +776,14 @@ def create_task():
             (tid,title,data.get('description',''),project_id,status,priority,due_date,due_time,json.dumps(tags),max_pos+1,recurrence,recurrence_end,obsidian_url))
         cur.execute("SELECT * FROM tasks WHERE id=%s",(tid,)); task=row_to_dict(cur.fetchone())
         task['subtasks']=[]; conn.commit()
-    finally: conn.close()
+    finally: release_db(conn)
     if nlp.get('nlp_summary'): task['nlp_summary']=nlp['nlp_summary']
     # Keep description in sync with obsidian_url for pill rendering
     if obsidian_url and not data.get('description','').strip():
         conn=get_db()
         try:
             cur=conn.cursor(); cur.execute("UPDATE tasks SET description=%s WHERE id=%s",(obsidian_url,tid)); conn.commit()
-        finally: conn.close()
+        finally: release_db(conn)
         task['description']=obsidian_url
     if due_date:
         eid=gcal_upsert(task)
@@ -770,7 +800,7 @@ def get_task(tid):
         task=row_to_dict(row)
         cur.execute("SELECT * FROM subtasks WHERE task_id=%s ORDER BY position",(tid,))
         task['subtasks']=[row_to_dict(s) for s in cur.fetchall()]
-    finally: conn.close()
+    finally: release_db(conn)
     return jsonify(task)
 
 @app.route('/api/tasks/<tid>',methods=['PUT','PATCH'])
@@ -796,7 +826,7 @@ def update_task(tid):
         cur.execute("SELECT * FROM subtasks WHERE task_id=%s ORDER BY position",(tid,))
         result['subtasks']=[row_to_dict(s) for s in cur.fetchall()]
         conn.commit()
-    finally: conn.close()
+    finally: release_db(conn)
     # ── Recurrence: clone when completed ──
     if data.get('status') == 'done' and result.get('recurrence'):
         from_date = date.fromisoformat(result['due_date']) if result.get('due_date') else date.today()
@@ -826,7 +856,7 @@ def delete_task(tid):
         if row and row['gcal_event_id']: gcal_delete(row['gcal_event_id'])
         cur.execute("DELETE FROM subtasks WHERE task_id=%s",(tid,))
         cur.execute("DELETE FROM tasks WHERE id=%s",(tid,)); conn.commit()
-    finally: conn.close()
+    finally: release_db(conn)
     return '',204
 
 # ── Subtasks ──
@@ -843,7 +873,7 @@ def add_subtask(tid):
             (sid,tid,nlp.get('title') or data.get('title',''),max_pos+1,
              nlp.get('due_date'),nlp.get('due_time'),nlp.get('priority','medium'),json.dumps(nlp.get('labels',[]))))
         cur.execute("SELECT * FROM subtasks WHERE id=%s",(sid,)); row=row_to_dict(cur.fetchone()); conn.commit()
-    finally: conn.close()
+    finally: release_db(conn)
     if nlp.get('nlp_summary'): row['nlp_summary']=nlp['nlp_summary']
     return jsonify(row),201
 
@@ -857,7 +887,7 @@ def update_subtask(tid,sid):
         if 'completed' in data: cur.execute("UPDATE subtasks SET completed=%s WHERE id=%s",(bool(data['completed']),sid))
         if 'labels' in data: cur.execute("UPDATE subtasks SET labels=%s WHERE id=%s",(json.dumps(data['labels']),sid))
         cur.execute("SELECT * FROM subtasks WHERE id=%s",(sid,)); row=cur.fetchone(); conn.commit()
-    finally: conn.close()
+    finally: release_db(conn)
     return jsonify(row_to_dict(row))
 
 @app.route('/api/tasks/<tid>/subtasks/<sid>',methods=['DELETE'])
@@ -865,7 +895,7 @@ def delete_subtask(tid,sid):
     conn=get_db()
     try:
         cur=conn.cursor(); cur.execute("DELETE FROM subtasks WHERE id=%s",(sid,)); conn.commit()
-    finally: conn.close()
+    finally: release_db(conn)
     return '',204
 
 # ── Misc ──
@@ -879,7 +909,7 @@ def reorder_tasks():
             cur.execute("UPDATE tasks SET position=%s,status=%s,updated_at=NOW() WHERE id=%s",
                         (item['position'],item['status'],item['id']))
         conn.commit()
-    finally: conn.close()
+    finally: release_db(conn)
     return jsonify({'ok':True})
 
 @app.route('/api/gcal/status',methods=['GET'])
