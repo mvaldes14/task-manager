@@ -1,4 +1,4 @@
-const CACHE = 'td-v1';
+const CACHE = 'td-v2';
 const OFFLINE_ASSETS = ['/', '/manifest.json'];
 
 self.addEventListener('install', e => {
