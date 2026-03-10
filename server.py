@@ -287,7 +287,7 @@ def clone_recurring_task(task: dict, next_date: date) -> dict:
 def parse_natural_language(text):
     original = text
     result = {'title': text, 'due_date': None, 'due_time': None, 'priority': 'medium',
-              'project_name': None, 'labels': [], 'nlp_summary': None, 'obsidian_url': None,
+              'project_name': None, 'labels': [], 'nlp_summary': None, 'obsidian_url': None, 'obsidian_new_url': None,
               'recurrence': None}
     today = date.today()
     found_date = found_time = None
@@ -302,7 +302,8 @@ def parse_natural_language(text):
         vault = OBSIDIAN_VAULT or 'vault'
         from urllib.parse import quote
         inbox_prefix = (OBSIDIAN_INBOX + '/') if OBSIDIAN_INBOX else ''
-        result['obsidian_url'] = f"obsidian://new?vault={quote(vault)}&file={quote(inbox_prefix + note_name)}"
+        result['obsidian_url'] = f"obsidian://open?vault={quote(vault)}&file={quote(inbox_prefix + note_name)}"
+        result['obsidian_new_url'] = f"obsidian://new?vault={quote(vault)}&file={quote(inbox_prefix + note_name)}"
         result['obsidian_note'] = note_name
         text = text[:wiki_match.start()] + text[wiki_match.end():].strip()
 

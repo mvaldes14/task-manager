@@ -1554,6 +1554,8 @@ async function updateFabChips(text) {
   chips.innerHTML = '';
   let hasChips = false;
   if (r?.obsidian_url) {
+    // Fire obsidian://new once to create the note as soon as user sees the chip
+    if (r.obsidian_new_url) window.open(r.obsidian_new_url, '_blank');
     chips.appendChild(buildObsidianChip(r.obsidian_url, r.obsidian_note));
     hasChips = true;
   }
