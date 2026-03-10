@@ -1534,11 +1534,16 @@ function onRecurTypeChange(taskId) {
   }
 
   if (type === 'interval') {
-    detail.innerHTML = `<input class="recur-input" id="recurIntervalVal" type="number" min="1" max="365" value="14" placeholder="days" style="width:70px">
-      <select class="recur-select" id="recurIntervalUnit" style="width:100px">
-        <option value="days">days</option><option value="weeks">weeks</option>
-      </select>
-      <button class="btn btn-sm" onclick="saveIntervalRecurrence('${taskId}')" style="padding:4px 10px;font-size:12px">Set</button>`;
+    detail.innerHTML = `
+      <div style="display:flex;align-items:center;gap:6px;margin-top:10px;flex-wrap:wrap;">
+        <span style="font-size:12px;color:var(--text3)">Every</span>
+        <input class="recur-input" id="recurIntervalVal" type="number" min="1" max="365" value="14" style="width:56px;text-align:center">
+        <select class="recur-select" id="recurIntervalUnit" style="width:90px">
+          <option value="days">days</option>
+          <option value="weeks">weeks</option>
+        </select>
+        <button class="btn btn-primary" onclick="saveIntervalRecurrence('${taskId}')" style="padding:5px 14px;font-size:12px;margin-left:2px">Save</button>
+      </div>`;
     return;
   }
 
