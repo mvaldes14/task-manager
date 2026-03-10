@@ -1850,15 +1850,15 @@ function renderDetail(task) {
         const label = fn ? decodeURIComponent(fn[1]).replace(/\+/g,' ') : 'Open note';
         const vm = task.description.match(/[?&]vault=([^&]+)/);
         const vault = vm ? decodeURIComponent(vm[1]) : '';
-        const createUrl = (vault ? 'obsidian://new?vault=' + encodeURIComponent(vault) + '&' : 'obsidian://new?')
-          + 'file=' + encodeURIComponent(label) + '&silent=true';
+        // obsidian://new opens existing note OR creates it if missing — best of both
+        const openUrl = (vault ? 'obsidian://new?vault=' + encodeURIComponent(vault) + '&' : 'obsidian://new?')
+          + 'file=' + encodeURIComponent(label);
         return `<div class="detail-obs-row">
-          <a href="${escH(task.description)}" class="obsidian-pill obsidian-pill-lg" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">
+          <a href="${escH(openUrl)}" class="obsidian-pill obsidian-pill-lg" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">
             <span class="obs-icon">🔮</span>
             <span class="obs-label">${escH(label)}</span>
-            <span class="obs-hint">Open ↗</span>
+            <span class="obs-hint">Open / Create ↗</span>
           </a>
-          <a href="${escH(createUrl)}" class="obs-create-btn" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="Create note in Obsidian if it doesn't exist">+ Create</a>
           <button class="obs-unlink" title="Remove link" onclick="unlinkObsidian('${escH(task.id)}')">✕</button>
         </div>`;
       }
