@@ -1269,8 +1269,7 @@ function renderDescLinks(text) {
       urlRe.lastIndex = 0;
       if (part.startsWith('obsidian://')) {
         const fn = part.match(/[?&]file=([^&]+)/);
-        const label = fn ? decodeURIComponent(fn[1]).replace(/%20/g,' ') : 'Obsidian note';
-        return `<a href="${escH(part)}" class="obsidian-pill" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()"><span class="obs-icon">🔮</span>${escH(label)}</a>`;
+        return `<a href="${escH(part)}" class="obsidian-pill" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()"><span class="obs-icon">🔮</span>${escH(obsidianLabel(part))}</a>`;
       }
       return `<a href="${escH(part)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">${escH(part)}</a>`;
     }
@@ -1892,7 +1891,7 @@ function renderDetail(task) {
       const isObsidian = task.description && task.description.trim().startsWith('obsidian://');
       if (isObsidian) {
         const fn = task.description.match(/[?&]file=([^&]+)/);
-        const label = fn ? decodeURIComponent(fn[1]).replace(/\+/g,' ') : 'Open note';
+        const label = obsidianLabel(task.description);
         const vm = task.description.match(/[?&]vault=([^&]+)/);
         const vault = vm ? decodeURIComponent(vm[1]) : '';
         // Always use obsidian://new — opens if exists, creates if not
