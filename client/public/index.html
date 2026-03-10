@@ -789,38 +789,44 @@ body.light .color-swatch.selected { box-shadow: 0 0 0 2px var(--bg2), 0 0 0 4px 
 }
 
 /* ─── CALENDAR VIEW ─── */
-.calendar-view { padding: 16px 16px 120px; flex: 1; }
+.calendar-view { padding: 16px 16px 120px; flex: 1; display: flex; flex-direction: column; }
 .calendar-nav {
   display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 .calendar-nav-title { font-size: 16px; font-weight: 600; color: var(--text); }
 .calendar-nav-btn {
   background: var(--bg3); border: none; border-radius: 8px;
-  color: var(--text2); cursor: pointer; padding: 6px 12px; font-size: 14px;
+  color: var(--text2); cursor: pointer; padding: 6px 14px; font-size: 16px;
   transition: background 0.15s;
 }
 .calendar-nav-btn:hover { background: var(--bg4); }
 .calendar-grid {
   display: grid; grid-template-columns: repeat(7, 1fr);
-  gap: 2px; margin-bottom: 4px;
+  gap: 3px; margin-bottom: 3px;
 }
 .calendar-dow {
   text-align: center; font-size: 11px; font-weight: 600;
-  color: var(--text3); padding: 4px 0; text-transform: uppercase; letter-spacing: .05em;
+  color: var(--text3); padding: 6px 0; text-transform: uppercase; letter-spacing: .06em;
 }
 .calendar-cell {
-  min-height: 80px; background: var(--bg3); border-radius: 8px;
-  padding: 6px; cursor: default; transition: background 0.1s;
+  min-height: 100px; background: var(--bg3); border-radius: 8px;
+  padding: 8px 6px 6px; cursor: default; transition: background 0.1s;
   position: relative;
 }
-.calendar-cell.other-month { background: var(--bg2); opacity: 0.5; }
-.calendar-cell.today { outline: 2px solid var(--accent); outline-offset: -2px; }
+.calendar-cell.other-month { background: var(--bg2); opacity: 0.4; }
+.calendar-cell.today { outline: 2px solid var(--accent); outline-offset: -2px; background: var(--accent-dim); }
 .calendar-cell-date {
-  font-size: 12px; font-weight: 600; color: var(--text3);
-  margin-bottom: 4px;
+  font-size: 12px; font-weight: 700; color: var(--text3);
+  margin-bottom: 5px; line-height: 1;
 }
-.calendar-cell.today .calendar-cell-date { color: var(--accent); }
+.calendar-cell.today .calendar-cell-date {
+  color: var(--accent);
+  background: var(--accent); color: white;
+  width: 20px; height: 20px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px;
+}
 .calendar-task-pill {
   font-size: 11px; padding: 2px 6px; border-radius: 4px;
   background: var(--accent-dim); color: var(--accent);
@@ -829,12 +835,12 @@ body.light .color-swatch.selected { box-shadow: 0 0 0 2px var(--bg2), 0 0 0 4px 
   transition: background 0.1s;
   display: flex; align-items: center; gap: 4px;
 }
-.calendar-task-pill:hover { background: var(--bg5); }
-.calendar-task-pill.done { text-decoration: line-through; opacity: 0.5; }
-.calendar-task-pill.high { background: rgba(247,118,142,0.15); color: var(--red); }
-.calendar-task-pill.overdue { background: rgba(247,118,142,0.15); color: var(--red); }
-.calendar-more { font-size: 10px; color: var(--text3); padding: 1px 4px; cursor: pointer; }
-.calendar-more:hover { color: var(--text); }
+.calendar-task-pill:hover { opacity: 0.8; }
+.calendar-task-pill.done { opacity: 0.4; text-decoration: line-through; }
+.calendar-task-pill.high { background: rgba(247,118,142,0.18); color: var(--red); }
+.calendar-task-pill.overdue { background: rgba(247,118,142,0.18); color: var(--red); }
+.calendar-more { font-size: 10px; color: var(--text3); padding: 2px 4px; cursor: pointer; margin-top: 1px; }
+.calendar-more:hover { color: var(--accent); }
 
 .recur-editor {
   background: var(--bg3); border: 1px solid var(--border); border-radius: 10px;
@@ -1271,7 +1277,7 @@ async function updateNavCounts() {
   const week  = new Date(Date.now()+7*86400000).toISOString().split('T')[0];
   document.getElementById('count-inbox').textContent    = all.filter(t=>t.project_id==='inbox'&&t.status!=='done').length;
   document.getElementById('count-today').textContent    = all.filter(t=>t.due_date===today&&t.status!=='done').length;
-  document.getElementById('count-upcoming').textContent = all.filter(t=>t.due_date>=today&&t.due_date<=week&&t.status!=='done').length;
+  document.getElementById('count-upcoming').textContent = all.filter(t=>t.due_date&&t.status!=='done').length;
   const overdueCount = all.filter(t=>t.due_date&&t.due_date<today&&t.status!=='done').length;
   document.getElementById('count-overdue').textContent = overdueCount;
   document.getElementById('nav-overdue').style.display = overdueCount > 0 ? '' : 'none';
@@ -1609,7 +1615,10 @@ function renderCalendar(container) {
     <div class="calendar-nav">
       <button class="calendar-nav-btn" id="calPrev">‹</button>
       <span class="calendar-nav-title">${monthName}</span>
-      <button class="calendar-nav-btn" id="calNext">›</button>
+      <div style="display:flex;gap:6px;">
+        <button class="calendar-nav-btn" id="calToday" style="font-size:12px;padding:6px 10px;">Today</button>
+        <button class="calendar-nav-btn" id="calNext">›</button>
+      </div>
     </div>
     <div class="calendar-grid" id="calDows"></div>
     <div class="calendar-grid" id="calCells"></div>`;
@@ -1647,6 +1656,12 @@ function renderCalendar(container) {
   }
 
   // Nav buttons
+  div.querySelector('#calToday').onclick = () => {
+    const now = new Date();
+    state.calendarYear  = now.getFullYear();
+    state.calendarMonth = now.getMonth();
+    renderContent();
+  };
   div.querySelector('#calPrev').onclick = () => {
     if (state.calendarMonth === 0) { state.calendarMonth = 11; state.calendarYear--; }
     else state.calendarMonth--;
