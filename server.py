@@ -58,8 +58,12 @@ def init_db():
             )""")
         # Migrate existing tasks table to add recurrence columns
         for col, defn in [('recurrence','TEXT'), ('recurrence_end','DATE'), ('parent_task_id','TEXT')]:
-            try: cur.execute(f"ALTER TABLE tasks ADD COLUMN {col} {defn}")
-            except Exception: conn.rollback(); conn.autocommit = False
+            try:
+                cur.execute("SAVEPOINT sp")
+                cur.execute(f"ALTER TABLE tasks ADD COLUMN {col} {defn}")
+                cur.execute("RELEASE SAVEPOINT sp")
+            except Exception:
+                cur.execute("ROLLBACK TO SAVEPOINT sp")
         cur.execute("INSERT INTO projects (id,name,color,icon) VALUES ('inbox','Inbox','#6366f1','📥') ON CONFLICT (id) DO NOTHING")
         conn.commit()
         print("[init_db] done.", flush=True)
