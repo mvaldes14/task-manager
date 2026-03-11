@@ -489,9 +489,14 @@ def gcal_upsert(task):
             start={'dateTime':dt,'timeZone':'UTC'}; end={'dateTime':end_dt,'timeZone':'UTC'}
         else:
             start={'date':task['due_date']}; end={'date':task['due_date']}
-        body={'summary':task['title'],'description':task.get('description') or '',
+        done = task.get('status') == 'done'
+        title = f"✓ {task['title']}" if done else task['title']
+        body={'summary':title,'description':task.get('description') or '',
               'start':start,'end':end,
+              'colorId': '8' if done else None,  # 8 = graphite in GCal
               'extendedProperties':{'private':{'td_task_id':task['id']}}}
+        # Remove None colorId so GCal uses default
+        if body['colorId'] is None: del body['colorId']
         eid = task.get('gcal_event_id')
         if eid:
             ev = svc.events().update(calendarId=GCAL_CALENDAR_ID,eventId=eid,body=body).execute()
@@ -850,7 +855,7 @@ def update_task(tid):
                 if eid: _gcal_save(new_task['id'], eid)
             result['recurrence_next'] = new_task  # surface in response so UI can react
 
-    if any(f in data for f in ('due_date','due_time','title')):
+    if any(f in data for f in ('due_date','due_time','title','status')):
         if result.get('due_date'):
             eid=gcal_upsert(result)
             if eid and eid!=result.get('gcal_event_id'): _gcal_save(tid,eid); result['gcal_event_id']=eid
