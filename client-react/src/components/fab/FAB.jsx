@@ -29,6 +29,7 @@ export function FAB() {
   const inputRef = useRef(null)
   const timerRef = useRef(null)
   const open = state.fabOpen
+  const taskOpen = !!state.selectedTaskId
 
   useEffect(() => {
     if (open) setTimeout(() => inputRef.current?.focus(), 80)
@@ -104,26 +105,30 @@ export function FAB() {
   return (
     <>
       {/* Mobile FAB */}
-      <button
-        onClick={() => dispatch({ type: 'SET_FAB', payload: { open: true } })}
-        className="md:hidden fixed z-40 right-4 flex items-center justify-center
-          w-14 h-14 rounded-full shadow-lg transition-all active:scale-95 bg-tn-red dark:bg-tn-red"
-        style={{ bottom: 'calc(64px + env(safe-area-inset-bottom, 0px) + 12px)' }}
-        aria-label="Add task"
-      >
-        <Plus size={24} color="white" strokeWidth={2.5} />
-      </button>
+      {!taskOpen && (
+        <button
+          onClick={() => dispatch({ type: 'SET_FAB', payload: { open: true } })}
+          className="md:hidden fixed z-40 right-4 flex items-center justify-center
+            w-14 h-14 rounded-full shadow-lg transition-all active:scale-95 bg-tn-red dark:bg-tn-red"
+          style={{ bottom: 'calc(64px + env(safe-area-inset-bottom, 0px) + 12px)' }}
+          aria-label="Add task"
+        >
+          <Plus size={24} color="white" strokeWidth={2.5} />
+        </button>
+      )}
 
       {/* Desktop FAB */}
-      <button
-        onClick={() => dispatch({ type: 'SET_FAB', payload: { open: true } })}
-        className="hidden md:flex fixed bottom-6 right-6 z-40 items-center justify-center
-          w-14 h-14 rounded-full shadow-lg transition-all hover:scale-105 active:scale-95
-          bg-tn-red dark:bg-tn-red"
-        aria-label="Add task"
-      >
-        <Plus size={24} color="white" strokeWidth={2.5} />
-      </button>
+      {!taskOpen && (
+        <button
+          onClick={() => dispatch({ type: 'SET_FAB', payload: { open: true } })}
+          className="hidden md:flex fixed bottom-6 right-6 z-40 items-center justify-center
+            w-14 h-14 rounded-full shadow-lg transition-all hover:scale-105 active:scale-95
+            bg-tn-red dark:bg-tn-red"
+          aria-label="Add task"
+        >
+          <Plus size={24} color="white" strokeWidth={2.5} />
+        </button>
+      )}
 
       {/* Backdrop */}
       {open && <div className="fixed inset-0 z-[88] bg-black/60 animate-fade-in" onClick={close} />}
