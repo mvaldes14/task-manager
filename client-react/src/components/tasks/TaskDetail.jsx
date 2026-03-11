@@ -72,7 +72,7 @@ function LinksSection({ task, onUpdate }) {
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
-        <label className="text-[10px] font-semibold tracking-wider text-td-muted/60 dark:text-tn-muted/60 uppercase">Links</label>
+        <label className="text-xs font-bold text-td-muted dark:text-tn-muted">Links</label>
         {!adding && (
           <button onClick={() => setAdding(true)}
             className="text-[10px] text-td-muted/50 dark:text-tn-muted/50 hover:text-td-amber dark:hover:text-tn-amber transition-colors">
@@ -269,7 +269,7 @@ export function TaskDetail() {
 
           {/* Due date + time */}
           <div className="space-y-1.5">
-            <label className="text-[10px] font-semibold tracking-wider text-td-muted/60 dark:text-tn-muted/60 uppercase">Due Date</label>
+            <label className="text-xs font-bold text-td-muted dark:text-tn-muted">Due Date</label>
             <div className="flex gap-2">
               <input type="date" value={dueDate}
                 onChange={e => { setDueDate(e.target.value); markDirty() }}
@@ -286,7 +286,7 @@ export function TaskDetail() {
 
           {/* Project */}
           <div className="space-y-1.5">
-            <label className="text-[10px] font-semibold tracking-wider text-td-muted/60 dark:text-tn-muted/60 uppercase">Project</label>
+            <label className="text-xs font-bold text-td-muted dark:text-tn-muted">Project</label>
             <select
               value={projectId}
               onChange={e => { setProjectId(e.target.value); markDirty(); save() }}
@@ -301,7 +301,7 @@ export function TaskDetail() {
 
           {/* Tags */}
           <div className="space-y-1.5">
-            <label className="text-[10px] font-semibold tracking-wider text-td-muted/60 dark:text-tn-muted/60 uppercase">Tags</label>
+            <label className="text-xs font-bold text-td-muted dark:text-tn-muted">Tags</label>
             {tags.length > 0 && (
               <div className="flex flex-wrap gap-1.5">
                 {tags.map(t => (
@@ -328,7 +328,7 @@ export function TaskDetail() {
 
           {/* Description */}
           <div className="space-y-1.5">
-            <label className="text-[10px] font-semibold tracking-wider text-td-muted/60 dark:text-tn-muted/60 uppercase">Notes</label>
+            <label className="text-xs font-bold text-td-muted dark:text-tn-muted">Notes</label>
             <textarea
               value={description}
               onChange={e => { setDescription(e.target.value); markDirty() }}
@@ -341,7 +341,7 @@ export function TaskDetail() {
 
           {/* Subtasks */}
           <div className="space-y-1.5">
-            <label className="text-[10px] font-semibold tracking-wider text-td-muted/60 dark:text-tn-muted/60 uppercase">
+            <label className="text-xs font-bold text-td-muted dark:text-tn-muted">
               Subtasks {task.subtasks?.length > 0 && `(${task.subtasks.filter(s=>s.completed).length}/${task.subtasks.length})`}
             </label>
             <div className="divide-y divide-td-border/30 dark:divide-tn-border/30">
