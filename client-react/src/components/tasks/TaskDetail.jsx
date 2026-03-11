@@ -3,7 +3,7 @@ import { useApp } from '../../context/AppContext'
 import { useTasks } from '../../hooks/useTasks'
 import { api } from '../../api'
 import { formatDate, fmtTime, recurrenceLabel } from '../../utils'
-import { X, Trash2, Plus, Check, ChevronRight } from 'lucide-react'
+import { X, Trash2, Plus, Check, ChevronRight, Paperclip, GitBranch, Link2 } from 'lucide-react'
 
 const STATUSES = ['todo', 'doing', 'done']
 
@@ -45,28 +45,38 @@ function SubtaskRow({ sub, taskId }) {
   )
 }
 
+function getLinkLabel(url = '') {
+  if (url.startsWith('obsidian://')) return 'Obsidian Note'
+  if (url.includes('github.com'))   return 'GitHub'
+  try { return new URL(url).hostname.replace(/^www\./, '') } catch { return 'Link' }
+}
+
 function linkStyle(url = '') {
-  if (url.startsWith('obsidian://')) return { icon: '📎', color: '#bb9af7', bg: 'rgba(187,154,247,0.15)' }
-  if (url.includes('github.com'))   return { icon: '🐙', color: '#57606a', bg: 'rgba(87,96,106,0.12)' }
-  return                                    { icon: '🔗', color: '#e0af68', bg: 'rgba(224,175,104,0.15)' }
+  if (url.startsWith('obsidian://')) return { color: '#bb9af7', bg: 'rgba(187,154,247,0.15)' }
+  if (url.includes('github.com'))   return { color: '#57606a', bg: 'rgba(87,96,106,0.12)' }
+  return                                    { color: '#e0af68', bg: 'rgba(224,175,104,0.15)' }
+}
+
+function LinkIcon({ url }) {
+  if (url.startsWith('obsidian://')) return <Paperclip size={12} />
+  if (url.includes('github.com'))   return <GitBranch size={12} />
+  return <Link2 size={12} />
 }
 
 function LinksSection({ task, onUpdate }) {
-  const { toast } = useApp()
   const [adding, setAdding] = useState(false)
   const [urlInput, setUrlInput] = useState('')
-  const [labelInput, setLabelInput] = useState('')
 
   const links = task.links || []
 
   const addLink = async () => {
     if (!urlInput.trim()) return
-    const newLink = { url: urlInput.trim(), label: labelInput.trim() || urlInput.trim() }
+    const url = urlInput.trim()
+    const newLink = { url, label: getLinkLabel(url) }
     const updated = await api.updateTask(task.id, { links: [...links, newLink] })
     if (updated) onUpdate(updated)
     setAdding(false)
     setUrlInput('')
-    setLabelInput('')
   }
 
   const removeLink = async (i) => {
@@ -91,11 +101,12 @@ function LinksSection({ task, onUpdate }) {
         const s = linkStyle(link.url)
         return (
           <div key={i} className="flex items-center gap-2">
-            <a href={link.url}
-              className="flex-1 flex items-center gap-2 text-xs px-3 py-2 rounded-lg transition-colors"
+            <a href={link.url} target="_blank" rel="noopener noreferrer"
+              className="flex-1 flex items-center gap-2 text-xs px-3 py-2 rounded-lg hover:opacity-80 transition-opacity"
               style={{ color: s.color, background: s.bg }}>
-              {s.icon} {link.label || link.url}
-              <ChevronRight size={12} className="ml-auto shrink-0" />
+              <LinkIcon url={link.url} />
+              <span>{getLinkLabel(link.url)}</span>
+              <ChevronRight size={12} className="ml-auto shrink-0 opacity-50" />
             </a>
             <button onClick={() => removeLink(i)}
               className="p-1.5 text-td-muted/40 dark:text-tn-muted/40 hover:text-td-red dark:hover:text-tn-red transition-colors">
@@ -114,14 +125,6 @@ function LinksSection({ task, onUpdate }) {
             className="w-full bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-xs
               rounded-lg px-2.5 py-2 outline-none border border-td-border/50 dark:border-tn-border/50
               placeholder-td-muted/30 dark:placeholder-tn-muted/30 font-mono"
-          />
-          <input
-            type="text" value={labelInput} onChange={e => setLabelInput(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') addLink(); if (e.key === 'Escape') setAdding(false) }}
-            placeholder="Label (optional)"
-            className="w-full bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-xs
-              rounded-lg px-2.5 py-2 outline-none border border-td-border/50 dark:border-tn-border/50
-              placeholder-td-muted/30 dark:placeholder-tn-muted/30"
           />
           <div className="flex gap-2">
             <button onClick={() => setAdding(false)}

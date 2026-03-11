@@ -2,11 +2,24 @@ import { useApp } from '../../context/AppContext'
 import { ProjectIcon } from '../shared/ProjectIcon'
 import { useTasks } from '../../hooks/useTasks'
 import { formatDate, isOverdue, priorityColor, recurrenceLabel, obsidianNoteName, fmtTime } from '../../utils'
+import { Paperclip, GitBranch, Link2 } from 'lucide-react'
+
+function getLinkLabel(url = '') {
+  if (url.startsWith('obsidian://')) return 'Obsidian Note'
+  if (url.includes('github.com'))   return 'GitHub'
+  try { return new URL(url).hostname.replace(/^www\./, '') } catch { return 'Link' }
+}
 
 function linkStyle(url = '') {
-  if (url.startsWith('obsidian://')) return { icon: '📎', color: '#bb9af7', bg: 'rgba(187,154,247,0.15)' }
-  if (url.includes('github.com'))   return { icon: '🐙', color: '#57606a', bg: 'rgba(87,96,106,0.12)' }
-  return                                    { icon: '🔗', color: '#e0af68', bg: 'rgba(224,175,104,0.15)' }
+  if (url.startsWith('obsidian://')) return { color: '#bb9af7', bg: 'rgba(187,154,247,0.15)' }
+  if (url.includes('github.com'))   return { color: '#57606a', bg: 'rgba(87,96,106,0.12)' }
+  return                                    { color: '#e0af68', bg: 'rgba(224,175,104,0.15)' }
+}
+
+function LinkIcon({ url }) {
+  if (url.startsWith('obsidian://')) return <Paperclip size={10} />
+  if (url.includes('github.com'))   return <GitBranch size={10} />
+  return <Link2 size={10} />
 }
 
 export function TaskCard({ task }) {
@@ -91,10 +104,12 @@ export function TaskCard({ task }) {
           {(task.links || []).map((link, i) => {
             const s = linkStyle(link.url)
             return (
-              <a key={i} href={link.url} onClick={e => e.stopPropagation()}
-                className="text-[11px] font-medium px-1.5 py-0.5 rounded-md transition-colors"
+              <a key={i} href={link.url} target="_blank" rel="noopener noreferrer"
+                onClick={e => e.stopPropagation()}
+                className="flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-md transition-opacity hover:opacity-80"
                 style={{ color: s.color, background: s.bg }}>
-                {s.icon} {link.label || 'Link'}
+                <LinkIcon url={link.url} />
+                {getLinkLabel(link.url)}
               </a>
             )
           })}
