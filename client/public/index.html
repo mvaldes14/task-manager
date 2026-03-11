@@ -504,12 +504,12 @@ body.light .topbar { background: rgba(242,242,247,0.85); }
   .fab-modal {
     top: auto; bottom: 0; left: 0; right: 0; max-width: 100%;
     border-radius: 16px 16px 0 0;
-    padding: 0 0 calc(env(safe-area-inset-bottom, 0px));
-    transform: translateY(100%); opacity: 1;
+    padding: 0;
+    transform: translateY(100%); opacity: 1; pointer-events: none;
     box-shadow: 0 -4px 32px rgba(0,0,0,0.5);
     transition: transform 0.32s cubic-bezier(0.32,0.72,0,1);
   }
-  .fab-modal.open { transform: translateY(0); }
+  .fab-modal.open { transform: translateY(0); opacity: 1; pointer-events: all; }
 
   /* drag handle */
   .fab-modal::before {
