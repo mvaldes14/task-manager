@@ -3,61 +3,12 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── Theme variables ─────────────────────────────────────────── */
-:root {
-  --bg:      #1a1b26;
-  --bg2:     #16161e;
-  --bg3:     #1f2335;
-  --surface: #24283b;
-  --border:  #292e42;
-  --muted:   #565f89;
-  --fg:      #c0caf5;
-  --blue:    #7aa2f7;
-  --purple:  #bb9af7;
-  --green:   #9ece6a;
-  --teal:    #73daca;
-  --amber:   #e0af68;
-  --red:     #f7768e;
-  --cyan:    #7dcfff;
-}
-
-/* light overrides — applied when .dark is NOT on html */
-html:not(.dark) {
-  --bg:      #e1e2e7;
-  --bg2:     #d5d6db;
-  --bg3:     #e9e9ec;
-  --surface: #f0f0f3;
-  --border:  #c8c9d0;
-  --muted:   #6172b0;
-  --fg:      #3760bf;
-  --blue:    #2e7de9;
-  --purple:  #9854f1;
-  --green:   #587539;
-  --amber:   #8c6c3e;
-  --red:     #f52a65;
-  --cyan:    #007197;
-}
-
 @layer base {
   html { -webkit-tap-highlight-color: transparent; }
-  body {
-    background: var(--bg);
-    color: var(--fg);
-    -webkit-font-smoothing: antialiased;
-  }
-  * { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+  body { -webkit-font-smoothing: antialiased; }
+  * { scrollbar-width: thin; scrollbar-color: #292e42 transparent; }
   *::-webkit-scrollbar { width: 4px; height: 4px; }
-  *::-webkit-scrollbar-thumb { background: var(--border); border-radius: 9999px; }
+  *::-webkit-scrollbar-thumb { background: #292e42; border-radius: 9999px; }
   .scrollbar-none { scrollbar-width: none; }
   .scrollbar-none::-webkit-scrollbar { display: none; }
-  select option { background: var(--bg2); color: var(--fg); }
 }
-
-/* Convenience classes using CSS vars — used inline where Tailwind can't reach */
-.theme-bg     { background: var(--bg); }
-.theme-bg2    { background: var(--bg2); }
-.theme-bg3    { background: var(--bg3); }
-.theme-surface{ background: var(--surface); }
-.theme-fg     { color: var(--fg); }
-.theme-muted  { color: var(--muted); }
-.theme-border { border-color: var(--border); }

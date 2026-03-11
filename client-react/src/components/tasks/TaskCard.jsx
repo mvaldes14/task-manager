@@ -15,7 +15,7 @@ export function TaskCard({ task }) {
   return (
     <div
       className={`group flex items-start gap-3 px-4 py-3 cursor-pointer transition-colors
-        hover:bg-tn-surface/50 border-b border-tn-border/50 last:border-0
+        hover:bg-td-surface/50 dark:bg-tn-surface/50 border-b border-td-border/50 dark:border-tn-border/50 last:border-0
         ${done ? 'opacity-50' : ''}`}
       onClick={() => dispatch({ type: 'SELECT_TASK', payload: task.id })}
     >
@@ -27,8 +27,8 @@ export function TaskCard({ task }) {
       >
         <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all
           ${done
-            ? 'border-tn-green bg-tn-green/20'
-            : 'border-tn-muted/50 hover:border-tn-blue'
+            ? 'border-td-green dark:border-tn-green bg-td-green/20 dark:bg-tn-green/20'
+            : 'border-td-muted/50 dark:border-tn-muted/50 hover:border-td-blue dark:border-tn-blue'
           }`}
         >
           {done && (
@@ -41,7 +41,7 @@ export function TaskCard({ task }) {
 
       {/* Content */}
       <div className="flex-1 min-w-0">
-        <p className={`text-sm leading-snug ${done ? 'line-through text-tn-muted' : 'text-tn-fg'}`}>
+        <p className={`text-sm leading-snug ${done ? 'line-through text-td-muted dark:text-tn-muted' : 'text-td-fg dark:text-tn-fg'}`}>
           {task.title}
         </p>
 
@@ -54,7 +54,7 @@ export function TaskCard({ task }) {
 
           {/* Due date */}
           {task.due_date && (
-            <span className={`text-[11px] font-medium ${overdue ? 'text-tn-red' : 'text-tn-muted'}`}>
+            <span className={`text-[11px] font-medium ${overdue ? 'text-td-red dark:text-tn-red' : 'text-td-muted dark:text-tn-muted'}`}>
               {formatDate(task.due_date)}{task.due_time ? ' · ' + fmtTime(task.due_time) : ''}
             </span>
           )}
@@ -69,24 +69,24 @@ export function TaskCard({ task }) {
 
           {/* Tags */}
           {(task.tags || []).map(tag => (
-            <span key={tag} className="text-[11px] text-tn-purple bg-tn-purple/10 px-1.5 py-0.5 rounded-md">
+            <span key={tag} className="text-[11px] text-td-purple dark:text-tn-purple bg-td-purple/10 dark:bg-tn-purple/10 px-1.5 py-0.5 rounded-md">
               @{tag}
             </span>
           ))}
 
           {/* Recurrence */}
           {recurrenceLabel(task.recurrence) && (
-            <span className="text-[11px] text-tn-teal">{recurrenceLabel(task.recurrence)}</span>
+            <span className="text-[11px] text-td-teal dark:text-tn-teal">{recurrenceLabel(task.recurrence)}</span>
           )}
 
           {/* Obsidian */}
           {task.obsidian_url && (
-            <span className="text-[11px] text-tn-amber">📎 {obsidianNoteName(task.obsidian_url) || 'Note'}</span>
+            <span className="text-[11px] text-td-amber dark:text-tn-amber">📎 {obsidianNoteName(task.obsidian_url) || 'Note'}</span>
           )}
 
           {/* Subtasks */}
           {subtasksTotal > 0 && (
-            <span className="text-[11px] text-tn-muted">
+            <span className="text-[11px] text-td-muted dark:text-tn-muted">
               ◦ {subtasksDone}/{subtasksTotal}
             </span>
           )}
@@ -94,7 +94,7 @@ export function TaskCard({ task }) {
       </div>
 
       {/* Chevron */}
-      <svg className="w-4 h-4 text-tn-muted/40 shrink-0 mt-0.5 group-hover:text-tn-muted transition-colors"
+      <svg className="w-4 h-4 text-td-muted/40 dark:text-tn-muted/40 shrink-0 mt-0.5 group-hover:text-td-muted dark:text-tn-muted transition-colors"
         fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M9 18l6-6-6-6" />
       </svg>

@@ -25,21 +25,21 @@ function AppShell() {
   }, [])
 
   useEffect(() => {
-    document.documentElement.classList.toggle('light', state.theme === 'light')
+    document.documentElement.classList.toggle('dark', state.theme === 'dark')
   }, [state.theme])
 
   const closeSidebar = () => dispatch({ type: 'SET_SIDEBAR', payload: false })
 
   if (authed === null) return (
-    <div className="min-h-screen bg-tn-bg flex items-center justify-center">
-      <div className="text-tn-muted text-sm animate-pulse">Loading…</div>
+    <div className="min-h-screen bg-td-bg dark:bg-tn-bg flex items-center justify-center">
+      <div className="text-td-muted dark:text-tn-muted text-sm animate-pulse">Loading…</div>
     </div>
   )
 
   if (!authed) return <LoginScreen onLogin={() => { setAuthed(true); loadAll(); loadSettings() }} />
 
   return (
-    <div className="flex h-screen bg-tn-bg text-tn-fg overflow-hidden font-sans">
+    <div className="flex h-screen bg-td-bg dark:bg-tn-bg text-td-fg dark:text-tn-fg overflow-hidden font-sans">
       {state.sidebarOpen && (
         <div className="fixed inset-0 z-40 bg-black/40 md:hidden" onClick={closeSidebar} />
       )}

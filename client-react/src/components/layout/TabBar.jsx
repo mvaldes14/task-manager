@@ -35,7 +35,7 @@ export function TabBar() {
 
   return (
     <nav
-      className="md:hidden fixed bottom-0 left-0 right-0 z-[95] bg-tn-bg2/95 backdrop-blur-md border-t border-tn-border flex"
+      className="md:hidden fixed bottom-0 left-0 right-0 z-[95] bg-td-bg2/95 dark:bg-tn-bg2/95 backdrop-blur-md border-t border-td-border dark:border-tn-border flex"
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)', height: 'calc(56px + env(safe-area-inset-bottom, 0px))' }}
     >
       {TABS.map(({ key, icon: Icon, label }) => {
@@ -46,12 +46,12 @@ export function TabBar() {
             key={key}
             onClick={() => handleTab(key)}
             className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors relative
-              ${active ? 'text-tn-blue' : 'text-tn-muted/60'}`}
+              ${active ? 'text-td-blue dark:text-tn-blue' : 'text-td-muted/60 dark:text-tn-muted/60'}`}
           >
             <div className="relative">
               <Icon size={22} strokeWidth={active ? 2.5 : 1.8} />
               {badge > 0 && (
-                <span className="absolute -top-1 -right-1.5 min-w-[16px] h-4 rounded-full bg-tn-red
+                <span className="absolute -top-1 -right-1.5 min-w-[16px] h-4 rounded-full bg-td-red dark:bg-tn-red
                   text-[9px] font-bold text-white flex items-center justify-center px-0.5">
                   {badge}
                 </span>

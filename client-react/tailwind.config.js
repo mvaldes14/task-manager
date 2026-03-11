@@ -5,21 +5,38 @@ export default {
   theme: {
     extend: {
       colors: {
-        // All theme colors reference CSS variables — auto-swap on dark/light
-        bg:      'var(--bg)',
-        bg2:     'var(--bg2)',
-        bg3:     'var(--bg3)',
-        surface: 'var(--surface)',
-        border:  'var(--border)',
-        muted:   'var(--muted)',
-        fg:      'var(--fg)',
-        blue:    'var(--blue)',
-        purple:  'var(--purple)',
-        green:   'var(--green)',
-        teal:    'var(--teal)',
-        amber:   'var(--amber)',
-        red:     'var(--red)',
-        cyan:    'var(--cyan)',
+        // dark (Tokyo Night)
+        tn: {
+          bg:      '#1a1b26',
+          bg2:     '#16161e',
+          bg3:     '#1f2335',
+          surface: '#24283b',
+          border:  '#292e42',
+          muted:   '#565f89',
+          fg:      '#c0caf5',
+          blue:    '#7aa2f7',
+          purple:  '#bb9af7',
+          green:   '#9ece6a',
+          teal:    '#73daca',
+          amber:   '#e0af68',
+          red:     '#f7768e',
+          cyan:    '#7dcfff',
+        },
+        // light (Tokyo Night Day)
+        td: {
+          bg:      '#e1e2e7',
+          bg2:     '#d5d6db',
+          bg3:     '#e9e9ec',
+          surface: '#f0f0f3',
+          border:  '#c8c9d0',
+          muted:   '#6172b0',
+          fg:      '#3760bf',
+          blue:    '#2e7de9',
+          purple:  '#9854f1',
+          green:   '#587539',
+          amber:   '#8c6c3e',
+          red:     '#f52a65',
+        },
       },
       fontFamily: {
         sans: ['"DM Sans"', 'system-ui', 'sans-serif'],

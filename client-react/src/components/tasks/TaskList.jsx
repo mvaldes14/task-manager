@@ -6,7 +6,7 @@ const STATUS_ORDER = ['todo', 'doing', 'done']
 export function TaskList({ tasks, groupBy = 'status', emptyMessage = 'No tasks here' }) {
   if (!tasks.length) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-tn-muted">
+      <div className="flex flex-col items-center justify-center py-20 text-td-muted dark:text-tn-muted">
         <span className="text-4xl mb-3">✓</span>
         <p className="text-sm">{emptyMessage}</p>
       </div>
@@ -19,14 +19,14 @@ export function TaskList({ tasks, groupBy = 'status', emptyMessage = 'No tasks h
       .filter(g => g.items.length > 0)
 
     return (
-      <div className="divide-y divide-tn-border/30">
+      <div className="divide-y divide-td-border/30 dark:divide-tn-border/30">
         {groups.map(({ status, items }) => (
           <section key={status}>
-            <div className="flex items-center gap-2 px-4 py-2 sticky top-0 bg-tn-bg z-10">
-              <span className="text-[10px] font-semibold tracking-widest text-tn-muted uppercase">
+            <div className="flex items-center gap-2 px-4 py-2 sticky top-0 bg-td-bg dark:bg-tn-bg z-10">
+              <span className="text-[10px] font-semibold tracking-widest text-td-muted dark:text-tn-muted uppercase">
                 {STATUS_LABELS[status]}
               </span>
-              <span className="text-[10px] text-tn-muted/60 bg-tn-surface px-1.5 rounded-full">
+              <span className="text-[10px] text-td-muted/60 dark:text-tn-muted/60 bg-td-surface dark:bg-tn-surface px-1.5 rounded-full">
                 {items.length}
               </span>
             </div>

@@ -10,36 +10,36 @@ import { LayoutList, Columns, Menu } from 'lucide-react'
 function ViewHeader({ title, count }) {
   const { state, dispatch } = useApp()
   return (
-    <div className="flex items-center justify-between px-4 py-3.5 border-b border-tn-border/50 shrink-0">
+    <div className="flex items-center justify-between px-4 py-3.5 border-b border-td-border/50 dark:border-tn-border/50 shrink-0">
       {/* Hamburger — mobile only */}
       <button
         onClick={() => dispatch({ type: 'SET_SIDEBAR', payload: true })}
-        className="md:hidden text-tn-muted hover:text-tn-fg mr-3 transition-colors"
+        className="md:hidden text-td-muted dark:text-tn-muted hover:text-td-fg dark:text-tn-fg mr-3 transition-colors"
       >
         <Menu size={20} />
       </button>
 
       <div className="flex-1 flex items-center gap-2 min-w-0">
-        <h1 className="text-tn-fg font-semibold text-base truncate">{title}</h1>
+        <h1 className="text-td-fg dark:text-tn-fg font-semibold text-base truncate">{title}</h1>
         {count != null && (
-          <span className="text-xs text-tn-muted/60">{count}</span>
+          <span className="text-xs text-td-muted/60 dark:text-tn-muted/60">{count}</span>
         )}
       </div>
 
       {/* View mode toggle (list/board) — hide on calendar */}
       {state.view !== 'calendar' && (
-        <div className="flex items-center gap-1 bg-tn-surface rounded-lg p-0.5">
+        <div className="flex items-center gap-1 bg-td-surface dark:bg-tn-surface rounded-lg p-0.5">
           <button
             onClick={() => dispatch({ type: 'SET_VIEW_MODE', payload: 'list' })}
             className={`p-1.5 rounded-md transition-colors
-              ${state.viewMode === 'list' ? 'bg-tn-bg2 text-tn-fg shadow-sm' : 'text-tn-muted hover:text-tn-fg'}`}
+              ${state.viewMode === 'list' ? 'bg-td-bg2 dark:bg-tn-bg2 text-td-fg dark:text-tn-fg shadow-sm' : 'text-td-muted dark:text-tn-muted hover:text-td-fg dark:text-tn-fg'}`}
           >
             <LayoutList size={15} />
           </button>
           <button
             onClick={() => dispatch({ type: 'SET_VIEW_MODE', payload: 'board' })}
             className={`p-1.5 rounded-md transition-colors
-              ${state.viewMode === 'board' ? 'bg-tn-bg2 text-tn-fg shadow-sm' : 'text-tn-muted hover:text-tn-fg'}`}
+              ${state.viewMode === 'board' ? 'bg-td-bg2 dark:bg-tn-bg2 text-td-fg dark:text-tn-fg shadow-sm' : 'text-td-muted dark:text-tn-muted hover:text-td-fg dark:text-tn-fg'}`}
           >
             <Columns size={15} />
           </button>
@@ -63,7 +63,7 @@ function OverdueView({ tasks }) {
 
   if (!tasks.length) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-tn-muted">
+      <div className="flex flex-col items-center justify-center py-20 text-td-muted dark:text-tn-muted">
         <span className="text-4xl mb-3">🎉</span>
         <p className="text-sm">No overdue tasks!</p>
       </div>
@@ -77,9 +77,9 @@ function OverdueView({ tasks }) {
         const label = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
         return (
           <section key={date}>
-            <div className="flex items-center gap-2 px-4 py-2 bg-tn-red/5 border-y border-tn-red/10">
-              <span className="text-[10px] font-semibold tracking-wider text-tn-red uppercase">{label}</span>
-              <span className="text-[10px] text-tn-red/60 bg-tn-red/10 px-1.5 rounded-full">{items.length}</span>
+            <div className="flex items-center gap-2 px-4 py-2 bg-td-red/5 dark:bg-tn-red/5 border-y border-td-red/10 dark:border-tn-red/10">
+              <span className="text-[10px] font-semibold tracking-wider text-td-red dark:text-tn-red uppercase">{label}</span>
+              <span className="text-[10px] text-td-red/60 dark:text-tn-red/60 bg-td-red/10 dark:bg-tn-red/10 px-1.5 rounded-full">{items.length}</span>
             </div>
             {items.map(task => (
               <TaskCard key={task.id} task={task} />

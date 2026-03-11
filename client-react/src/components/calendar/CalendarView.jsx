@@ -73,13 +73,13 @@ export function CalendarView({ tasks }) {
     <div className="p-3">
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
-        <button onClick={prev} className="p-1.5 text-tn-muted hover:text-tn-fg rounded-lg hover:bg-tn-surface">
+        <button onClick={prev} className="p-1.5 text-td-muted dark:text-tn-muted hover:text-td-fg dark:text-tn-fg rounded-lg hover:bg-td-surface dark:bg-tn-surface">
           <ChevronLeft size={18} />
         </button>
-        <span className="text-tn-fg font-semibold text-sm">
+        <span className="text-td-fg dark:text-tn-fg font-semibold text-sm">
           {MONTHS[month]} {year}
         </span>
-        <button onClick={next} className="p-1.5 text-tn-muted hover:text-tn-fg rounded-lg hover:bg-tn-surface">
+        <button onClick={next} className="p-1.5 text-td-muted dark:text-tn-muted hover:text-td-fg dark:text-tn-fg rounded-lg hover:bg-td-surface dark:bg-tn-surface">
           <ChevronRight size={18} />
         </button>
       </div>
@@ -87,7 +87,7 @@ export function CalendarView({ tasks }) {
       {/* Day headers */}
       <div className="grid grid-cols-7 mb-1">
         {DAYS.map(d => (
-          <div key={d} className="text-center text-[10px] font-semibold text-tn-muted/60 uppercase py-1">
+          <div key={d} className="text-center text-[10px] font-semibold text-td-muted/60 dark:text-tn-muted/60 uppercase py-1">
             {d}
           </div>
         ))}
@@ -113,17 +113,17 @@ export function CalendarView({ tasks }) {
                 <div
                   key={di}
                   className={`min-h-[72px] p-1 rounded-lg transition-colors
-                    ${cell.cur ? 'bg-tn-bg3/40 hover:bg-tn-bg3' : 'bg-transparent opacity-30'}
-                    ${isToday ? 'ring-1 ring-tn-blue/50' : ''}`}
+                    ${cell.cur ? 'bg-td-bg3/40 dark:bg-tn-bg3/40 hover:bg-td-bg3 dark:bg-tn-bg3' : 'bg-transparent opacity-30'}
+                    ${isToday ? 'ring-1 ring-td-blue/50 dark:ring-tn-blue/50' : ''}`}
                 >
                   <div className={`text-[11px] font-medium mb-1 text-right
-                    ${isToday ? 'text-tn-blue' : cell.cur ? 'text-tn-muted' : 'text-tn-muted/40'}`}>
+                    ${isToday ? 'text-td-blue dark:text-tn-blue' : cell.cur ? 'text-td-muted dark:text-tn-muted' : 'text-td-muted/40 dark:text-tn-muted/40'}`}>
                     {cell.day}
                   </div>
                   <div className="space-y-0.5 overflow-hidden">
                     {dayTasks.slice(0, MAX_SHOW).map(t => <TaskPill key={t.id} task={t} />)}
                     {dayTasks.length > MAX_SHOW && (
-                      <div className="text-[9px] text-tn-muted/60 pl-1">
+                      <div className="text-[9px] text-td-muted/60 dark:text-tn-muted/60 pl-1">
                         +{dayTasks.length - MAX_SHOW} more
                       </div>
                     )}
