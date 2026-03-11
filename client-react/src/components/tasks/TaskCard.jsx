@@ -2,6 +2,12 @@ import { useApp } from '../../context/AppContext'
 import { useTasks } from '../../hooks/useTasks'
 import { formatDate, isOverdue, priorityColor, recurrenceLabel, obsidianNoteName, fmtTime } from '../../utils'
 
+function linkStyle(url = '') {
+  if (url.startsWith('obsidian://')) return { icon: '📎', color: '#bb9af7', bg: 'rgba(187,154,247,0.15)' }
+  if (url.includes('github.com'))   return { icon: '🐙', color: '#e6edf3', bg: 'rgba(230,237,243,0.15)' }
+  return                                    { icon: '🔗', color: '#e0af68', bg: 'rgba(224,175,104,0.15)' }
+}
+
 export function TaskCard({ task }) {
   const { state, dispatch } = useApp()
   const { toggleTask } = useTasks()
@@ -80,13 +86,16 @@ export function TaskCard({ task }) {
           )}
 
           {/* Links */}
-          {(task.links || []).map((link, i) => (
-            <a key={i} href={link.url} onClick={e => e.stopPropagation()}
-              className="text-[11px] font-medium text-td-amber dark:text-tn-amber
-                bg-td-amber/10 dark:bg-tn-amber/10 px-1.5 py-0.5 rounded-md hover:bg-td-amber/20 dark:hover:bg-tn-amber/20 transition-colors">
-              🔗 {link.label || 'Link'}
-            </a>
-          ))}
+          {(task.links || []).map((link, i) => {
+            const s = linkStyle(link.url)
+            return (
+              <a key={i} href={link.url} onClick={e => e.stopPropagation()}
+                className="text-[11px] font-medium px-1.5 py-0.5 rounded-md transition-colors"
+                style={{ color: s.color, background: s.bg }}>
+                {s.icon} {link.label || 'Link'}
+              </a>
+            )
+          })}
 
           {/* Subtasks */}
           {subtasksTotal > 0 && (

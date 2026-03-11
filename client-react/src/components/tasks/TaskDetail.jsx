@@ -45,6 +45,12 @@ function SubtaskRow({ sub, taskId }) {
   )
 }
 
+function linkStyle(url = '') {
+  if (url.startsWith('obsidian://')) return { icon: '📎', color: '#bb9af7', bg: 'rgba(187,154,247,0.15)' }
+  if (url.includes('github.com'))   return { icon: '🐙', color: '#e6edf3', bg: 'rgba(230,237,243,0.15)' }
+  return                                    { icon: '🔗', color: '#e0af68', bg: 'rgba(224,175,104,0.15)' }
+}
+
 function LinksSection({ task, onUpdate }) {
   const { toast } = useApp()
   const [adding, setAdding] = useState(false)
@@ -81,21 +87,23 @@ function LinksSection({ task, onUpdate }) {
         )}
       </div>
 
-      {links.map((link, i) => (
-        <div key={i} className="flex items-center gap-2">
-          <a href={link.url}
-            className="flex-1 flex items-center gap-2 text-xs px-3 py-2 rounded-lg transition-colors
-              text-td-amber dark:text-tn-amber bg-td-amber/10 dark:bg-tn-amber/10
-              hover:bg-td-amber/20 dark:hover:bg-tn-amber/20">
-            🔗 {link.label || link.url}
-            <ChevronRight size={12} className="ml-auto shrink-0" />
-          </a>
-          <button onClick={() => removeLink(i)}
-            className="p-1.5 text-td-muted/40 dark:text-tn-muted/40 hover:text-td-red dark:hover:text-tn-red transition-colors">
-            <X size={13} />
-          </button>
-        </div>
-      ))}
+      {links.map((link, i) => {
+        const s = linkStyle(link.url)
+        return (
+          <div key={i} className="flex items-center gap-2">
+            <a href={link.url}
+              className="flex-1 flex items-center gap-2 text-xs px-3 py-2 rounded-lg transition-colors"
+              style={{ color: s.color, background: s.bg }}>
+              {s.icon} {link.label || link.url}
+              <ChevronRight size={12} className="ml-auto shrink-0" />
+            </a>
+            <button onClick={() => removeLink(i)}
+              className="p-1.5 text-td-muted/40 dark:text-tn-muted/40 hover:text-td-red dark:hover:text-tn-red transition-colors">
+              <X size={13} />
+            </button>
+          </div>
+        )
+      })}
 
       {adding && (
         <div className="space-y-2">
