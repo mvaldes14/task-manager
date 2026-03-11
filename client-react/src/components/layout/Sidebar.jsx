@@ -162,7 +162,9 @@ export function Sidebar() {
             <button key={p.id}
               onClick={() => dispatch({ type: 'SET_VIEW', payload: `project:${p.id}` })}
               className={`group w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors
-                ${active ? 'bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg font-medium' : 'text-td-muted dark:text-tn-muted hover:text-td-fg dark:text-tn-fg hover:bg-td-surface/50 dark:bg-tn-surface/50'}`}
+                ${active
+                  ? 'bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg font-medium'
+                  : 'text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg hover:bg-td-surface/50 dark:hover:bg-tn-surface/50'}`}
             >
               <span className="text-base w-6 h-6 rounded-md flex items-center justify-center shrink-0"
                 style={{ background: p.color + '25' }}>

@@ -9,37 +9,48 @@ import { LayoutList, Columns, Menu } from 'lucide-react'
 
 function ViewHeader({ title, count }) {
   const { state, dispatch } = useApp()
+
+  const project = state.view.startsWith('project:')
+    ? state.projects.find(p => p.id === state.view.replace('project:', ''))
+    : null
+
   return (
     <div className="flex items-center justify-between px-4 py-3.5 border-b border-td-border/50 dark:border-tn-border/50 shrink-0">
-      {/* Hamburger — mobile only */}
       <button
         onClick={() => dispatch({ type: 'SET_SIDEBAR', payload: true })}
-        className="md:hidden text-td-muted dark:text-tn-muted hover:text-td-fg dark:text-tn-fg mr-3 transition-colors"
+        className="md:hidden text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg mr-3 transition-colors"
       >
         <Menu size={20} />
       </button>
 
-      <div className="flex-1 flex items-center gap-2 min-w-0">
-        <h1 className="text-td-fg dark:text-tn-fg font-semibold text-base truncate">{title}</h1>
+      <div className="flex-1 flex items-center gap-2.5 min-w-0">
+        {project && (
+          <span className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 text-base"
+            style={{ background: project.color + '25' }}>
+            {project.icon}
+          </span>
+        )}
+        <h1 className="text-td-fg dark:text-tn-fg font-semibold text-base truncate">
+          {project ? project.name : title}
+        </h1>
         {count != null && (
           <span className="text-xs text-td-muted/60 dark:text-tn-muted/60">{count}</span>
         )}
       </div>
 
-      {/* View mode toggle (list/board) — hide on calendar */}
       {state.view !== 'calendar' && (
         <div className="flex items-center gap-1 bg-td-surface dark:bg-tn-surface rounded-lg p-0.5">
           <button
             onClick={() => dispatch({ type: 'SET_VIEW_MODE', payload: 'list' })}
             className={`p-1.5 rounded-md transition-colors
-              ${state.viewMode === 'list' ? 'bg-td-bg2 dark:bg-tn-bg2 text-td-fg dark:text-tn-fg shadow-sm' : 'text-td-muted dark:text-tn-muted hover:text-td-fg dark:text-tn-fg'}`}
+              ${state.viewMode === 'list' ? 'bg-td-bg2 dark:bg-tn-bg2 text-td-fg dark:text-tn-fg shadow-sm' : 'text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg'}`}
           >
             <LayoutList size={15} />
           </button>
           <button
             onClick={() => dispatch({ type: 'SET_VIEW_MODE', payload: 'board' })}
             className={`p-1.5 rounded-md transition-colors
-              ${state.viewMode === 'board' ? 'bg-td-bg2 dark:bg-tn-bg2 text-td-fg dark:text-tn-fg shadow-sm' : 'text-td-muted dark:text-tn-muted hover:text-td-fg dark:text-tn-fg'}`}
+              ${state.viewMode === 'board' ? 'bg-td-bg2 dark:bg-tn-bg2 text-td-fg dark:text-tn-fg shadow-sm' : 'text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg'}`}
           >
             <Columns size={15} />
           </button>
