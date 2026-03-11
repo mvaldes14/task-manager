@@ -106,9 +106,9 @@ export function Sidebar() {
 
   const toggleTheme = () => {
     const next = state.theme === 'dark' ? 'light' : 'dark'
-    dispatch({ type: 'SET_THEME', payload: next })
     localStorage.setItem('td-theme', next)
-    document.documentElement.classList.toggle('dark', next === 'dark')
+    document.documentElement.classList.toggle('light', next === 'light')
+    dispatch({ type: 'SET_THEME', payload: next })
   }
 
   const handleDeleteProject = (e, pid) => {
@@ -140,7 +140,6 @@ export function Sidebar() {
       <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
         <NavItem icon="📥" label="Inbox" viewKey="inbox" badge={inboxCount} />
         <NavItem icon="☀️" label="Today" viewKey="today" badge={todayCount} />
-        <NavItem icon="📅" label="Upcoming" viewKey="upcoming" />
         <NavItem icon="📋" label="All Tasks" viewKey="all" />
         <NavItem icon="🗓" label="Calendar" viewKey="calendar" />
         <NavItem icon="🔴" label="Overdue" viewKey="overdue"

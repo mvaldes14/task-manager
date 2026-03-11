@@ -112,20 +112,6 @@ export function MainContent() {
         emptyMessage: 'Nothing due today',
       }
     }
-    if (view === 'upcoming') {
-      const now = new Date(); now.setHours(0,0,0,0)
-      const in7 = new Date(now); in7.setDate(now.getDate() + 7)
-      return {
-        title: 'Upcoming',
-        visibleTasks: tasks.filter(t => {
-          if (!t.due_date || t.status === 'done') return false
-          const d = new Date(t.due_date + 'T00:00:00')
-          return d > now && d <= in7
-        }),
-        groupBy: 'status',
-        emptyMessage: 'Nothing upcoming in the next 7 days',
-      }
-    }
     if (view === 'all') {
       return {
         title: 'All Tasks',

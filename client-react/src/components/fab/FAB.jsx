@@ -96,8 +96,9 @@ export function FAB() {
       <button
         onClick={() => dispatch({ type: 'SET_FAB', payload: { open: true } })}
         className="hidden md:flex fixed bottom-6 right-6 z-40 items-center justify-center
-          w-14 h-14 rounded-full bg-tn-red shadow-lg hover:bg-tn-red/90
+          w-14 h-14 rounded-full shadow-lg hover:opacity-90
           transition-all hover:scale-105 active:scale-95"
+        style={{ backgroundColor: '#f7768e' }}
         aria-label="Add task"
       >
         <Plus size={24} color="white" />
@@ -107,7 +108,8 @@ export function FAB() {
       <button
         onClick={() => dispatch({ type: 'SET_FAB', payload: { open: true } })}
         className="md:hidden fixed z-40 right-4 flex items-center justify-center
-          w-14 h-14 rounded-full bg-tn-red shadow-lg transition-all hover:scale-105 active:scale-95"
+          w-14 h-14 rounded-full shadow-lg transition-all hover:scale-105 active:scale-95"
+        style={{ backgroundColor: '#f7768e' }}
         style={{ bottom: 'calc(64px + env(safe-area-inset-bottom, 0px) + 12px)' }}
         aria-label="Add task"
       >

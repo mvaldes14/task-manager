@@ -25,7 +25,7 @@ function AppShell() {
   }, [])
 
   useEffect(() => {
-    document.documentElement.classList.toggle('dark', state.theme === 'dark')
+    document.documentElement.classList.toggle('light', state.theme === 'light')
   }, [state.theme])
 
   const closeSidebar = () => dispatch({ type: 'SET_SIDEBAR', payload: false })
