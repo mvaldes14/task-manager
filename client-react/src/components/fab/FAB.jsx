@@ -128,12 +128,12 @@ export function FAB() {
       {/* Backdrop */}
       {open && <div className="fixed inset-0 z-[88] bg-black/60 animate-fade-in" onClick={close} />}
 
-      {/* Centered modal — same on all screen sizes */}
+      {/* Centered modal */}
       {open && (
         <div className="fixed inset-0 z-[89] flex items-center justify-center px-4 pointer-events-none">
           <div
-            className="w-full max-w-lg rounded-2xl shadow-2xl animate-fade-in pointer-events-auto"
-            style={{ background: 'var(--bg2)', border: '1px solid var(--border)' }}
+            className="w-full max-w-lg rounded-2xl shadow-2xl animate-fade-in pointer-events-auto
+              bg-white dark:bg-tn-bg2 border border-td-border dark:border-tn-border"
             onClick={e => e.stopPropagation()}
           >
             {/* Input */}
@@ -145,10 +145,10 @@ export function FAB() {
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
                 placeholder="What needs to be done?"
-                className="w-full bg-transparent text-xl font-medium outline-none leading-snug"
-                style={{ color: 'var(--fg)' }}
+                className="w-full bg-transparent text-td-fg dark:text-tn-fg text-xl font-medium
+                  outline-none leading-snug placeholder-td-muted/40 dark:placeholder-tn-muted/40"
               />
-              <p className="text-xs mt-2.5" style={{ color: 'var(--muted)' }}>
+              <p className="text-xs mt-2.5 text-td-muted dark:text-tn-muted">
                 Try: "call dentist tomorrow at 3pm @health"
               </p>
             </div>
@@ -161,14 +161,12 @@ export function FAB() {
             )}
 
             {/* Footer */}
-            <div
-              className="flex items-center justify-between px-5 py-4 mt-1"
-              style={{ borderTop: '1px solid var(--border)' }}
-            >
+            <div className="flex items-center justify-between px-5 py-4 mt-1
+              border-t border-td-border dark:border-tn-border">
               <button
                 onClick={close}
-                className="text-sm font-medium transition-colors"
-                style={{ color: 'var(--muted)' }}
+                className="text-sm font-medium text-td-muted dark:text-tn-muted
+                  hover:text-td-fg dark:hover:text-tn-fg transition-colors"
               >
                 Cancel
               </button>
@@ -176,8 +174,8 @@ export function FAB() {
                 onClick={submit}
                 disabled={!text.trim() || loading}
                 className="px-6 py-2.5 rounded-xl text-sm font-semibold transition-all
-                  disabled:opacity-40 active:scale-95"
-                style={{ background: 'var(--blue)', color: 'var(--bg)' }}
+                  disabled:opacity-40 active:scale-95
+                  bg-td-blue dark:bg-tn-blue text-white"
               >
                 {loading ? 'Adding…' : 'Add Task'}
               </button>
