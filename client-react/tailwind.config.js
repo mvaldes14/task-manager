@@ -1,25 +1,25 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{js,jsx}'],
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {
-        tn: {
-          bg:      'var(--bg)',
-          bg2:     'var(--bg2)',
-          bg3:     'var(--bg3)',
-          surface: 'var(--surface)',
-          border:  'var(--border)',
-          muted:   'var(--muted)',
-          fg:      'var(--fg)',
-          blue:    'var(--blue)',
-          purple:  'var(--purple)',
-          green:   'var(--green)',
-          teal:    'var(--teal)',
-          amber:   'var(--amber)',
-          red:     'var(--red)',
-          cyan:    'var(--cyan)',
-        },
+        // All theme colors reference CSS variables — auto-swap on dark/light
+        bg:      'var(--bg)',
+        bg2:     'var(--bg2)',
+        bg3:     'var(--bg3)',
+        surface: 'var(--surface)',
+        border:  'var(--border)',
+        muted:   'var(--muted)',
+        fg:      'var(--fg)',
+        blue:    'var(--blue)',
+        purple:  'var(--purple)',
+        green:   'var(--green)',
+        teal:    'var(--teal)',
+        amber:   'var(--amber)',
+        red:     'var(--red)',
+        cyan:    'var(--cyan)',
       },
       fontFamily: {
         sans: ['"DM Sans"', 'system-ui', 'sans-serif'],

@@ -1,9 +1,9 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=JetBrains+Mono:wght@400;500&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* ── CSS Variables — dark (default) ─────────────────────── */
+/* ── Theme variables ─────────────────────────────────────────── */
 :root {
   --bg:      #1a1b26;
   --bg2:     #16161e;
@@ -21,8 +21,8 @@
   --cyan:    #7dcfff;
 }
 
-/* ── CSS Variables — light ───────────────────────────────── */
-html.light {
+/* light overrides — applied when .dark is NOT on html */
+html:not(.dark) {
   --bg:      #e1e2e7;
   --bg2:     #d5d6db;
   --bg3:     #e9e9ec;
@@ -33,7 +33,6 @@ html.light {
   --blue:    #2e7de9;
   --purple:  #9854f1;
   --green:   #587539;
-  --teal:    #007197;
   --amber:   #8c6c3e;
   --red:     #f52a65;
   --cyan:    #007197;
@@ -42,7 +41,7 @@ html.light {
 @layer base {
   html { -webkit-tap-highlight-color: transparent; }
   body {
-    background-color: var(--bg);
+    background: var(--bg);
     color: var(--fg);
     -webkit-font-smoothing: antialiased;
   }
@@ -51,5 +50,14 @@ html.light {
   *::-webkit-scrollbar-thumb { background: var(--border); border-radius: 9999px; }
   .scrollbar-none { scrollbar-width: none; }
   .scrollbar-none::-webkit-scrollbar { display: none; }
-  select option { background-color: var(--bg2); color: var(--fg); }
+  select option { background: var(--bg2); color: var(--fg); }
 }
+
+/* Convenience classes using CSS vars — used inline where Tailwind can't reach */
+.theme-bg     { background: var(--bg); }
+.theme-bg2    { background: var(--bg2); }
+.theme-bg3    { background: var(--bg3); }
+.theme-surface{ background: var(--surface); }
+.theme-fg     { color: var(--fg); }
+.theme-muted  { color: var(--muted); }
+.theme-border { border-color: var(--border); }
