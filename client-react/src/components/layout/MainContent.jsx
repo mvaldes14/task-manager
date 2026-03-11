@@ -33,9 +33,6 @@ function ViewHeader({ title, count }) {
         <h1 className="text-td-fg dark:text-tn-fg font-semibold text-base truncate">
           {project ? project.name : title}
         </h1>
-        {count != null && (
-          <span className="text-xs text-td-muted/60 dark:text-tn-muted/60">{count}</span>
-        )}
       </div>
 
       {state.view !== 'calendar' && (
