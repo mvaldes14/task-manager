@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useApp } from '../../context/AppContext'
 import { isOverdue, isToday } from '../../utils'
-import { Plus, LogOut, Sun, Moon, Settings, Trash2 } from 'lucide-react'
+import { Plus, LogOut, Sun, Moon, Settings, Trash2, CheckCircle2, Calendar } from 'lucide-react'
 import { api } from '../../api'
 
 const PROJECT_COLORS = ['#f7768e','#ff9e64','#e0af68','#9ece6a','#73daca','#7dcfff','#7aa2f7','#bb9af7','#c0caf5']
@@ -211,14 +211,23 @@ export function Sidebar() {
 
       {/* Footer */}
       <div className="border-t border-td-border/50 dark:border-tn-border/50 px-2 py-3">
-        <button
-          onClick={async () => { await api.logout(); window.location.reload() }}
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm
-            text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg
-            hover:bg-td-surface/50 dark:hover:bg-tn-surface/50 transition-colors"
-        >
-          <LogOut size={16} /> Sign out
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={async () => { await api.logout(); window.location.reload() }}
+            className="flex-1 flex items-center gap-3 px-3 py-2 rounded-lg text-sm
+              text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg
+              hover:bg-td-surface/50 dark:hover:bg-tn-surface/50 transition-colors"
+          >
+            <LogOut size={16} /> Sign out
+          </button>
+          <div
+            title={state.gcalEnabled ? 'Synced to Google Calendar' : 'Google Calendar not connected'}
+            className="flex items-center gap-1 px-2 py-2 rounded-lg text-xs"
+          >
+            <Calendar size={14} className={state.gcalEnabled ? 'text-td-green dark:text-tn-green' : 'text-td-muted/30 dark:text-tn-muted/30'} />
+            {state.gcalEnabled && <CheckCircle2 size={10} className="text-td-green dark:text-tn-green -ml-0.5" />}
+          </div>
+        </div>
       </div>
 
       {showNewProject && <ProjectFormModal onClose={() => setShowNewProject(false)} />}
