@@ -262,8 +262,8 @@ export function MainContent() {
         />
       )}
 
-      <div className="flex-1 overflow-y-auto"
-        style={{ paddingBottom: 'calc(80px + env(safe-area-inset-bottom, 0px))' }}>
+      <div className={`flex-1 min-h-0 ${viewMode === 'calendar' ? 'overflow-hidden flex flex-col' : 'overflow-y-auto'}`}
+        style={viewMode !== 'calendar' ? { paddingBottom: 'calc(80px + env(safe-area-inset-bottom, 0px))' } : undefined}>
         {viewMode === 'calendar' ? (
           <CalendarView tasks={tasks} />
         ) : view === 'overdue' ? (

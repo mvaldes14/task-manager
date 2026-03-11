@@ -163,9 +163,9 @@ export function CalendarView({ tasks }) {
   }
 
   return (
-    <div className="p-3">
+    <div className="flex flex-col h-full p-3 pb-0">
       {/* Header */}
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-3 shrink-0">
         <button onClick={prev} className="p-1.5 text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg rounded-lg hover:bg-td-surface dark:hover:bg-tn-surface">
           <ChevronLeft size={18} />
         </button>
@@ -178,7 +178,7 @@ export function CalendarView({ tasks }) {
       </div>
 
       {/* Day headers */}
-      <div className="grid grid-cols-7 mb-1">
+      <div className="grid grid-cols-7 mb-1 shrink-0">
         {DAYS.map(d => (
           <div key={d} className="text-center text-[10px] font-semibold text-td-muted/60 dark:text-tn-muted/60 uppercase py-1">
             {d}
@@ -186,10 +186,11 @@ export function CalendarView({ tasks }) {
         ))}
       </div>
 
-      {/* Grid */}
-      <div className="space-y-px">
+      {/* Grid - fills remaining height */}
+      <div className="flex-1 flex flex-col gap-px min-h-0"
+        style={{ paddingBottom: 'calc(16px + env(safe-area-inset-bottom, 0px))' }}>
         {weeks.map((week, wi) => (
-          <div key={wi} className="grid grid-cols-7 gap-px">
+          <div key={wi} className="grid grid-cols-7 gap-px flex-1 min-h-0">
             {week.map((cell, di) => {
               const isToday = cell.cur &&
                 today.getFullYear() === year &&
@@ -201,7 +202,7 @@ export function CalendarView({ tasks }) {
                 : null
               const dayTasks = (dateStr && tasksByDate[dateStr]) || []
               const isOver = dateStr && overDate === dateStr
-              const MAX_SHOW = 2
+              const MAX_SHOW = Math.max(2, Math.floor((dayTasks.length > 0 ? 4 : 2)))
 
               return (
                 <div
@@ -210,17 +211,17 @@ export function CalendarView({ tasks }) {
                   onDragOver={dateStr ? e => handleDragOver(e, dateStr) : undefined}
                   onDragLeave={() => setOverDate(null)}
                   onDrop={dateStr ? e => handleDrop(e, dateStr) : undefined}
-                  className={`min-h-[72px] p-1 rounded-lg transition-colors
+                  className={`p-1 rounded-lg transition-colors overflow-hidden flex flex-col
                     ${!cell.cur ? 'bg-transparent opacity-30' :
                       isOver ? 'bg-td-surface dark:bg-tn-surface ring-2 ring-td-blue/50 dark:ring-tn-blue/50' :
                       'bg-td-bg3/40 dark:bg-tn-bg3/40 hover:bg-td-bg3 dark:hover:bg-tn-bg3'}
-                    ${isToday ? 'ring-1 ring-td-blue/50 dark:ring-tn-blue/50' : ''}`}
+                    ${isToday && !isOver ? 'ring-1 ring-td-blue/50 dark:ring-tn-blue/50' : ''}`}
                 >
-                  <div className={`text-[11px] font-medium mb-1 text-right
+                  <div className={`text-[11px] font-medium mb-0.5 text-right shrink-0
                     ${isToday ? 'text-td-blue dark:text-tn-blue' : cell.cur ? 'text-td-muted dark:text-tn-muted' : 'text-td-muted/40 dark:text-tn-muted/40'}`}>
                     {cell.day}
                   </div>
-                  <div className="space-y-0.5 overflow-hidden">
+                  <div className="space-y-0.5 overflow-hidden flex-1 min-h-0">
                     {dayTasks.slice(0, MAX_SHOW).map(t => (
                       <TaskPill key={t.id} task={t} onDragStart={handleDragStart} onTouchStart={handleTouchStart} />
                     ))}
