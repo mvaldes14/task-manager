@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useApp } from '../../context/AppContext'
 import { useTasks } from '../../hooks/useTasks'
 import { api } from '../../api'
-import { formatDate, fmtTime, recurrenceLabel, obsidianNoteName } from '../../utils'
+import { formatDate, fmtTime, recurrenceLabel } from '../../utils'
 import { X, Trash2, Plus, Check, ChevronRight } from 'lucide-react'
 
 const STATUSES = ['todo', 'doing', 'done']
@@ -45,82 +45,85 @@ function SubtaskRow({ sub, taskId }) {
   )
 }
 
-function ObsidianSection({ task, onUpdate }) {
+function LinksSection({ task, onUpdate }) {
   const { toast } = useApp()
-  const [editing, setEditing] = useState(false)
-  const [input, setInput] = useState('')
+  const [adding, setAdding] = useState(false)
+  const [urlInput, setUrlInput] = useState('')
+  const [labelInput, setLabelInput] = useState('')
 
-  const noteName = obsidianNoteName(task.obsidian_url)
+  const links = task.links || []
 
-  const save = async () => {
-    if (!input.trim()) return
-    try {
-      const updated = await api.updateTask(task.id, { obsidian_url: input.trim() })
-      if (updated) onUpdate(updated)
-      setEditing(false)
-      setInput('')
-    } catch { toast('Failed to save Obsidian link') }
+  const addLink = async () => {
+    if (!urlInput.trim()) return
+    const newLink = { url: urlInput.trim(), label: labelInput.trim() || urlInput.trim() }
+    const updated = await api.updateTask(task.id, { links: [...links, newLink] })
+    if (updated) onUpdate(updated)
+    setAdding(false)
+    setUrlInput('')
+    setLabelInput('')
   }
 
-  const unlink = async () => {
-    try {
-      const updated = await api.updateTask(task.id, { obsidian_url: null })
-      if (updated) onUpdate(updated)
-    } catch { toast('Failed to remove Obsidian link') }
+  const removeLink = async (i) => {
+    const next = links.filter((_, idx) => idx !== i)
+    const updated = await api.updateTask(task.id, { links: next })
+    if (updated) onUpdate(updated)
   }
 
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
-        <label className="text-[10px] font-semibold tracking-wider text-td-muted/60 dark:text-tn-muted/60 uppercase">Obsidian</label>
-        {!editing && (
-          <button
-            onClick={() => { setEditing(true); setInput(task.obsidian_url || '') }}
-            className="text-[10px] text-td-muted/50 dark:text-tn-muted/50 hover:text-td-amber dark:text-tn-amber transition-colors"
-          >
-            {task.obsidian_url ? 'Edit' : '+ Link note'}
+        <label className="text-[10px] font-semibold tracking-wider text-td-muted/60 dark:text-tn-muted/60 uppercase">Links</label>
+        {!adding && (
+          <button onClick={() => setAdding(true)}
+            className="text-[10px] text-td-muted/50 dark:text-tn-muted/50 hover:text-td-amber dark:hover:text-tn-amber transition-colors">
+            + Add link
           </button>
         )}
       </div>
 
-      {task.obsidian_url && !editing && (
-        <div className="flex items-center gap-2">
-          <a
-            href={task.obsidian_url}
-            className="flex-1 flex items-center gap-2 text-xs px-3 py-2 rounded-lg transition-colors"
-            className="text-td-amber dark:text-tn-amber" style={{ background: 'rgba(224,175,104,0.12)' }}
-          >
-            📎 {noteName || 'Open note'}
+      {links.map((link, i) => (
+        <div key={i} className="flex items-center gap-2">
+          <a href={link.url}
+            className="flex-1 flex items-center gap-2 text-xs px-3 py-2 rounded-lg transition-colors
+              text-td-amber dark:text-tn-amber bg-td-amber/10 dark:bg-tn-amber/10
+              hover:bg-td-amber/20 dark:hover:bg-tn-amber/20">
+            🔗 {link.label || link.url}
             <ChevronRight size={12} className="ml-auto shrink-0" />
           </a>
-          <button
-            onClick={unlink}
-            className="p-2 text-td-muted/40 dark:text-tn-muted/40 hover:text-td-red dark:text-tn-red transition-colors"
-            title="Unlink"
-          >
+          <button onClick={() => removeLink(i)}
+            className="p-1.5 text-td-muted/40 dark:text-tn-muted/40 hover:text-td-red dark:hover:text-tn-red transition-colors">
             <X size={13} />
           </button>
         </div>
-      )}
+      ))}
 
-      {editing && (
+      {adding && (
         <div className="space-y-2">
+          <input autoFocus
+            type="text" value={urlInput} onChange={e => setUrlInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') addLink(); if (e.key === 'Escape') setAdding(false) }}
+            placeholder="https:// or obsidian://"
+            className="w-full bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-xs
+              rounded-lg px-2.5 py-2 outline-none border border-td-border/50 dark:border-tn-border/50
+              placeholder-td-muted/30 dark:placeholder-tn-muted/30 font-mono"
+          />
           <input
-            autoFocus
-            type="text"
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') setEditing(false) }}
-            placeholder="obsidian://open?vault=…&file=…"
-            className="w-full bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-xs rounded-lg px-2.5 py-2 outline-none border border-td-border/50 dark:border-tn-border/50 placeholder-td-muted/30 dark:placeholder-tn-muted/30 font-mono"
+            type="text" value={labelInput} onChange={e => setLabelInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') addLink(); if (e.key === 'Escape') setAdding(false) }}
+            placeholder="Label (optional)"
+            className="w-full bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-xs
+              rounded-lg px-2.5 py-2 outline-none border border-td-border/50 dark:border-tn-border/50
+              placeholder-td-muted/30 dark:placeholder-tn-muted/30"
           />
           <div className="flex gap-2">
-            <button onClick={() => setEditing(false)} className="flex-1 py-1.5 text-xs text-td-muted dark:text-tn-muted bg-td-surface dark:bg-tn-surface rounded-lg border border-td-border/50 dark:border-tn-border/50">
+            <button onClick={() => setAdding(false)}
+              className="flex-1 py-1.5 text-xs text-td-muted dark:text-tn-muted bg-td-surface dark:bg-tn-surface rounded-lg border border-td-border/50 dark:border-tn-border/50">
               Cancel
             </button>
-            <button onClick={save} disabled={!input.trim()} className="flex-1 py-1.5 text-xs font-medium rounded-lg disabled:opacity-40"
-              style={{ background: '#e0af68', color: '#1a1b26' }}>
-              Save
+            <button onClick={addLink} disabled={!urlInput.trim()}
+              className="flex-1 py-1.5 text-xs font-medium rounded-lg disabled:opacity-40
+                bg-td-amber dark:bg-tn-amber text-white">
+              Add
             </button>
           </div>
         </div>
@@ -360,8 +363,8 @@ export function TaskDetail() {
             </div>
           </div>
 
-          {/* Obsidian */}
-          <ObsidianSection task={task} onUpdate={updated => dispatch({ type: 'UPDATE_TASK', payload: updated })} />
+          {/* Links */}
+          <LinksSection task={task} onUpdate={updated => dispatch({ type: 'UPDATE_TASK', payload: updated })} />
 
           {/* Recurrence */}
           {recurrenceLabel(task.recurrence) && (

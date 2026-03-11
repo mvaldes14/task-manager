@@ -57,7 +57,8 @@ def init_db():
                 recurrence TEXT,
                 recurrence_end DATE,
                 parent_task_id TEXT,
-                obsidian_url TEXT
+                obsidian_url TEXT,
+                links JSONB DEFAULT '[]'
             )""")
         cur.execute("""
             CREATE TABLE IF NOT EXISTS subtasks (
@@ -73,6 +74,13 @@ def init_db():
         cur.execute("INSERT INTO projects (id,name,color,icon) VALUES ('inbox','Inbox','#6366f1','📥') ON CONFLICT (id) DO NOTHING")
         # Indexes for common query patterns
         cur.execute("CREATE INDEX IF NOT EXISTS idx_tasks_project_id ON tasks(project_id)")
+        # Migration: add links column if missing
+        cur.execute("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS links JSONB DEFAULT '[]'")
+        # Backfill: move any obsidian_url into links array if links is empty
+        cur.execute("""
+            UPDATE tasks SET links = jsonb_build_array(jsonb_build_object('url', obsidian_url, 'label', 'Obsidian'))
+            WHERE obsidian_url IS NOT NULL AND obsidian_url != '' AND (links IS NULL OR links = '[]'::jsonb)
+        """)
         cur.execute("CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_tasks_due_date ON tasks(due_date)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_subtasks_task_id ON subtasks(task_id)")
@@ -99,7 +107,7 @@ def row_to_dict(row):
         if field in d and d[field] is not None: d[field] = str(d[field])
     if 'due_date' in d and d['due_date'] is not None: d['due_date'] = str(d['due_date'])[:10]
     if 'due_time' in d and d['due_time'] is not None: d['due_time'] = str(d['due_time'])[:5]
-    for field in ('tags','labels'):
+    for field in ('tags','labels','links'):
         if field in d:
             if isinstance(d[field], str):
                 try: d[field] = json.loads(d[field])
@@ -305,7 +313,7 @@ def clone_recurring_task(task: dict, next_date: date) -> dict:
 def parse_natural_language(text):
     original = text
     result = {'title': text, 'due_date': None, 'due_time': None, 'priority': 'medium',
-              'project_name': None, 'labels': [], 'nlp_summary': None, 'obsidian_url': None, 'obsidian_new_url': None,
+              'project_name': None, 'labels': [], 'nlp_summary': None, 'obsidian_url': None, 'obsidian_new_url': None, 'links': [],
               'recurrence': None}
     today = date.today()
     found_date = found_time = None
@@ -771,9 +779,14 @@ def create_task():
         cur.execute("SELECT COALESCE(MAX(position),0) FROM tasks WHERE project_id=%s AND status=%s",(project_id,status))
         max_pos=cur.fetchone()['coalesce']
         obsidian_url = nlp.get('obsidian_url') or data.get('obsidian_url')
-        cur.execute("""INSERT INTO tasks (id,title,description,project_id,status,priority,due_date,due_time,tags,position,recurrence,recurrence_end,obsidian_url)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
-            (tid,title,data.get('description',''),project_id,status,priority,due_date,due_time,json.dumps(tags),max_pos+1,recurrence,recurrence_end,obsidian_url))
+        # Build initial links array — start from provided links or backfill from obsidian_url
+        links = data.get('links', [])
+        if not links and obsidian_url:
+            note_name = nlp.get('obsidian_note') or 'Obsidian'
+            links = [{'url': obsidian_url, 'label': note_name}]
+        cur.execute("""INSERT INTO tasks (id,title,description,project_id,status,priority,due_date,due_time,tags,position,recurrence,recurrence_end,obsidian_url,links)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+            (tid,title,data.get('description',''),project_id,status,priority,due_date,due_time,json.dumps(tags),max_pos+1,recurrence,recurrence_end,obsidian_url,json.dumps(links)))
         cur.execute("SELECT * FROM tasks WHERE id=%s",(tid,)); task=row_to_dict(cur.fetchone())
         task['subtasks']=[]; conn.commit()
     finally: release_db(conn)
@@ -815,14 +828,16 @@ def update_task(tid):
         for f in ['title','description','project_id','status','priority','due_date','due_time','position','recurrence','recurrence_end','obsidian_url']:
             if f in data: t[f]=data[f]
         if 'tags' in data: t['tags']=json.dumps(data['tags'])
+        if 'links' in data: t['links']=json.dumps(data['links'])
         if data.get('status')=='done' and t.get('status')!='done': t['completed_at']=datetime.now(timezone.utc)
         elif data.get('status') and data['status']!='done': t['completed_at']=None
         tags_val=t['tags'] if isinstance(t['tags'],str) else json.dumps(t['tags'])
+        links_val=t.get('links','[]'); links_val=links_val if isinstance(links_val,str) else json.dumps(links_val)
         cur.execute("""UPDATE tasks SET title=%s,description=%s,project_id=%s,status=%s,priority=%s,
-            due_date=%s,due_time=%s,tags=%s,position=%s,completed_at=%s,recurrence=%s,recurrence_end=%s,obsidian_url=%s,updated_at=NOW() WHERE id=%s""",
+            due_date=%s,due_time=%s,tags=%s,position=%s,completed_at=%s,recurrence=%s,recurrence_end=%s,obsidian_url=%s,links=%s,updated_at=NOW() WHERE id=%s""",
             (t['title'],t['description'],t['project_id'],t['status'],t['priority'],
              t['due_date'],t['due_time'],tags_val,t['position'],t.get('completed_at'),
-             t.get('recurrence'),t.get('recurrence_end'),t.get('obsidian_url'),tid))
+             t.get('recurrence'),t.get('recurrence_end'),t.get('obsidian_url'),links_val,tid))
         cur.execute("SELECT * FROM tasks WHERE id=%s",(tid,)); result=row_to_dict(cur.fetchone())
         cur.execute("SELECT * FROM subtasks WHERE task_id=%s ORDER BY position",(tid,))
         result['subtasks']=[row_to_dict(s) for s in cur.fetchall()]

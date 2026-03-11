@@ -79,13 +79,14 @@ export function TaskCard({ task }) {
             <span className="text-[11px] text-td-teal dark:text-tn-teal">{recurrenceLabel(task.recurrence)}</span>
           )}
 
-          {/* Obsidian */}
-          {task.obsidian_url && (
-            <a href={task.obsidian_url} onClick={e => e.stopPropagation()}
-              className="text-[11px] text-td-amber dark:text-tn-amber hover:underline">
-              📎 {obsidianNoteName(task.obsidian_url) || 'Note'}
+          {/* Links */}
+          {(task.links || []).map((link, i) => (
+            <a key={i} href={link.url} onClick={e => e.stopPropagation()}
+              className="text-[11px] font-medium text-td-amber dark:text-tn-amber
+                bg-td-amber/10 dark:bg-tn-amber/10 px-1.5 py-0.5 rounded-md hover:bg-td-amber/20 dark:hover:bg-tn-amber/20 transition-colors">
+              🔗 {link.label || 'Link'}
             </a>
-          )}
+          ))}
 
           {/* Subtasks */}
           {subtasksTotal > 0 && (
