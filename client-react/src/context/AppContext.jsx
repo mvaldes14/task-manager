@@ -1,4 +1,5 @@
-import { createContext, useContext, useReducer, useCallback } from 'react'
+import { createContext, useContext, useReducer, useCallback, useEffect } from 'react'
+import { isOverdue, isToday } from '../utils'
 
 const AppContext = createContext(null)
 
@@ -52,6 +53,14 @@ function reducer(state, action) {
 
 export function AppProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, initialState)
+
+  // PWA app icon badge — overdue + today incomplete
+  useEffect(() => {
+    if (!('setAppBadge' in navigator)) return
+    const count = state.tasks.filter(t => isOverdue(t) || isToday(t)).filter(t => t.status !== 'done').length
+    if (count > 0) navigator.setAppBadge(count)
+    else navigator.clearAppBadge()
+  }, [state.tasks])
 
   const toast = useCallback((msg) => {
     dispatch({ type: 'SET_TOAST', payload: msg })
