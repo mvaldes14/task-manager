@@ -81,7 +81,7 @@ review PR in 3 days
 - **Google Calendar sync** — tasks with due dates sync automatically; done tasks shown in graphite
 - **Obsidian integration** — `!notename` creates a note; detail panel links existing notes
 - **PWA** — installable on iOS and Android
-- **Tokyo Night** — dark and light theme
+- **Theme** — Tokyo Night (dark) and Tokyo Day (light), toggle in sidebar
 
 ---
 
@@ -331,7 +331,7 @@ curl -s http://localhost:5001/api/tasks/overdue \
 ## Stack
 
 - **Backend** — Python 3.12 + Flask + PostgreSQL
-- **Frontend** — React + Vite + Tailwind CSS (Tokyo Night theme)
+- **Frontend** — React + Vite + Tailwind CSS (Tokyo Night dark / Tokyo Day light)
 - **Auth** — Session-based with PostgreSQL storage, optional Bearer API key
 - **Deployment** — Docker Compose, data persisted in `./data/postgres/`
 

@@ -288,11 +288,11 @@ def clone_recurring_task(task: dict, next_date: date) -> dict:
         cur.execute("SELECT COALESCE(MAX(position),0) FROM tasks WHERE project_id=%s AND status='todo'", (task['project_id'],))
         max_pos = cur.fetchone()['coalesce']
         cur.execute("""
-            INSERT INTO tasks (id, title, description, project_id, status, priority,
+            INSERT INTO tasks (id, title, description, project_id, status,
                                due_date, due_time, tags, position, recurrence, recurrence_end, parent_task_id)
-            VALUES (%s,%s,%s,%s,'todo',%s,%s,%s,%s,%s,%s,%s,%s)
+            VALUES (%s,%s,%s,%s,'todo',%s,%s,%s,%s,%s,%s,%s)
         """, (new_id, task['title'], task.get('description',''), task['project_id'],
-              task.get('priority','medium'), next_date.isoformat(), task.get('due_time'),
+              next_date.isoformat(), task.get('due_time'),
               json.dumps(task.get('tags',[])), max_pos+1,
               task.get('recurrence'), task.get('recurrence_end'),
               task.get('parent_task_id') or task['id']))
@@ -307,7 +307,7 @@ def clone_recurring_task(task: dict, next_date: date) -> dict:
 
 def parse_natural_language(text):
     original = text
-    result = {'title': text, 'due_date': None, 'due_time': None, 'priority': 'medium',
+    result = {'title': text, 'due_date': None, 'due_time': None,
               'project_name': None, 'labels': [], 'nlp_summary': None, 'obsidian_url': None, 'obsidian_new_url': None, 'links': [],
               'recurrence': None}
     today = date.today()
@@ -346,12 +346,6 @@ def parse_natural_language(text):
     if labels: result['labels'] = labels; text = re.sub(r'@\w+','',text).strip()
 
     tl = text.lower().strip()
-    if re.search(r'\b(urgent|asap|critical|!!)\b', tl):
-        result['priority']='high'; text=re.sub(r'\b(urgent|asap|critical|!!)\b','',text,flags=re.IGNORECASE).strip()
-    elif re.search(r'\b(low priority|whenever|no rush|someday)\b', tl):
-        result['priority']='low'; text=re.sub(r'\b(low priority|whenever|no rush|someday)\b','',text,flags=re.IGNORECASE).strip()
-    elif re.search(r'\b(important|high priority)\b', tl):
-        result['priority']='high'; text=re.sub(r'\b(important|high priority)\b','',text,flags=re.IGNORECASE).strip()
 
     for pat, kind in [(r'\bat\s+(\d{1,2}):(\d{2})\s*(am|pm)?\b','hm'),(r'\bat\s+(\d{1,2})\s*(am|pm)\b','h'),
                       (r'\b(\d{1,2}):(\d{2})\s*(am|pm)\b','hm'),(r'\b(\d{1,2})\s*(am|pm)\b','h')]:
@@ -437,7 +431,6 @@ def parse_natural_language(text):
     if result['project_name']: parts.append(f"#{result['project_name']}")
     if found_date: parts.append(f"due {found_date.strftime('%a %b %-d')}")
     if found_time: h,mi=map(int,found_time.split(':')); parts.append(f"at {h%12 or 12}:{mi:02d}{'am' if h<12 else 'pm'}")
-    if result['priority']!='medium': parts.append(f"priority: {result['priority']}")
     if result['labels']: parts.append(' '.join(f"@{l}" for l in result['labels']))
     if result.get('recurrence'):
         r = json.loads(result['recurrence'])
@@ -766,7 +759,7 @@ def create_task():
     nlp={}
     if data.get('nlp'): nlp=parse_natural_language(title); title=nlp.get('title',title)
     tags=data.get('tags',nlp.get('labels',[])); due_date=data.get('due_date',nlp.get('due_date'))
-    due_time=data.get('due_time',nlp.get('due_time')); priority=data.get('priority',nlp.get('priority','medium'))
+    due_time=data.get('due_time',nlp.get('due_time'))
     status=data.get('status','todo'); project_id=data.get('project_id','inbox')
     recurrence=data.get('recurrence',nlp.get('recurrence'))
     recurrence_end=data.get('recurrence_end')
@@ -794,9 +787,9 @@ def create_task():
         if not links and obsidian_url:
             note_name = nlp.get('obsidian_note') or 'Obsidian'
             links = [{'url': obsidian_url, 'label': note_name}]
-        cur.execute("""INSERT INTO tasks (id,title,description,project_id,status,priority,due_date,due_time,tags,position,recurrence,recurrence_end,obsidian_url,links)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
-            (tid,title,data.get('description',''),project_id,status,priority,due_date,due_time,json.dumps(tags),max_pos+1,recurrence,recurrence_end,obsidian_url,json.dumps(links)))
+        cur.execute("""INSERT INTO tasks (id,title,description,project_id,status,due_date,due_time,tags,position,recurrence,recurrence_end,links)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+            (tid,title,data.get('description',''),project_id,status,due_date,due_time,json.dumps(tags),max_pos+1,recurrence,recurrence_end,json.dumps(links)))
         cur.execute("SELECT * FROM tasks WHERE id=%s",(tid,)); task=row_to_dict(cur.fetchone())
         task['subtasks']=[]; conn.commit()
     finally: release_db(conn)
@@ -835,7 +828,7 @@ def update_task(tid):
         cur.execute("SELECT * FROM tasks WHERE id=%s",(tid,)); row=cur.fetchone()
         if not row: return jsonify({'error':'Not found'}),404
         t=dict(row)
-        for f in ['title','description','project_id','status','priority','due_date','due_time','position','recurrence','recurrence_end','obsidian_url']:
+        for f in ['title','description','project_id','status','due_date','due_time','position','recurrence','recurrence_end']:
             if f in data: t[f]=data[f]
         if 'tags' in data: t['tags']=json.dumps(data['tags'])
         if 'links' in data: t['links']=json.dumps(data['links'])
@@ -843,11 +836,11 @@ def update_task(tid):
         elif data.get('status') and data['status']!='done': t['completed_at']=None
         tags_val=t['tags'] if isinstance(t['tags'],str) else json.dumps(t['tags'])
         links_val=t.get('links','[]'); links_val=links_val if isinstance(links_val,str) else json.dumps(links_val)
-        cur.execute("""UPDATE tasks SET title=%s,description=%s,project_id=%s,status=%s,priority=%s,
-            due_date=%s,due_time=%s,tags=%s,position=%s,completed_at=%s,recurrence=%s,recurrence_end=%s,obsidian_url=%s,links=%s,updated_at=NOW() WHERE id=%s""",
-            (t['title'],t['description'],t['project_id'],t['status'],t['priority'],
+        cur.execute("""UPDATE tasks SET title=%s,description=%s,project_id=%s,status=%s,
+            due_date=%s,due_time=%s,tags=%s,position=%s,completed_at=%s,recurrence=%s,recurrence_end=%s,links=%s,updated_at=NOW() WHERE id=%s""",
+            (t['title'],t['description'],t['project_id'],t['status'],
              t['due_date'],t['due_time'],tags_val,t['position'],t.get('completed_at'),
-             t.get('recurrence'),t.get('recurrence_end'),t.get('obsidian_url'),links_val,tid))
+             t.get('recurrence'),t.get('recurrence_end'),links_val,tid))
         cur.execute("SELECT * FROM tasks WHERE id=%s",(tid,)); result=row_to_dict(cur.fetchone())
         cur.execute("SELECT * FROM subtasks WHERE task_id=%s ORDER BY position",(tid,))
         result['subtasks']=[row_to_dict(s) for s in cur.fetchall()]
@@ -894,10 +887,10 @@ def add_subtask(tid):
     try:
         cur=conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cur.execute("SELECT COALESCE(MAX(position),0) FROM subtasks WHERE task_id=%s",(tid,)); max_pos=cur.fetchone()['coalesce']
-        cur.execute("""INSERT INTO subtasks (id,task_id,title,position,due_date,due_time,priority,labels)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s)""",
+        cur.execute("""INSERT INTO subtasks (id,task_id,title,position,due_date,due_time,labels)
+            VALUES (%s,%s,%s,%s,%s,%s,%s)""",
             (sid,tid,nlp.get('title') or data.get('title',''),max_pos+1,
-             nlp.get('due_date'),nlp.get('due_time'),nlp.get('priority','medium'),json.dumps(nlp.get('labels',[]))))
+             nlp.get('due_date'),nlp.get('due_time'),json.dumps(nlp.get('labels',[]))))
         cur.execute("SELECT * FROM subtasks WHERE id=%s",(sid,)); row=row_to_dict(cur.fetchone()); conn.commit()
     finally: release_db(conn)
     if nlp.get('nlp_summary'): row['nlp_summary']=nlp['nlp_summary']
@@ -908,7 +901,7 @@ def update_subtask(tid,sid):
     data=request.get_json(); conn=get_db()
     try:
         cur=conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        for f in ('title','due_date','due_time','priority'):
+        for f in ('title','due_date','due_time'):
             if f in data: cur.execute(f"UPDATE subtasks SET {f}=%s WHERE id=%s",(data[f],sid))
         if 'completed' in data: cur.execute("UPDATE subtasks SET completed=%s WHERE id=%s",(bool(data['completed']),sid))
         if 'labels' in data: cur.execute("UPDATE subtasks SET labels=%s WHERE id=%s",(json.dumps(data['labels']),sid))
