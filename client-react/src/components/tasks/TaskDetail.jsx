@@ -339,6 +339,9 @@ export function TaskDetail() {
             />
           </div>
 
+          {/* Links */}
+          <LinksSection task={task} onUpdate={updated => dispatch({ type: 'UPDATE_TASK', payload: updated })} />
+
           {/* Subtasks */}
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-td-muted dark:text-tn-muted">
@@ -362,9 +365,6 @@ export function TaskDetail() {
               </button>
             </div>
           </div>
-
-          {/* Links */}
-          <LinksSection task={task} onUpdate={updated => dispatch({ type: 'UPDATE_TASK', payload: updated })} />
 
           {/* Recurrence */}
           {recurrenceLabel(task.recurrence) && (
