@@ -8,7 +8,7 @@ const initialState = {
   projects: [],
   // Navigation
   view: 'inbox',            // inbox | today | overdue | all | calendar | project:<id>
-  viewMode: 'list',         // list | board
+  viewMode: 'list',         // list | board | calendar
   // Detail panel
   selectedTaskId: null,
   // UI

@@ -159,7 +159,6 @@ export function Sidebar() {
         <NavItem icon="📥" label="Inbox"     viewKey="inbox"    badge={inboxCount} />
         <NavItem icon="☀️" label="Today"     viewKey="today"    badge={todayCount} />
         <NavItem icon="📋" label="All Tasks" viewKey="all" />
-        <NavItem icon="🗓" label="Calendar"  viewKey="calendar" />
         <NavItem icon="🔴" label="Overdue"   viewKey="overdue"
           badge={overdueCount} badgeColor="bg-td-red dark:bg-tn-red" />
 

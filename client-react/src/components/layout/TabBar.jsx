@@ -1,13 +1,13 @@
 import { useMemo } from 'react'
 import { useApp } from '../../context/AppContext'
 import { isToday, isOverdue } from '../../utils'
-import { Inbox, Sun, CalendarDays, Menu } from 'lucide-react'
+import { Inbox, Sun, LayoutList, Menu } from 'lucide-react'
 
 const TABS = [
-  { key: 'inbox',    icon: Inbox,        label: 'Inbox'    },
-  { key: 'today',    icon: Sun,          label: 'Today'    },
-  { key: 'calendar', icon: CalendarDays, label: 'Calendar' },
-  { key: 'browse',   icon: Menu,         label: 'Browse'   },
+  { key: 'inbox',  icon: Inbox,      label: 'Inbox' },
+  { key: 'today',  icon: Sun,        label: 'Today' },
+  { key: 'all',    icon: LayoutList, label: 'All'   },
+  { key: 'browse', icon: Menu,       label: 'Browse' },
 ]
 
 export function TabBar() {

@@ -4,7 +4,7 @@ import { isOverdue, isToday } from '../../utils'
 import { TaskList } from '../tasks/TaskList'
 import { KanbanBoard } from '../tasks/KanbanBoard'
 import { CalendarView } from '../calendar/CalendarView'
-import { LayoutList, Columns, Menu, ChevronDown } from 'lucide-react'
+import { LayoutList, Columns, Menu, ChevronDown, CalendarDays } from 'lucide-react'
 
 function ViewHeader({ title, count }) {
   const { state, dispatch } = useApp()
@@ -37,8 +37,7 @@ function ViewHeader({ title, count }) {
         )}
       </div>
 
-      {state.view !== 'calendar' && (
-        <div className="flex items-center gap-1 bg-td-surface dark:bg-tn-surface rounded-lg p-0.5">
+      <div className="flex items-center gap-1 bg-td-surface dark:bg-tn-surface rounded-lg p-0.5">
           <button
             onClick={() => dispatch({ type: 'SET_VIEW_MODE', payload: 'list' })}
             className={`p-1.5 rounded-md transition-colors
@@ -57,8 +56,16 @@ function ViewHeader({ title, count }) {
           >
             <Columns size={15} />
           </button>
+          <button
+            onClick={() => dispatch({ type: 'SET_VIEW_MODE', payload: 'calendar' })}
+            className={`p-1.5 rounded-md transition-colors
+              ${state.viewMode === 'calendar'
+                ? 'bg-td-bg2 dark:bg-tn-bg2 text-td-fg dark:text-tn-fg shadow-sm'
+                : 'text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg'}`}
+          >
+            <CalendarDays size={15} />
+          </button>
         </div>
-      )}
     </div>
   )
 }
@@ -239,7 +246,7 @@ export function MainContent() {
   const activeCount = useMemo(() =>
     baseTasks.filter(t => t.status !== 'done').length, [baseTasks])
 
-  const showToolbar = view !== 'calendar' && view !== 'overdue'
+  const showToolbar = viewMode === 'list' && view !== 'overdue'
 
   return (
     <div className="flex-1 flex flex-col min-h-0 min-w-0">
@@ -256,7 +263,7 @@ export function MainContent() {
 
       <div className="flex-1 overflow-y-auto"
         style={{ paddingBottom: 'calc(80px + env(safe-area-inset-bottom, 0px))' }}>
-        {view === 'calendar' ? (
+        {viewMode === 'calendar' ? (
           <CalendarView tasks={tasks} />
         ) : view === 'overdue' ? (
           <OverdueView tasks={visibleTasks} />
