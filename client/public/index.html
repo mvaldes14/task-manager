@@ -941,6 +941,10 @@ body.light .color-swatch.selected { box-shadow: 0 0 0 2px var(--bg2), 0 0 0 4px 
   .fab { bottom: calc(72px + env(safe-area-inset-bottom, 0px)); right: 16px; }
   /* overlay: lighter scrim for bottom sheet */
   .fab-modal-overlay { backdrop-filter: none; -webkit-backdrop-filter: none; background: rgba(0,0,0,0.4); }
+  .calendar-cell { min-height: 60px; padding: 5px 3px 4px; border-radius: 6px; }
+  .calendar-cell-date { font-size: 11px; margin-bottom: 3px; }
+  .calendar-task-pill { font-size: 10px; padding: 1px 4px; }
+  .calendar-dow { font-size: 9px; padding: 4px 0; letter-spacing: 0; }
   /* hide hamburger menu btn on mobile since we have tab bar */
   .menu-btn { display: none !important; }
   .sidebar {
@@ -996,17 +1000,18 @@ body.light .color-swatch.selected { box-shadow: 0 0 0 2px var(--bg2), 0 0 0 4px 
 }
 .calendar-nav-btn:hover { background: var(--bg4); }
 .calendar-grid {
-  display: grid; grid-template-columns: repeat(7, 1fr);
+  display: grid; grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 3px; margin-bottom: 3px;
 }
 .calendar-dow {
   text-align: center; font-size: 11px; font-weight: 600;
   color: var(--text3); padding: 6px 0; text-transform: uppercase; letter-spacing: .06em;
+  min-width: 0; overflow: hidden;
 }
 .calendar-cell {
   min-height: 100px; background: var(--bg3); border-radius: 8px;
   padding: 8px 6px 6px; cursor: default; transition: background 0.1s;
-  position: relative;
+  position: relative; min-width: 0; overflow: hidden;
 }
 .calendar-cell.other-month { background: var(--bg2); opacity: 0.4; }
 .calendar-cell.today { outline: 2px solid var(--accent); outline-offset: -2px; background: var(--accent-dim); }
@@ -1028,6 +1033,7 @@ body.light .color-swatch.selected { box-shadow: 0 0 0 2px var(--bg2), 0 0 0 4px 
   overflow: hidden; text-overflow: ellipsis;
   transition: background 0.1s;
   display: flex; align-items: center; gap: 4px;
+  width: 100%; box-sizing: border-box; min-width: 0;
 }
 .calendar-task-pill:hover { opacity: 0.8; }
 .calendar-task-pill.done { opacity: 0.4; text-decoration: line-through; }
