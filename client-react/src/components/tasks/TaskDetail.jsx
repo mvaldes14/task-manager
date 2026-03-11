@@ -237,11 +237,10 @@ export function TaskDetail() {
       <div className="md:hidden fixed inset-0 z-[60] bg-black/40 animate-fade-in" onClick={close} />
 
       <aside className={`
-        fixed inset-y-0 right-0 z-[61] w-full max-w-md
+        fixed inset-x-0 bottom-0 z-[61] w-full max-w-md ml-auto
         md:relative md:inset-auto md:w-80 md:z-auto md:border-l md:border-td-border dark:border-tn-border
         bg-td-bg2 dark:bg-tn-bg2 flex flex-col overflow-hidden
-        animate-fade-in
-      `}>
+        `} style={{ top: 'env(safe-area-inset-top, 0px)' }}>
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3.5 border-b border-td-border/50 dark:border-tn-border/50 shrink-0">
           <button onClick={close} className="text-td-muted dark:text-tn-muted hover:text-td-fg dark:text-tn-fg transition-colors">
