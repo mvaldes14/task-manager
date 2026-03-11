@@ -502,10 +502,13 @@ body.light .topbar { background: rgba(242,242,247,0.85); }
   .fab-modal-overlay { backdrop-filter: none; -webkit-backdrop-filter: none; }
 
   .fab-modal {
-    top: auto; bottom: 0; left: 0; right: 0; max-width: 100%;
+    top: auto;
+    bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+    left: 0; right: 0; max-width: 100%;
     border-radius: 16px 16px 0 0;
     padding: 0;
-    transform: translateY(100%); opacity: 1; pointer-events: none;
+    transform: translateY(calc(100% + 56px + env(safe-area-inset-bottom, 0px)));
+    opacity: 1; pointer-events: none;
     box-shadow: 0 -4px 32px rgba(0,0,0,0.5);
     transition: transform 0.32s cubic-bezier(0.32,0.72,0,1);
   }
@@ -842,7 +845,7 @@ body.light .color-swatch.selected { box-shadow: 0 0 0 2px var(--bg2), 0 0 0 4px 
 
   .tab-bar {
     display: flex;
-    position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 95;
     background: var(--bg2);
     border-top: 0.5px solid var(--border);
     padding-bottom: env(safe-area-inset-bottom, 0px);
