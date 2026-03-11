@@ -527,12 +527,12 @@ body.light .topbar { background: rgba(242,242,247,0.85); }
     caret-color: var(--accent);
   }
 
-  /* NLP chips row — now inside footer on mobile */
+  /* NLP chips — inside footer, scrollable, left side */
   #fabNlpChips {
-    display: none; flex: 1; gap: 6px;
+    display: none; gap: 6px;
     flex-wrap: nowrap; overflow-x: auto;
     scrollbar-width: none; -webkit-overflow-scrolling: touch;
-    align-items: center; min-width: 0;
+    align-items: center;
   }
   #fabNlpChips::-webkit-scrollbar { display: none; }
   #fabNlpChips.has-chips { display: flex; }
@@ -540,8 +540,8 @@ body.light .topbar { background: rgba(242,242,247,0.85); }
   /* bottom action row */
   .fab-mobile-footer {
     display: flex; align-items: center; gap: 12px;
-    padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
-    border-top: 0.5px solid var(--border); margin-top: 10px;
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+    border-top: 0.5px solid var(--border);
   }
 
   .fab-modal-hint, .fab-modal-footer { display: none; }
@@ -1246,8 +1246,8 @@ body.light .color-swatch.selected { box-shadow: 0 0 0 2px var(--bg2), 0 0 0 4px 
     <button class="btn btn-primary" style="padding:8px 20px;" onclick="submitFab()">Add Task</button>
   </div>
   <div class="fab-mobile-footer">
-    <div id="fabNlpChips" style="display:none;flex:1;gap:6px;flex-wrap:wrap;align-items:center;min-width:0;overflow:hidden;"></div>
-    <button class="btn btn-primary" style="padding:10px 24px;font-size:15px;flex-shrink:0;" onclick="submitFab()">Add Task</button>
+    <div id="fabNlpChips" style="display:none;flex:1;gap:6px;flex-wrap:nowrap;align-items:center;min-width:0;overflow-x:auto;"></div>
+    <button class="btn btn-primary" style="padding:10px 24px;font-size:15px;flex-shrink:0;margin-left:auto;" onclick="submitFab()">Add Task</button>
   </div>
 </div>
 
@@ -1943,7 +1943,13 @@ async function updateFabChips(text) {
     hasChips = true;
   }
 
-  hasChips ? chips.classList.add('has-chips') : chips.classList.remove('has-chips');
+  if (hasChips) {
+    chips.style.display = 'flex';
+    chips.style.flex = '1';
+  } else {
+    chips.style.display = 'none';
+    chips.style.flex = '';
+  }
 }
 
 function buildObsidianChip(url, noteName) {
@@ -1967,7 +1973,8 @@ function makeChip(text, color, bg) {
 function clearFabChips() {
   const chips = document.getElementById('fabNlpChips');
   chips.innerHTML = '';
-  chips.classList.remove('has-chips');
+  chips.style.display = 'none';
+  chips.style.flex = '';
 }
 
 function toggleFab() { state.fabOpen ? closeFab() : openFab(); }
