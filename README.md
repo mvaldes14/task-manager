@@ -70,16 +70,16 @@ review PR in 3 days
 ## Features
 
 - **NLP scheduling** — natural language to due date, time, project, recurrence
-- **3 views** — List, Kanban board, Calendar (switchable per view via toggle in header)
-- **Drag and drop** — Kanban: drag cards between columns to change status; Calendar: drag tasks to reschedule
-- **Pull to refresh** — pull down on mobile to reload data
+- **3 views** — List, Kanban board, Calendar (toggle in header)
+- **Drag and drop** — Kanban: drag cards between columns; Calendar: drag tasks to reschedule
+- **Pull to refresh** — pull down on mobile to reload
 - **Recurring tasks** — daily, weekly, monthly, interval; auto-reschedules on completion
-- **Projects** — custom icon (25 lucide icons) and color per project
+- **Projects** — custom icon (25 lucide icons) and color
 - **Subtasks** — nested tasks with completion tracking
-- **Links** — attach multiple URLs per task (Obsidian, GitHub, or any URL), auto-labeled
-- **Overdue view** — grouped by date
-- **Google Calendar sync** — auto-syncs tasks with due dates; done tasks shown in graphite
-- **Obsidian integration** — `!notename` in FAB creates note; detail panel links existing notes
+- **Links** — attach URLs per task (Obsidian, GitHub, or any URL), auto-labeled
+- **Overdue view** — past-due tasks grouped by date
+- **Google Calendar sync** — tasks with due dates sync automatically; done tasks shown in graphite
+- **Obsidian integration** — `!notename` creates a note; detail panel links existing notes
 - **PWA** — installable on iOS and Android
 - **Tokyo Night** — dark and light theme
 
@@ -112,7 +112,7 @@ make up          # start everything (builds if needed)
 make pull        # pull latest image from ghcr.io and start
 make down        # stop
 make build       # force full rebuild, no cache
-make restart     # restart app only (fast after frontend changes)
+make restart     # restart app only
 make logs        # tail app logs
 make shell       # bash into app container
 make db          # psql into postgres
@@ -126,17 +126,19 @@ make reset       # wipe everything including DB data
 
 ## API Reference
 
-All endpoints require either a session cookie (browser login) or a `Bearer` token via the `TD_API_KEY` env var:
+All endpoints require either a session cookie (browser login) or a `Bearer` token:
 
 ```
 Authorization: Bearer <TD_API_KEY>
 ```
 
+---
+
 ### NLP
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `POST` | `/api/nlp/parse` | Parse natural language text into task fields |
+| `POST` | `/api/nlp/parse` | Parse natural language into task fields |
 
 ```bash
 curl -X POST http://localhost:5001/api/nlp/parse \
@@ -144,6 +146,20 @@ curl -X POST http://localhost:5001/api/nlp/parse \
   -H "Content-Type: application/json" \
   -d '{"text": "call dentist tuesday at 2pm #health"}'
 ```
+
+**Response:**
+```json
+{
+  "title": "call dentist",
+  "due_date": "2026-03-18",
+  "due_time": "14:00",
+  "project_id": "health",
+  "tags": [],
+  "recurrence": null
+}
+```
+
+---
 
 ### Tasks
 
@@ -167,14 +183,14 @@ curl -X POST http://localhost:5001/api/nlp/parse \
 |---|---|---|
 | `title` | string | Task title |
 | `description` | string | Notes / body |
-| `status` | `todo\|doing\|done` | Status |
+| `status` | `todo\|doing\|done` | Current status |
 | `due_date` | `YYYY-MM-DD` | Due date |
 | `due_time` | `HH:MM` | Due time (triggers timed GCal event) |
 | `project_id` | string | Project ID (default: `inbox`) |
 | `tags` | string[] | Array of tag strings |
 | `links` | `{url, label}[]` | Array of link objects |
 | `recurrence` | string | e.g. `daily`, `weekly`, `every 2 weeks` |
-| `recurrence_end` | `YYYY-MM-DD` | End date for recurrence |
+| `recurrence_end` | `YYYY-MM-DD` | Stop date for recurrence |
 
 ```bash
 # Create a task
@@ -189,33 +205,71 @@ curl -X PATCH http://localhost:5001/api/tasks/<id> \
   -H "Content-Type: application/json" \
   -d '{"status": "done"}'
 
-# Create via NLP then immediately create task
-curl -X POST http://localhost:5001/api/nlp/parse \
+# Mark done via NLP parse + create in one shot (jq required)
+curl -s -X POST http://localhost:5001/api/nlp/parse \
   -H "Authorization: Bearer $TD_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"text": "standup tomorrow at 9am #work"}' \
-  | xargs -I{} curl -X POST http://localhost:5001/api/tasks \
-  -H "Authorization: Bearer $TD_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{}'
+  | curl -X POST http://localhost:5001/api/tasks \
+    -H "Authorization: Bearer $TD_API_KEY" \
+    -H "Content-Type: application/json" \
+    -d @-
 ```
+
+---
 
 ### Subtasks
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `POST` | `/api/tasks/<id>/subtasks` | Add subtask (`{"title": "..."}`) |
+| `POST` | `/api/tasks/<id>/subtasks` | Add subtask |
 | `PATCH` | `/api/tasks/<id>/subtasks/<sid>` | Update subtask (`completed`, `title`) |
 | `DELETE` | `/api/tasks/<id>/subtasks/<sid>` | Delete subtask |
+
+```bash
+# Add a subtask
+curl -X POST http://localhost:5001/api/tasks/<id>/subtasks \
+  -H "Authorization: Bearer $TD_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"title": "Pick up milk"}'
+
+# Mark subtask complete
+curl -X PATCH http://localhost:5001/api/tasks/<id>/subtasks/<sid> \
+  -H "Authorization: Bearer $TD_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"completed": true}'
+```
+
+---
 
 ### Projects
 
 | Method | Endpoint | Description |
 |---|---|---|
 | `GET` | `/api/projects` | List all projects (includes task counts) |
-| `POST` | `/api/projects` | Create project (`name`, `color`, `icon`) |
-| `PATCH` | `/api/projects/<id>` | Update project (name, color, icon) |
+| `POST` | `/api/projects` | Create project |
+| `PATCH` | `/api/projects/<id>` | Update project |
 | `DELETE` | `/api/projects/<id>` | Delete project (tasks moved to inbox) |
+
+**Project fields:**
+
+| Field | Type | Description |
+|---|---|---|
+| `name` | string | Project name |
+| `color` | string | Hex color e.g. `#7aa2f7` |
+| `icon` | string | Lucide icon name e.g. `rocket`, `briefcase`, `folder` |
+
+```bash
+# Create a project
+curl -X POST http://localhost:5001/api/projects \
+  -H "Authorization: Bearer $TD_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Work", "color": "#7aa2f7", "icon": "briefcase"}'
+```
+
+Available icons: `folder`, `home`, `briefcase`, `target`, `flask`, `book`, `palette`, `bulb`, `cart`, `dumbbell`, `music`, `plane`, `monitor`, `leaf`, `rocket`, `heart`, `star`, `zap`, `globe`, `code`, `camera`, `coffee`, `wrench`, `shield`, `smile`
+
+---
 
 ### Google Calendar
 
@@ -224,11 +278,53 @@ curl -X POST http://localhost:5001/api/nlp/parse \
 | `GET` | `/api/gcal/status` | Check if GCal is connected |
 | `POST` | `/api/gcal/sync` | Trigger a full sync of all tasks with due dates |
 
+---
+
 ### Settings
 
 | Method | Endpoint | Description |
 |---|---|---|
 | `GET` | `/api/settings` | Returns `gcal_enabled`, `obsidian_vault`, `username` |
+
+---
+
+## Automation Examples
+
+### iOS Shortcut — quick capture
+Add tasks from anywhere on your phone using the iOS Shortcuts app:
+
+```
+POST /api/nlp/parse   → pipe result →   POST /api/tasks
+Authorization: Bearer <TD_API_KEY>
+```
+
+### Shell alias — add task from terminal
+
+```bash
+td() {
+  curl -s -X POST http://localhost:5001/api/nlp/parse \
+    -H "Authorization: Bearer $TD_API_KEY" \
+    -H "Content-Type: application/json" \
+    -d "{\"text\": \"$*\"}" \
+  | curl -s -X POST http://localhost:5001/api/tasks \
+    -H "Authorization: Bearer $TD_API_KEY" \
+    -H "Content-Type: application/json" \
+    -d @-
+  echo "Added: $*"
+}
+
+# Usage:
+td buy milk tomorrow #errands
+td standup daily at 9am #work
+```
+
+### Query overdue tasks
+
+```bash
+curl -s http://localhost:5001/api/tasks/overdue \
+  -H "Authorization: Bearer $TD_API_KEY" \
+  | jq '[.[] | {id, title, due_date, status}]'
+```
 
 ---
 
