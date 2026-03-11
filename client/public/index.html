@@ -795,6 +795,47 @@ body.light .color-swatch.selected { box-shadow: 0 0 0 2px var(--bg2), 0 0 0 4px 
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
+/* ─── CONFIRM DIALOG ─── */
+.confirm-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
+  display: flex; align-items: flex-end; justify-content: center;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  animation: fadeIn 0.15s ease;
+}
+.confirm-sheet {
+  background: var(--bg2); border-radius: 20px 20px 0 0;
+  width: 100%; max-width: 480px;
+  padding: 20px 20px calc(16px + env(safe-area-inset-bottom, 0px));
+  animation: slideUp 0.25s cubic-bezier(0.32,0.72,0,1);
+}
+@media (min-width: 500px) {
+  .confirm-overlay { align-items: center; }
+  .confirm-sheet { border-radius: 20px; margin: 20px; padding: 24px; }
+}
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+.confirm-msg {
+  font-size: 16px; font-weight: 600; color: var(--text);
+  margin-bottom: 20px; text-align: center; letter-spacing: -0.2px;
+}
+.confirm-actions { display: flex; gap: 10px; }
+.confirm-cancel {
+  flex: 1; padding: 13px; border-radius: 12px;
+  background: var(--bg4); border: none; color: var(--text2);
+  font-size: 15px; font-weight: 600; font-family: var(--font);
+  cursor: pointer; transition: opacity 0.15s;
+}
+.confirm-ok {
+  flex: 1; padding: 13px; border-radius: 12px;
+  background: var(--red); border: none; color: white;
+  font-size: 15px; font-weight: 600; font-family: var(--font);
+  cursor: pointer; transition: opacity 0.15s;
+}
+.confirm-cancel:active, .confirm-ok:active { opacity: 0.75; }
+
 /* ─── MOBILE ─── */
 /* ─── BOTTOM TAB BAR (mobile only) ─── */
 .tab-bar { display: none; }
@@ -843,8 +884,6 @@ body.light .color-swatch.selected { box-shadow: 0 0 0 2px var(--bg2), 0 0 0 4px 
   .calendar-cell-date { font-size: 11px; margin-bottom: 3px; }
   .calendar-task-pill { font-size: 10px; padding: 1px 4px; }
   .calendar-dow { font-size: 9px; padding: 4px 0; letter-spacing: 0; }
-  /* hide hamburger menu btn on mobile since we have tab bar */
-  .menu-btn { display: none !important; }
   .sidebar {
     position: fixed; left: 0; top: 0; bottom: 0; z-index: 50;
     transform: translateX(-100%);
@@ -2329,10 +2368,12 @@ async function saveDetail() {
 }
 
 async function deleteCurrentTask() {
-  if (!state.selectedTask || !confirm('Delete this task?')) return;
-  await api(`/tasks/${state.selectedTask.id}`,'DELETE');
-  toast('Task deleted'); closeDetail();
-  await loadTasks(); await loadProjects(); renderSidebar(); renderContent();
+  if (!state.selectedTask) return;
+  showConfirm('Delete this task?', async () => {
+    await api(`/tasks/${state.selectedTask.id}`,'DELETE');
+    toast('Task deleted'); closeDetail();
+    await loadTasks(); await loadProjects(); renderSidebar(); renderContent();
+  });
 }
 
 // Build badge chips for a subtask (date, priority, labels)
@@ -2507,11 +2548,13 @@ async function saveEditProject() {
 
 async function deleteCurrentProject() {
   const pid = state.editingProjectId;
-  if (!pid || !confirm('Delete this project? Tasks will move to Inbox.')) return;
-  await api(`/projects/${pid}`, 'DELETE');
-  hideEditProject(); toast('Project deleted');
-  state.currentSpecial = 'inbox';
-  await loadProjects(); await loadTasks(); renderSidebar(); renderContent();
+  if (!pid) return;
+  showConfirm('Delete project? Tasks will move to Inbox.', async () => {
+    await api(`/projects/${pid}`, 'DELETE');
+    hideEditProject(); toast('Project deleted');
+    state.currentSpecial = 'inbox';
+    await loadProjects(); await loadTasks(); renderSidebar(); renderContent();
+  });
 }
 
 
@@ -2524,6 +2567,7 @@ function setView(mode) {
 
 // ── SIDEBAR MOBILE ──
 function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); document.getElementById('sidebarOverlay').classList.toggle('open'); }
+function openSidebar()   { document.getElementById('sidebar').classList.add('open');    document.getElementById('sidebarOverlay').classList.add('open'); }
 function closeSidebar()  { document.getElementById('sidebar').classList.remove('open'); document.getElementById('sidebarOverlay').classList.remove('open'); }
 
 // ── EXPORT ──
@@ -2533,6 +2577,23 @@ function toast(msg) {
   el.className = 'toast'; el.textContent = msg;
   document.getElementById('toastContainer').appendChild(el);
   setTimeout(() => el.remove(), 3000);
+}
+
+function showConfirm(msg, onOk) {
+  const overlay = document.createElement('div');
+  overlay.className = 'confirm-overlay';
+  overlay.innerHTML = `
+    <div class="confirm-sheet">
+      <div class="confirm-msg">${escH(msg)}</div>
+      <div class="confirm-actions">
+        <button class="confirm-cancel">Cancel</button>
+        <button class="confirm-ok">Delete</button>
+      </div>
+    </div>`;
+  overlay.querySelector('.confirm-cancel').onclick = () => overlay.remove();
+  overlay.querySelector('.confirm-ok').onclick = () => { overlay.remove(); onOk(); };
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
 }
 
 // ── UTILS ──
