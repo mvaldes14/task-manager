@@ -50,14 +50,7 @@ export function FAB() {
         if (result.due_time) label += ' · ' + result.due_time.slice(0,5)
         next.push({ label, color: 'var(--blue)', bg: 'color-mix(in srgb, var(--blue) 15%, transparent)' })
       }
-      if (result.priority && result.priority !== 'low') {
-        const isHigh = result.priority === 'high'
-        next.push({
-          label: isHigh ? '🔴 High' : '🟡 Medium',
-          color: isHigh ? 'var(--red)' : 'var(--amber)',
-          bg: isHigh ? 'color-mix(in srgb, var(--red) 15%, transparent)' : 'color-mix(in srgb, var(--amber) 15%, transparent)',
-        })
-      }
+
       if (result.tags?.length) {
         result.tags.forEach(t => next.push({
           label: '@' + t,

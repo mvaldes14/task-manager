@@ -5,7 +5,6 @@ import { api } from '../../api'
 import { formatDate, fmtTime, recurrenceLabel, obsidianNoteName } from '../../utils'
 import { X, Trash2, Plus, Check, ChevronRight } from 'lucide-react'
 
-const PRIORITIES = ['low', 'medium', 'high']
 const STATUSES = ['todo', 'doing', 'done']
 
 function SubtaskRow({ sub, taskId }) {
@@ -46,7 +45,91 @@ function SubtaskRow({ sub, taskId }) {
   )
 }
 
-export function TaskDetail() {
+function ObsidianSection({ task, onUpdate }) {
+  const { toast } = useApp()
+  const [editing, setEditing] = useState(false)
+  const [input, setInput] = useState('')
+
+  const noteName = obsidianNoteName(task.obsidian_url)
+
+  const save = async () => {
+    if (!input.trim()) return
+    try {
+      const updated = await api.updateTask(task.id, { obsidian_url: input.trim() })
+      if (updated) onUpdate(updated)
+      setEditing(false)
+      setInput('')
+    } catch { toast('Failed to save Obsidian link') }
+  }
+
+  const unlink = async () => {
+    try {
+      const updated = await api.updateTask(task.id, { obsidian_url: null })
+      if (updated) onUpdate(updated)
+    } catch { toast('Failed to remove Obsidian link') }
+  }
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <label className="text-[10px] font-semibold tracking-wider text-tn-muted/60 uppercase">Obsidian</label>
+        {!editing && (
+          <button
+            onClick={() => { setEditing(true); setInput(task.obsidian_url || '') }}
+            className="text-[10px] text-tn-muted/50 hover:text-tn-amber transition-colors"
+          >
+            {task.obsidian_url ? 'Edit' : '+ Link note'}
+          </button>
+        )}
+      </div>
+
+      {task.obsidian_url && !editing && (
+        <div className="flex items-center gap-2">
+          <a
+            href={task.obsidian_url}
+            className="flex-1 flex items-center gap-2 text-xs px-3 py-2 rounded-lg transition-colors"
+            style={{ color: 'var(--amber)', background: 'color-mix(in srgb, var(--amber) 12%, transparent)' }}
+          >
+            📎 {noteName || 'Open note'}
+            <ChevronRight size={12} className="ml-auto shrink-0" />
+          </a>
+          <button
+            onClick={unlink}
+            className="p-2 text-tn-muted/40 hover:text-tn-red transition-colors"
+            title="Unlink"
+          >
+            <X size={13} />
+          </button>
+        </div>
+      )}
+
+      {editing && (
+        <div className="space-y-2">
+          <input
+            autoFocus
+            type="text"
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') setEditing(false) }}
+            placeholder="obsidian://open?vault=…&file=…"
+            className="w-full bg-tn-surface text-tn-fg text-xs rounded-lg px-2.5 py-2 outline-none border border-tn-border/50 placeholder-tn-muted/30 font-mono"
+          />
+          <div className="flex gap-2">
+            <button onClick={() => setEditing(false)} className="flex-1 py-1.5 text-xs text-tn-muted bg-tn-surface rounded-lg border border-tn-border/50">
+              Cancel
+            </button>
+            <button onClick={save} disabled={!input.trim()} className="flex-1 py-1.5 text-xs font-medium rounded-lg disabled:opacity-40"
+              style={{ background: 'var(--amber)', color: 'var(--bg)' }}>
+              Save
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+
   const { state, dispatch, confirm, toast } = useApp()
   const { updateTask, deleteTask } = useTasks()
   const task = state.tasks.find(t => t.id === state.selectedTaskId)
@@ -54,7 +137,6 @@ export function TaskDetail() {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [status, setStatus] = useState('todo')
-  const [priority, setPriority] = useState('low')
   const [dueDate, setDueDate] = useState('')
   const [dueTime, setDueTime] = useState('')
   const [projectId, setProjectId] = useState('')
@@ -71,7 +153,6 @@ export function TaskDetail() {
     setTitle(task.title || '')
     setDescription(task.description || '')
     setStatus(task.status || 'todo')
-    setPriority(task.priority || 'low')
     setDueDate(task.due_date || '')
     setDueTime(task.due_time || '')
     setProjectId(task.project_id || '')
@@ -90,7 +171,7 @@ export function TaskDetail() {
     if (!dirty) return
     setSaving(true)
     await updateTask(task.id, {
-      title, description, status, priority,
+      title, description, status,
       due_date: dueDate || null,
       due_time: dueTime || null,
       project_id: projectId || null,
@@ -127,8 +208,6 @@ export function TaskDetail() {
   }
 
   const removeTag = (t) => { setTags(tags.filter(x => x !== t)); markDirty() }
-
-  const PRIORITY_COLORS = { low: 'text-tn-muted', medium: 'text-tn-amber', high: 'text-tn-red' }
 
   return (
     <>
@@ -174,7 +253,7 @@ export function TaskDetail() {
             placeholder="Task title"
           />
 
-          {/* Status + Priority row */}
+          {/* Status */}
           <div className="flex gap-2">
             <select
               value={status}
@@ -182,13 +261,6 @@ export function TaskDetail() {
               className="flex-1 bg-tn-surface text-tn-fg text-xs rounded-lg px-2.5 py-2 outline-none border border-tn-border/50 appearance-none cursor-pointer"
             >
               {STATUSES.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
-            </select>
-            <select
-              value={priority}
-              onChange={e => { setPriority(e.target.value); markDirty(); save() }}
-              className={`flex-1 bg-tn-surface text-xs rounded-lg px-2.5 py-2 outline-none border border-tn-border/50 appearance-none cursor-pointer ${PRIORITY_COLORS[priority]}`}
-            >
-              {PRIORITIES.map(p => <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
             </select>
           </div>
 
@@ -227,14 +299,16 @@ export function TaskDetail() {
           {/* Tags */}
           <div className="space-y-1.5">
             <label className="text-[10px] font-semibold tracking-wider text-tn-muted/60 uppercase">Tags</label>
-            <div className="flex flex-wrap gap-1.5 min-h-[24px]">
-              {tags.map(t => (
-                <span key={t} className="flex items-center gap-1 text-[11px] bg-tn-purple/10 text-tn-purple px-2 py-0.5 rounded-lg">
-                  @{t}
-                  <button onClick={() => removeTag(t)} className="hover:text-tn-red"><X size={10} /></button>
-                </span>
-              ))}
-            </div>
+            {tags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {tags.map(t => (
+                  <span key={t} className="flex items-center gap-1 text-[11px] bg-tn-purple/10 text-tn-purple px-2 py-0.5 rounded-lg">
+                    @{t}
+                    <button onClick={() => removeTag(t)} className="hover:text-tn-red"><X size={10} /></button>
+                  </span>
+                ))}
+              </div>
+            )}
             <div className="flex gap-2">
               <input
                 type="text" value={tagInput}
@@ -286,17 +360,8 @@ export function TaskDetail() {
             </div>
           </div>
 
-          {/* Obsidian link */}
-          {task.obsidian_url && (
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-semibold tracking-wider text-tn-muted/60 uppercase">Obsidian</label>
-              <a href={task.obsidian_url}
-                className="flex items-center gap-2 text-xs text-tn-amber bg-tn-amber/10 px-3 py-2 rounded-lg hover:bg-tn-amber/20 transition-colors">
-                📎 {obsidianNoteName(task.obsidian_url) || 'Open note'}
-                <ChevronRight size={12} className="ml-auto" />
-              </a>
-            </div>
-          )}
+          {/* Obsidian */}
+          <ObsidianSection task={task} onUpdate={updated => dispatch({ type: 'UPDATE_TASK', payload: updated })} />
 
           {/* Recurrence */}
           {recurrenceLabel(task.recurrence) && (
