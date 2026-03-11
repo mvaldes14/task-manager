@@ -33,7 +33,7 @@ Copy `.env.example` to `.env` and set:
 | `POSTGRES_PASSWORD` | Database password (default: `td`) |
 | `TD_USERNAME` | Login username |
 | `TD_PASSWORD` | Login password (leave blank to disable auth) |
-| `TD_API_KEY` | API key for Bearer token auth |
+| `TD_API_KEY` | API key for Bearer token auth (automations) |
 | `GCAL_CREDENTIALS_JSON` | Google service account JSON (single line) |
 | `GCAL_CALENDAR_ID` | Calendar to sync to (default: `primary`) |
 | `OBSIDIAN_VAULT` | Obsidian vault name |
@@ -43,11 +43,11 @@ Copy `.env.example` to `.env` and set:
 
 ## Natural Language
 
-Type naturally in the FAB — dates, times, priorities, projects and recurrence are all parsed automatically.
+Type naturally in the FAB — dates, times, projects and recurrence are all parsed automatically.
 
 ```
 take out trash next monday
-call dentist tuesday at 2:30pm #health urgent
+call dentist tuesday at 2:30pm #health
 finish report by friday
 standup daily at 9am
 pay rent end of month
@@ -59,10 +59,9 @@ review PR in 3 days
 | Syntax | Effect |
 |---|---|
 | `#projectname` | Assign to project |
-| `@label` | Add label |
+| `@label` | Add tag |
 | `next monday`, `tomorrow`, `in 3 days` | Due date |
 | `at 3pm`, `at 14:30` | Due time |
-| `urgent`, `high`, `low` | Priority |
 | `every monday`, `daily`, `every 2 weeks` | Recurrence |
 | `!notename` | Create new Obsidian note and link it |
 
@@ -70,16 +69,39 @@ review PR in 3 days
 
 ## Features
 
-- **NLP scheduling** — natural language → due date, time, priority, project, recurrence
+- **NLP scheduling** — natural language to due date, time, project, recurrence
+- **3 views** — List, Kanban board, Calendar (switchable per view via toggle in header)
+- **Drag and drop** — Kanban: drag cards between columns to change status; Calendar: drag tasks to reschedule
+- **Pull to refresh** — pull down on mobile to reload data
 - **Recurring tasks** — daily, weekly, monthly, interval; auto-reschedules on completion
-- **Projects** — list and kanban views per project
-- **Subtasks** — with their own due dates and priorities
-- **Overdue view** — hidden until needed, grouped by date
-- **To Review** — inbox triage with inline project/label assignment
-- **Google Calendar sync** — auto-syncs tasks with due dates
+- **Projects** — custom icon (25 lucide icons) and color per project
+- **Subtasks** — nested tasks with completion tracking
+- **Links** — attach multiple URLs per task (Obsidian, GitHub, or any URL), auto-labeled
+- **Overdue view** — grouped by date
+- **Google Calendar sync** — auto-syncs tasks with due dates; done tasks shown in graphite
 - **Obsidian integration** — `!notename` in FAB creates note; detail panel links existing notes
-- **PWA** — installable on iOS and Android, works offline
+- **PWA** — installable on iOS and Android
 - **Tokyo Night** — dark and light theme
+
+---
+
+## Views
+
+| View | Description |
+|---|---|
+| **Inbox** | All tasks |
+| **Today** | Tasks due today |
+| **All Tasks** | Everything |
+| **Overdue** | Past-due tasks grouped by date |
+| **Project** | Tasks scoped to a project |
+
+Each view supports 3 display modes via the toggle in the header:
+
+| Mode | Description |
+|---|---|
+| List | Grouped by status with show/hide done + sort options |
+| Board | Kanban with drag-to-reorder between columns |
+| Calendar | Monthly calendar with drag-to-reschedule |
 
 ---
 
@@ -97,20 +119,128 @@ make db          # psql into postgres
 make status      # show containers + auth status
 make open        # open browser (macOS)
 make sync-gcal   # trigger Google Calendar full sync
-make reset       # ⚠ wipe everything including DB data
+make reset       # wipe everything including DB data
 ```
 
 ---
 
-## CI
+## API Reference
 
-Every push to `main` builds and pushes a multi-arch image (`amd64` + `arm64`) to `ghcr.io/mvaldes14/task-manager:latest` via GitHub Actions.
+All endpoints require either a session cookie (browser login) or a `Bearer` token via the `TD_API_KEY` env var:
+
+```
+Authorization: Bearer <TD_API_KEY>
+```
+
+### NLP
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/api/nlp/parse` | Parse natural language text into task fields |
+
+```bash
+curl -X POST http://localhost:5001/api/nlp/parse \
+  -H "Authorization: Bearer $TD_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"text": "call dentist tuesday at 2pm #health"}'
+```
+
+### Tasks
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/tasks` | List all tasks |
+| `GET` | `/api/tasks?project_id=<id>` | Filter by project |
+| `GET` | `/api/tasks?status=todo\|doing\|done` | Filter by status |
+| `GET` | `/api/tasks?search=<query>` | Full-text search title + description |
+| `GET` | `/api/tasks/today` | Tasks due today |
+| `GET` | `/api/tasks/overdue` | Past-due tasks |
+| `GET` | `/api/tasks/upcoming` | Tasks due in the next 7 days |
+| `GET` | `/api/tasks/<id>` | Get single task |
+| `POST` | `/api/tasks` | Create task |
+| `PATCH` | `/api/tasks/<id>` | Update task fields |
+| `DELETE` | `/api/tasks/<id>` | Delete task |
+
+**Task fields:**
+
+| Field | Type | Description |
+|---|---|---|
+| `title` | string | Task title |
+| `description` | string | Notes / body |
+| `status` | `todo\|doing\|done` | Status |
+| `due_date` | `YYYY-MM-DD` | Due date |
+| `due_time` | `HH:MM` | Due time (triggers timed GCal event) |
+| `project_id` | string | Project ID (default: `inbox`) |
+| `tags` | string[] | Array of tag strings |
+| `links` | `{url, label}[]` | Array of link objects |
+| `recurrence` | string | e.g. `daily`, `weekly`, `every 2 weeks` |
+| `recurrence_end` | `YYYY-MM-DD` | End date for recurrence |
+
+```bash
+# Create a task
+curl -X POST http://localhost:5001/api/tasks \
+  -H "Authorization: Bearer $TD_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"title": "Buy groceries", "due_date": "2026-03-15", "tags": ["errands"]}'
+
+# Update status
+curl -X PATCH http://localhost:5001/api/tasks/<id> \
+  -H "Authorization: Bearer $TD_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"status": "done"}'
+
+# Create via NLP then immediately create task
+curl -X POST http://localhost:5001/api/nlp/parse \
+  -H "Authorization: Bearer $TD_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"text": "standup tomorrow at 9am #work"}' \
+  | xargs -I{} curl -X POST http://localhost:5001/api/tasks \
+  -H "Authorization: Bearer $TD_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+### Subtasks
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/api/tasks/<id>/subtasks` | Add subtask (`{"title": "..."}`) |
+| `PATCH` | `/api/tasks/<id>/subtasks/<sid>` | Update subtask (`completed`, `title`) |
+| `DELETE` | `/api/tasks/<id>/subtasks/<sid>` | Delete subtask |
+
+### Projects
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/projects` | List all projects (includes task counts) |
+| `POST` | `/api/projects` | Create project (`name`, `color`, `icon`) |
+| `PATCH` | `/api/projects/<id>` | Update project (name, color, icon) |
+| `DELETE` | `/api/projects/<id>` | Delete project (tasks moved to inbox) |
+
+### Google Calendar
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/gcal/status` | Check if GCal is connected |
+| `POST` | `/api/gcal/sync` | Trigger a full sync of all tasks with due dates |
+
+### Settings
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/settings` | Returns `gcal_enabled`, `obsidian_vault`, `username` |
 
 ---
 
 ## Stack
 
 - **Backend** — Python 3.12 + Flask + PostgreSQL
-- **Frontend** — Vanilla JS, single HTML file, Tokyo Night theme
-- **Auth** — Session-based with PostgreSQL storage, optional API key
-- **Deployment** — Docker Compose, data in `./data/postgres/`
+- **Frontend** — React + Vite + Tailwind CSS (Tokyo Night theme)
+- **Auth** — Session-based with PostgreSQL storage, optional Bearer API key
+- **Deployment** — Docker Compose, data persisted in `./data/postgres/`
+
+---
+
+## CI
+
+Every push to `main` builds and pushes a multi-arch image (`amd64` + `arm64`) to `ghcr.io/mvaldes14/task-manager:latest` via GitHub Actions.
