@@ -238,7 +238,7 @@ export function TaskDetail() {
           </button>
           <div className="flex items-center gap-2">
             {dirty && (
-              <button onClick={save} disabled={saving}
+              <button onClick={async () => { await save(); dispatch({ type: 'SELECT_TASK', payload: null }) }} disabled={saving}
                 className="text-xs text-td-blue dark:text-tn-blue font-medium px-2.5 py-1 rounded-lg bg-td-blue/10 dark:bg-tn-blue/10 hover:bg-td-blue/20 dark:bg-tn-blue/20 transition-colors">
                 {saving ? 'Saving…' : 'Save'}
               </button>
