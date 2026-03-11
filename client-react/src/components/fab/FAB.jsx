@@ -148,9 +148,6 @@ export function FAB() {
                 className="w-full bg-transparent text-td-fg dark:text-tn-fg text-xl font-medium
                   outline-none leading-snug placeholder-td-muted/40 dark:placeholder-tn-muted/40"
               />
-              <p className="text-xs mt-2.5 text-td-muted dark:text-tn-muted">
-                Try: "call dentist tomorrow at 3pm @health"
-              </p>
             </div>
 
             {/* NLP chips */}
