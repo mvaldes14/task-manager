@@ -57,6 +57,6 @@ export const api = {
   gcalSync: () => req('/gcal/sync', 'POST'),
 
   // Settings
-  getSettings: () => req('/auth/status'),
+  getSettings: () => fetch('/auth/status', { credentials: 'include' }).then(r => r.json()).catch(() => null),
   updateSettings: (data) => req('/settings', 'PATCH', data),
 }
