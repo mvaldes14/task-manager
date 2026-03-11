@@ -5,6 +5,7 @@ import { TaskList } from '../tasks/TaskList'
 import { KanbanBoard } from '../tasks/KanbanBoard'
 import { CalendarView } from '../calendar/CalendarView'
 import { LayoutList, Columns, Menu, ChevronDown, CalendarDays } from 'lucide-react'
+import { ProjectIcon } from '../shared/ProjectIcon'
 
 function ViewHeader({ title, count }) {
   const { state, dispatch } = useApp()
@@ -24,9 +25,9 @@ function ViewHeader({ title, count }) {
 
       <div className="flex-1 flex items-center gap-2.5 min-w-0">
         {project && (
-          <span className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 text-base"
+          <span className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
             style={{ background: project.color + '25' }}>
-            {project.icon}
+            <ProjectIcon icon={project.icon} size={14} />
           </span>
         )}
         <h1 className="text-td-fg dark:text-tn-fg font-semibold text-base truncate">
@@ -227,7 +228,7 @@ export function MainContent() {
       const pid = view.replace('project:', '')
       const project = projects.find(p => p.id === pid)
       return {
-        title: project ? `${project.icon} ${project.name}` : 'Project',
+        title: project ? project.name : 'Project',
         baseTasks: tasks.filter(t => t.project_id === pid),
         groupBy: 'status',
         emptyMessage: 'No tasks in this project',

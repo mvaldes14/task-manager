@@ -3,9 +3,9 @@ import { useApp } from '../../context/AppContext'
 import { isOverdue, isToday } from '../../utils'
 import { Plus, LogOut, Sun, Moon, Settings, Trash2, CheckCircle2, Calendar, Inbox, Layers, AlertCircle } from 'lucide-react'
 import { api } from '../../api'
+import { ProjectIcon, PROJECT_ICON_OPTIONS } from '../shared/ProjectIcon'
 
 const PROJECT_COLORS = ['#f7768e','#ff9e64','#e0af68','#9ece6a','#73daca','#7dcfff','#7aa2f7','#bb9af7','#c0caf5']
-const PROJECT_ICONS  = ['📁','📂','🏠','💼','🎯','🔬','📚','🎨','💡','🛒','🏋️','🎵','✈️','💻','🌱']
 
 function NavItem({ icon: Icon, label, viewKey, badge, badgeColor = 'bg-td-blue dark:bg-tn-blue' }) {
   const { state, dispatch } = useApp()
@@ -89,11 +89,13 @@ function ProjectFormModal({ project, onClose }) {
           className="w-full bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg placeholder-td-muted/50 dark:placeholder-tn-muted/50 text-sm rounded-lg px-3 py-2.5 outline-none mb-3 border border-td-border/50 dark:border-tn-border/50"
         />
         <div className="flex flex-wrap gap-1.5 mb-3">
-          {PROJECT_ICONS.map(ic => (
-            <button key={ic} onClick={() => setIcon(ic)}
-              className={`text-base w-8 h-8 rounded-lg flex items-center justify-center transition-colors
-                ${icon === ic ? 'bg-td-surface dark:bg-tn-surface ring-2 ring-td-blue dark:ring-tn-blue' : 'hover:bg-td-surface/70 dark:hover:bg-tn-surface/70'}`}>
-              {ic}
+          {PROJECT_ICON_OPTIONS.map(({ name, Icon }) => (
+            <button key={name} onClick={() => setIcon(name)}
+              className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors
+                ${icon === name
+                  ? 'bg-td-surface dark:bg-tn-surface ring-2 ring-td-blue dark:ring-tn-blue text-td-fg dark:text-tn-fg'
+                  : 'text-td-muted dark:text-tn-muted hover:bg-td-surface/70 dark:hover:bg-tn-surface/70 hover:text-td-fg dark:hover:text-tn-fg'}`}>
+              <Icon size={15} />
             </button>
           ))}
         </div>
@@ -183,9 +185,9 @@ export function Sidebar() {
                   ? 'bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg font-medium'
                   : 'text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg hover:bg-td-surface/50 dark:hover:bg-tn-surface/50'}`}
             >
-              <span className="w-6 h-6 rounded-md flex items-center justify-center shrink-0 text-sm"
+              <span className="w-6 h-6 rounded-md flex items-center justify-center shrink-0"
                 style={{ background: p.color + '25' }}>
-                {p.icon}
+                <ProjectIcon icon={p.icon} size={13} />
               </span>
               <span className="flex-1 text-left truncate">{p.name}</span>
               {count > 0 && (

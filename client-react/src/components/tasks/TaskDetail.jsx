@@ -303,7 +303,7 @@ export function TaskDetail() {
             >
               <option value="">No project</option>
               {state.projects.filter(p => p.id !== 'inbox').map(p => (
-                <option key={p.id} value={p.id}>{p.icon} {p.name}</option>
+                <option key={p.id} value={p.id}>{p.name}</option>
               ))}
             </select>
           </div>

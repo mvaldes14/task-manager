@@ -1,4 +1,5 @@
 import { useApp } from '../../context/AppContext'
+import { ProjectIcon } from '../shared/ProjectIcon'
 import { useTasks } from '../../hooks/useTasks'
 import { formatDate, isOverdue, priorityColor, recurrenceLabel, obsidianNoteName, fmtTime } from '../../utils'
 
@@ -67,9 +68,10 @@ export function TaskCard({ task }) {
 
           {/* Project */}
           {project && (
-            <span className="text-[11px] px-1.5 py-0.5 rounded-md font-medium"
+            <span className="text-[11px] px-1.5 py-0.5 rounded-md font-medium flex items-center gap-1"
               style={{ color: project.color, background: project.color + '20' }}>
-              {project.icon} {project.name}
+              <ProjectIcon icon={project.icon} size={10} />
+              {project.name}
             </span>
           )}
 
