@@ -140,7 +140,7 @@ export function Sidebar() {
       ${state.sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
     `}>
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-4 border-b border-td-border/50 dark:border-tn-border/50">
+      <div className="flex items-center justify-between px-4 py-4">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-[10px] flex items-center justify-center shrink-0 text-white font-bold text-lg select-none"
             style={{ background: '#7aa2f7', boxShadow: '0 2px 8px rgba(122,162,247,0.45)' }}>

@@ -35,6 +35,24 @@ export function FAB() {
     else { setText(''); setChips([]) }
   }, [open])
 
+  // Global keyboard shortcut: Q or Cmd+K opens FAB (desktop only)
+  useEffect(() => {
+    const handler = (e) => {
+      if (open) return
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
+      if ((e.key === 'q' || e.key === 'Q') && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault()
+        dispatch({ type: 'SET_FAB', payload: { open: true } })
+      }
+      if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault()
+        dispatch({ type: 'SET_FAB', payload: { open: true } })
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [open, dispatch])
+
   const parseNlp = useCallback(async (val) => {
     if (!val.trim()) { setChips([]); return }
     try {

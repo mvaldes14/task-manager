@@ -81,7 +81,10 @@ export function TaskCard({ task }) {
 
           {/* Obsidian */}
           {task.obsidian_url && (
-            <span className="text-[11px] text-td-amber dark:text-tn-amber">📎 {obsidianNoteName(task.obsidian_url) || 'Note'}</span>
+            <a href={task.obsidian_url} onClick={e => e.stopPropagation()}
+              className="text-[11px] text-td-amber dark:text-tn-amber hover:underline">
+              📎 {obsidianNoteName(task.obsidian_url) || 'Note'}
+            </a>
           )}
 
           {/* Subtasks */}
