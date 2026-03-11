@@ -129,7 +129,7 @@ function ObsidianSection({ task, onUpdate }) {
   )
 }
 
-
+export function TaskDetail() {
   const { state, dispatch, confirm, toast } = useApp()
   const { updateTask, deleteTask } = useTasks()
   const task = state.tasks.find(t => t.id === state.selectedTaskId)
