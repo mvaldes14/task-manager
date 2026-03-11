@@ -76,11 +76,6 @@ def init_db():
         cur.execute("CREATE INDEX IF NOT EXISTS idx_tasks_project_id ON tasks(project_id)")
         # Migration: add links column if missing
         cur.execute("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS links JSONB DEFAULT '[]'")
-        # Backfill: move any obsidian_url into links array if links is empty
-        cur.execute("""
-            UPDATE tasks SET links = jsonb_build_array(jsonb_build_object('url', obsidian_url, 'label', 'Obsidian'))
-            WHERE obsidian_url IS NOT NULL AND obsidian_url != '' AND (links IS NULL OR links = '[]'::jsonb)
-        """)
         cur.execute("CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_tasks_due_date ON tasks(due_date)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_subtasks_task_id ON subtasks(task_id)")
