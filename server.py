@@ -480,11 +480,12 @@ def gcal_upsert(task):
     if not task.get('due_date'):
         print(f"[gcal] skip — no due_date (task {tid} '{ttitle}')", flush=True); return None
     try:
+        tz = task.get('timezone') or 'UTC'
         if task.get('due_time'):
             dt = f"{task['due_date']}T{task['due_time']}:00"
             end_dt = (datetime.fromisoformat(dt)+timedelta(hours=1)).isoformat()
-            start={'dateTime':dt,'timeZone':'UTC'}; end={'dateTime':end_dt,'timeZone':'UTC'}
-            time_str = f"{task['due_date']} {task['due_time']}"
+            start={'dateTime':dt,'timeZone':tz}; end={'dateTime':end_dt,'timeZone':tz}
+            time_str = f"{task['due_date']} {task['due_time']} ({tz})"
         else:
             start={'date':task['due_date']}; end={'date':task['due_date']}
             time_str = f"{task['due_date']} (all-day)"
@@ -803,6 +804,7 @@ def create_task():
         finally: release_db(conn)
         task['description']=obsidian_url
     if due_date:
+        task['timezone'] = data.get('timezone') or 'UTC'
         eid=gcal_upsert(task)
         if eid: _gcal_save(tid,eid); task['gcal_event_id']=eid
     return jsonify(task),201
@@ -860,6 +862,7 @@ def update_task(tid):
 
     if any(f in data for f in ('due_date','due_time','title','status')):
         if result.get('due_date'):
+            result['timezone'] = data.get('timezone') or 'UTC'
             eid=gcal_upsert(result)
             if eid and eid!=result.get('gcal_event_id'): _gcal_save(tid,eid); result['gcal_event_id']=eid
         elif result.get('gcal_event_id'):
