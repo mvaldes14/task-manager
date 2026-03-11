@@ -7,7 +7,7 @@ import psycopg2, psycopg2.extras
 from psycopg2 import pool as psycopg2_pool
 from flask import Flask, request, jsonify, send_from_directory, redirect, make_response
 
-app = Flask(__name__, static_folder='client/public')
+app = Flask(__name__, static_folder='client/dist')
 
 # ─────────────────────────────────────────────
 # DATABASE — PostgreSQL

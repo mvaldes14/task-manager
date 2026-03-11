@@ -71,3 +71,13 @@ reset: ## ⚠ Nuke everything including DB data
 	docker compose down -v
 	rm -rf ./data
 	@echo "✓ Reset complete"
+
+# ─── Frontend dev ───────────────────────────────────────────────
+dev-frontend: ## Run Vite dev server (proxies API to localhost:5001)
+	cd client-react && npm run dev
+
+build-frontend: ## Build React app into client/dist
+	cd client-react && npm run build
+
+install-frontend: ## Install frontend dependencies
+	cd client-react && npm install

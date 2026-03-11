@@ -1,0 +1,317 @@
+import { useState, useEffect, useRef } from 'react'
+import { useApp } from '../../context/AppContext'
+import { useTasks } from '../../hooks/useTasks'
+import { api } from '../../api'
+import { formatDate, fmtTime, recurrenceLabel, obsidianNoteName } from '../../utils'
+import { X, Trash2, Plus, Check, ChevronRight } from 'lucide-react'
+
+const PRIORITIES = ['low', 'medium', 'high']
+const STATUSES = ['todo', 'doing', 'done']
+
+function SubtaskRow({ sub, taskId }) {
+  const { dispatch } = useApp()
+  const { toast } = useApp()
+
+  const toggle = async () => {
+    try {
+      const updated = await api.updateSubtask(taskId, sub.id, { completed: !sub.completed })
+      // refresh task
+      const task = await api.getTasks().then(ts => ts?.find(t => t.id === taskId))
+      if (task) dispatch({ type: 'UPDATE_TASK', payload: task })
+    } catch { toast('Failed to update subtask') }
+  }
+
+  const del = async () => {
+    try {
+      await api.deleteSubtask(taskId, sub.id)
+      const task = await api.getTasks().then(ts => ts?.find(t => t.id === taskId))
+      if (task) dispatch({ type: 'UPDATE_TASK', payload: task })
+    } catch { toast('Failed to delete subtask') }
+  }
+
+  return (
+    <div className="flex items-center gap-2 py-1.5 group">
+      <button onClick={toggle}
+        className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-all
+          ${sub.completed ? 'bg-tn-green/20 border-tn-green' : 'border-tn-muted/40 hover:border-tn-blue'}`}>
+        {sub.completed && <Check size={8} color="#9ece6a" strokeWidth={3} />}
+      </button>
+      <span className={`flex-1 text-sm ${sub.completed ? 'line-through text-tn-muted' : 'text-tn-fg'}`}>
+        {sub.title}
+      </span>
+      <button onClick={del} className="opacity-0 group-hover:opacity-100 text-tn-muted/50 hover:text-tn-red p-0.5">
+        <X size={12} />
+      </button>
+    </div>
+  )
+}
+
+export function TaskDetail() {
+  const { state, dispatch, confirm, toast } = useApp()
+  const { updateTask, deleteTask } = useTasks()
+  const task = state.tasks.find(t => t.id === state.selectedTaskId)
+
+  const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
+  const [status, setStatus] = useState('todo')
+  const [priority, setPriority] = useState('low')
+  const [dueDate, setDueDate] = useState('')
+  const [dueTime, setDueTime] = useState('')
+  const [projectId, setProjectId] = useState('')
+  const [tags, setTags] = useState([])
+  const [tagInput, setTagInput] = useState('')
+  const [subtaskInput, setSubtaskInput] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [dirty, setDirty] = useState(false)
+  const titleRef = useRef(null)
+
+  // Load task into local state
+  useEffect(() => {
+    if (!task) return
+    setTitle(task.title || '')
+    setDescription(task.description || '')
+    setStatus(task.status || 'todo')
+    setPriority(task.priority || 'low')
+    setDueDate(task.due_date || '')
+    setDueTime(task.due_time || '')
+    setProjectId(task.project_id || '')
+    setTags(task.tags || [])
+    setDirty(false)
+  }, [task?.id])
+
+  if (!task) return null
+
+  const close = () => {
+    if (dirty) save()
+    dispatch({ type: 'SELECT_TASK', payload: null })
+  }
+
+  const save = async () => {
+    if (!dirty) return
+    setSaving(true)
+    await updateTask(task.id, {
+      title, description, status, priority,
+      due_date: dueDate || null,
+      due_time: dueTime || null,
+      project_id: projectId || null,
+      tags,
+    })
+    setSaving(false)
+    setDirty(false)
+  }
+
+  const markDirty = () => setDirty(true)
+
+  const handleDelete = () => {
+    confirm('Delete this task?', () => {
+      deleteTask(task.id)
+      dispatch({ type: 'SELECT_TASK', payload: null })
+    })
+  }
+
+  const addSubtask = async () => {
+    if (!subtaskInput.trim()) return
+    try {
+      const updated = await api.createSubtask(task.id, { title: subtaskInput.trim(), nlp: true })
+      if (updated) dispatch({ type: 'UPDATE_TASK', payload: updated })
+      setSubtaskInput('')
+    } catch { toast('Failed to add subtask') }
+  }
+
+  const addTag = () => {
+    const t = tagInput.trim().replace(/^@/, '')
+    if (t && !tags.includes(t)) {
+      const next = [...tags, t]
+      setTags(next); setTagInput(''); markDirty()
+    }
+  }
+
+  const removeTag = (t) => { setTags(tags.filter(x => x !== t)); markDirty() }
+
+  const PRIORITY_COLORS = { low: 'text-tn-muted', medium: 'text-tn-amber', high: 'text-tn-red' }
+
+  return (
+    <>
+      {/* Mobile backdrop */}
+      <div className="md:hidden fixed inset-0 z-[60] bg-black/40 animate-fade-in" onClick={close} />
+
+      <aside className={`
+        fixed inset-y-0 right-0 z-[61] w-full max-w-md
+        md:relative md:inset-auto md:w-80 md:z-auto md:border-l md:border-tn-border
+        bg-tn-bg2 flex flex-col overflow-hidden
+        animate-fade-in
+      `}>
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3.5 border-b border-tn-border/50 shrink-0">
+          <button onClick={close} className="text-tn-muted hover:text-tn-fg transition-colors">
+            <X size={18} />
+          </button>
+          <div className="flex items-center gap-2">
+            {dirty && (
+              <button onClick={save} disabled={saving}
+                className="text-xs text-tn-blue font-medium px-2.5 py-1 rounded-lg bg-tn-blue/10 hover:bg-tn-blue/20 transition-colors">
+                {saving ? 'Saving…' : 'Save'}
+              </button>
+            )}
+            <button onClick={handleDelete} className="text-tn-muted/50 hover:text-tn-red transition-colors p-1">
+              <Trash2 size={16} />
+            </button>
+          </div>
+        </div>
+
+        {/* Scrollable content */}
+        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5"
+          style={{ paddingBottom: 'calc(32px + env(safe-area-inset-bottom, 0px))' }}>
+
+          {/* Title */}
+          <textarea
+            ref={titleRef}
+            value={title}
+            onChange={e => { setTitle(e.target.value); markDirty() }}
+            onBlur={save}
+            rows={2}
+            className="w-full bg-transparent text-tn-fg text-base font-medium resize-none outline-none leading-snug"
+            placeholder="Task title"
+          />
+
+          {/* Status + Priority row */}
+          <div className="flex gap-2">
+            <select
+              value={status}
+              onChange={e => { setStatus(e.target.value); markDirty(); save() }}
+              className="flex-1 bg-tn-surface text-tn-fg text-xs rounded-lg px-2.5 py-2 outline-none border border-tn-border/50 appearance-none cursor-pointer"
+            >
+              {STATUSES.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
+            </select>
+            <select
+              value={priority}
+              onChange={e => { setPriority(e.target.value); markDirty(); save() }}
+              className={`flex-1 bg-tn-surface text-xs rounded-lg px-2.5 py-2 outline-none border border-tn-border/50 appearance-none cursor-pointer ${PRIORITY_COLORS[priority]}`}
+            >
+              {PRIORITIES.map(p => <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
+            </select>
+          </div>
+
+          {/* Due date + time */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-semibold tracking-wider text-tn-muted/60 uppercase">Due Date</label>
+            <div className="flex gap-2">
+              <input type="date" value={dueDate}
+                onChange={e => { setDueDate(e.target.value); markDirty() }}
+                onBlur={save}
+                className="flex-1 bg-tn-surface text-tn-fg text-xs rounded-lg px-2.5 py-2 outline-none border border-tn-border/50"
+              />
+              <input type="time" value={dueTime}
+                onChange={e => { setDueTime(e.target.value); markDirty() }}
+                onBlur={save}
+                className="w-28 bg-tn-surface text-tn-fg text-xs rounded-lg px-2.5 py-2 outline-none border border-tn-border/50"
+              />
+            </div>
+          </div>
+
+          {/* Project */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-semibold tracking-wider text-tn-muted/60 uppercase">Project</label>
+            <select
+              value={projectId}
+              onChange={e => { setProjectId(e.target.value); markDirty(); save() }}
+              className="w-full bg-tn-surface text-tn-fg text-xs rounded-lg px-2.5 py-2 outline-none border border-tn-border/50"
+            >
+              <option value="">No project</option>
+              {state.projects.map(p => (
+                <option key={p.id} value={p.id}>{p.icon} {p.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Tags */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-semibold tracking-wider text-tn-muted/60 uppercase">Tags</label>
+            <div className="flex flex-wrap gap-1.5 min-h-[24px]">
+              {tags.map(t => (
+                <span key={t} className="flex items-center gap-1 text-[11px] bg-tn-purple/10 text-tn-purple px-2 py-0.5 rounded-lg">
+                  @{t}
+                  <button onClick={() => removeTag(t)} className="hover:text-tn-red"><X size={10} /></button>
+                </span>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="text" value={tagInput}
+                onChange={e => setTagInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') addTag() }}
+                placeholder="Add tag…"
+                className="flex-1 bg-tn-surface text-tn-fg text-xs rounded-lg px-2.5 py-2 outline-none border border-tn-border/50 placeholder-tn-muted/40"
+              />
+              <button onClick={addTag} className="px-3 py-2 bg-tn-surface text-tn-muted hover:text-tn-blue rounded-lg text-xs border border-tn-border/50">
+                <Plus size={12} />
+              </button>
+            </div>
+          </div>
+
+          {/* Description */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-semibold tracking-wider text-tn-muted/60 uppercase">Notes</label>
+            <textarea
+              value={description}
+              onChange={e => { setDescription(e.target.value); markDirty() }}
+              onBlur={save}
+              rows={4}
+              placeholder="Add notes…"
+              className="w-full bg-tn-surface text-tn-fg text-sm rounded-lg px-3 py-2.5 outline-none border border-tn-border/50 resize-none placeholder-tn-muted/40 font-mono text-xs leading-relaxed"
+            />
+          </div>
+
+          {/* Subtasks */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-semibold tracking-wider text-tn-muted/60 uppercase">
+              Subtasks {task.subtasks?.length > 0 && `(${task.subtasks.filter(s=>s.completed).length}/${task.subtasks.length})`}
+            </label>
+            <div className="divide-y divide-tn-border/30">
+              {(task.subtasks || []).map(s => (
+                <SubtaskRow key={s.id} sub={s} taskId={task.id} />
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="text" value={subtaskInput}
+                onChange={e => setSubtaskInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') addSubtask() }}
+                placeholder="Add subtask…"
+                className="flex-1 bg-tn-surface text-tn-fg text-xs rounded-lg px-2.5 py-2 outline-none border border-tn-border/50 placeholder-tn-muted/40"
+              />
+              <button onClick={addSubtask} className="px-3 py-2 bg-tn-surface text-tn-muted hover:text-tn-blue rounded-lg text-xs border border-tn-border/50">
+                <Plus size={12} />
+              </button>
+            </div>
+          </div>
+
+          {/* Obsidian link */}
+          {task.obsidian_url && (
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-semibold tracking-wider text-tn-muted/60 uppercase">Obsidian</label>
+              <a href={task.obsidian_url}
+                className="flex items-center gap-2 text-xs text-tn-amber bg-tn-amber/10 px-3 py-2 rounded-lg hover:bg-tn-amber/20 transition-colors">
+                📎 {obsidianNoteName(task.obsidian_url) || 'Open note'}
+                <ChevronRight size={12} className="ml-auto" />
+              </a>
+            </div>
+          )}
+
+          {/* Recurrence */}
+          {recurrenceLabel(task.recurrence) && (
+            <div className="text-xs text-tn-teal bg-tn-teal/10 px-3 py-2 rounded-lg">
+              {recurrenceLabel(task.recurrence)}
+              {task.recurrence_end && ` · until ${task.recurrence_end}`}
+            </div>
+          )}
+
+          {/* Meta */}
+          <div className="text-[10px] text-tn-muted/40 pt-2">
+            Created {new Date(task.created_at).toLocaleDateString()}
+          </div>
+        </div>
+      </aside>
+    </>
+  )
+}

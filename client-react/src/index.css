@@ -1,0 +1,23 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { -webkit-tap-highlight-color: transparent; }
+  body { @apply bg-tn-bg text-tn-fg; -webkit-font-smoothing: antialiased; }
+  * { scrollbar-width: thin; scrollbar-color: theme('colors.tn.border') transparent; }
+  *::-webkit-scrollbar { width: 4px; height: 4px; }
+  *::-webkit-scrollbar-thumb { @apply bg-tn-border rounded-full; }
+  .scrollbar-none { scrollbar-width: none; }
+  .scrollbar-none::-webkit-scrollbar { display: none; }
+  select option { @apply bg-tn-bg2 text-tn-fg; }
+}
+
+/* Light theme overrides */
+html:not(.dark) {
+  --tw-prose-body: theme('colors.day.fg');
+}
+html:not(.dark) body {
+  @apply bg-day-bg text-day-fg;
+}
