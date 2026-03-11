@@ -13,7 +13,6 @@ const COLUMNS = [
 export function KanbanBoard({ tasks }) {
   const { dispatch } = useApp()
   const { updateTask } = useTasks()
-  const [draggingId, setDraggingId] = useState(null)
   const [overColumn, setOverColumn] = useState(null)
 
   // Touch drag state
@@ -23,11 +22,10 @@ export function KanbanBoard({ tasks }) {
 
   // ── Desktop (HTML5) ───────────────────────────────────────────
   const handleDragStart = (e, task) => {
-    setDraggingId(task.id)
     e.dataTransfer.effectAllowed = 'move'
     e.dataTransfer.setData('taskId', task.id)
   }
-  const handleDragEnd = () => { setDraggingId(null); setOverColumn(null) }
+  const handleDragEnd = () => { setOverColumn(null) }
   const handleDragOver = (e, status) => { e.preventDefault(); setOverColumn(status) }
   const handleDrop = async (e, status) => {
     e.preventDefault()
@@ -81,38 +79,37 @@ export function KanbanBoard({ tasks }) {
   }, [])
 
   const handleTouchStart = useCallback((e, task) => {
-    // Only handle single finger
     if (e.touches.length !== 1) return
     const touch = e.touches[0]
     touchDragTask.current = task
-    setDraggingId(task.id)
     createGhost(e.currentTarget, touch.clientX, touch.clientY)
-  }, [createGhost])
 
-  const handleTouchMove = useCallback((e) => {
-    if (!touchDragTask.current) return
-    e.preventDefault() // prevent scroll while dragging
-    const touch = e.touches[0]
-    moveGhost(touch.clientX, touch.clientY)
-    setOverColumn(getColumnAtPoint(touch.clientX, touch.clientY))
-  }, [moveGhost, getColumnAtPoint])
-
-  const handleTouchEnd = useCallback(async (e) => {
-    const task = touchDragTask.current
-    if (!task) return
-    const touch = e.changedTouches[0]
-    const targetStatus = getColumnAtPoint(touch.clientX, touch.clientY)
-
-    removeGhost()
-    setDraggingId(null)
-    setOverColumn(null)
-    touchDragTask.current = null
-
-    if (targetStatus && targetStatus !== task.status) {
-      dispatch({ type: 'UPDATE_TASK', payload: { ...task, status: targetStatus } })
-      await updateTask(task.id, { status: targetStatus })
+    // Must attach touchmove as non-passive to allow preventDefault (stop scroll)
+    const onMove = (ev) => {
+      if (!touchDragTask.current) return
+      ev.preventDefault()
+      const t = ev.touches[0]
+      moveGhost(t.clientX, t.clientY)
+      setOverColumn(getColumnAtPoint(t.clientX, t.clientY))
     }
-  }, [getColumnAtPoint, removeGhost, dispatch, updateTask])
+    const onEnd = async (ev) => {
+      window.removeEventListener('touchmove', onMove)
+      window.removeEventListener('touchend', onEnd)
+      const task = touchDragTask.current
+      if (!task) return
+      const t = ev.changedTouches[0]
+      const targetStatus = getColumnAtPoint(t.clientX, t.clientY)
+      removeGhost()
+      setOverColumn(null)
+      touchDragTask.current = null
+      if (targetStatus && targetStatus !== task.status) {
+        dispatch({ type: 'UPDATE_TASK', payload: { ...task, status: targetStatus } })
+        await updateTask(task.id, { status: targetStatus })
+      }
+    }
+    window.addEventListener('touchmove', onMove, { passive: false })
+    window.addEventListener('touchend', onEnd)
+  }, [createGhost, moveGhost, getColumnAtPoint, removeGhost, dispatch, updateTask])
 
   return (
     <div className="flex gap-3 p-4 overflow-x-auto h-full pb-6">
@@ -157,8 +154,6 @@ export function KanbanBoard({ tasks }) {
                   onDragStart={e => handleDragStart(e, task)}
                   onDragEnd={handleDragEnd}
                   onTouchStart={e => handleTouchStart(e, task)}
-                  onTouchMove={handleTouchMove}
-                  onTouchEnd={handleTouchEnd}
                   className="cursor-grab active:cursor-grabbing touch-none"
                 >
                   <TaskCard task={task} />
