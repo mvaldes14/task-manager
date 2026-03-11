@@ -1,11 +1,10 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useApp } from '../../context/AppContext'
 import { isOverdue, isToday } from '../../utils'
 import { TaskList } from '../tasks/TaskList'
 import { KanbanBoard } from '../tasks/KanbanBoard'
-import { TaskCard } from '../tasks/TaskCard'
 import { CalendarView } from '../calendar/CalendarView'
-import { LayoutList, Columns, Menu } from 'lucide-react'
+import { LayoutList, Columns, Menu, ChevronDown } from 'lucide-react'
 
 function ViewHeader({ title, count }) {
   const { state, dispatch } = useApp()
@@ -33,6 +32,9 @@ function ViewHeader({ title, count }) {
         <h1 className="text-td-fg dark:text-tn-fg font-semibold text-base truncate">
           {project ? project.name : title}
         </h1>
+        {count != null && (
+          <span className="text-xs text-td-muted/60 dark:text-tn-muted/60">{count}</span>
+        )}
       </div>
 
       {state.view !== 'calendar' && (
@@ -40,14 +42,18 @@ function ViewHeader({ title, count }) {
           <button
             onClick={() => dispatch({ type: 'SET_VIEW_MODE', payload: 'list' })}
             className={`p-1.5 rounded-md transition-colors
-              ${state.viewMode === 'list' ? 'bg-td-bg2 dark:bg-tn-bg2 text-td-fg dark:text-tn-fg shadow-sm' : 'text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg'}`}
+              ${state.viewMode === 'list'
+                ? 'bg-td-bg2 dark:bg-tn-bg2 text-td-fg dark:text-tn-fg shadow-sm'
+                : 'text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg'}`}
           >
             <LayoutList size={15} />
           </button>
           <button
             onClick={() => dispatch({ type: 'SET_VIEW_MODE', payload: 'board' })}
             className={`p-1.5 rounded-md transition-colors
-              ${state.viewMode === 'board' ? 'bg-td-bg2 dark:bg-tn-bg2 text-td-fg dark:text-tn-fg shadow-sm' : 'text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg'}`}
+              ${state.viewMode === 'board'
+                ? 'bg-td-bg2 dark:bg-tn-bg2 text-td-fg dark:text-tn-fg shadow-sm'
+                : 'text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg'}`}
           >
             <Columns size={15} />
           </button>
@@ -58,7 +64,6 @@ function ViewHeader({ title, count }) {
 }
 
 function OverdueView({ tasks }) {
-  // Group by date
   const groups = useMemo(() => {
     const byDate = {}
     tasks.forEach(t => {
@@ -66,98 +71,176 @@ function OverdueView({ tasks }) {
       if (!byDate[d]) byDate[d] = []
       byDate[d].push(t)
     })
-    return Object.entries(byDate).sort(([a], [b]) => a.localeCompare(b))
+    return Object.entries(byDate).sort(([a],[b]) => a.localeCompare(b))
   }, [tasks])
 
   if (!tasks.length) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-td-muted dark:text-tn-muted">
-        <span className="text-4xl mb-3">🎉</span>
-        <p className="text-sm">No overdue tasks!</p>
+        <span className="text-4xl mb-3">✓</span>
+        <p className="text-sm">No overdue tasks</p>
       </div>
     )
   }
 
   return (
     <div>
-      {groups.map(([date, items]) => {
-        const d = new Date(date + 'T00:00:00')
-        const label = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-        return (
-          <section key={date}>
-            <div className="flex items-center gap-2 px-4 py-2 bg-td-red/5 dark:bg-tn-red/5 border-y border-td-red/10 dark:border-tn-red/10">
-              <span className="text-[10px] font-semibold tracking-wider text-td-red dark:text-tn-red uppercase">{label}</span>
-              <span className="text-[10px] text-td-red/60 dark:text-tn-red/60 bg-td-red/10 dark:bg-tn-red/10 px-1.5 rounded-full">{items.length}</span>
-            </div>
-            {items.map(task => (
-              <TaskCard key={task.id} task={task} />
-            ))}
-          </section>
-        )
-      })}
+      {groups.map(([date, items]) => (
+        <section key={date}>
+          <div className="flex items-center gap-2 px-4 py-2 sticky top-0 bg-td-bg dark:bg-tn-bg z-10">
+            <span className="text-[10px] font-semibold tracking-widest text-td-red dark:text-tn-red uppercase">
+              {date === 'unknown' ? 'No date' : new Date(date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+            </span>
+            <span className="text-[10px] text-td-muted/60 dark:text-tn-muted/60 bg-td-surface dark:bg-tn-surface px-1.5 rounded-full">{items.length}</span>
+          </div>
+          <div>{items.map(t => <TaskCard key={t.id} task={t} />)}</div>
+        </section>
+      ))}
     </div>
   )
 }
 
+const SORT_OPTIONS = [
+  { value: 'status',   label: 'Status' },
+  { value: 'due_date', label: 'Due Date' },
+  { value: 'project',  label: 'Project' },
+  { value: 'title',    label: 'Title' },
+  { value: 'created',  label: 'Created' },
+]
+
+function ListToolbar({ showDone, onToggleDone, sortBy, onSortBy }) {
+  return (
+    <div className="flex items-center gap-3 px-4 py-2 border-b border-td-border/30 dark:border-tn-border/30 bg-td-bg dark:bg-tn-bg">
+      {/* Hide/show done */}
+      <button
+        onClick={onToggleDone}
+        className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg transition-colors
+          ${showDone
+            ? 'bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg'
+            : 'text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg'}`}
+      >
+        <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-colors
+          ${showDone ? 'bg-td-green dark:bg-tn-green border-td-green dark:border-tn-green' : 'border-td-muted/50 dark:border-tn-muted/50'}`}>
+          {showDone && <span className="text-[8px] text-white font-bold">✓</span>}
+        </span>
+        Show done
+      </button>
+
+      <div className="h-3.5 w-px bg-td-border dark:bg-tn-border" />
+
+      {/* Sort */}
+      <div className="flex items-center gap-1.5 text-xs text-td-muted dark:text-tn-muted">
+        <span>Sort:</span>
+        <div className="relative">
+          <select
+            value={sortBy}
+            onChange={e => onSortBy(e.target.value)}
+            className="appearance-none bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg
+              text-xs pl-2.5 pr-6 py-1 rounded-lg outline-none cursor-pointer
+              border border-td-border/50 dark:border-tn-border/50"
+          >
+            {SORT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+          <ChevronDown size={10} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-td-muted dark:text-tn-muted pointer-events-none" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function sortTasks(tasks, sortBy, projects) {
+  const sorted = [...tasks]
+  switch (sortBy) {
+    case 'due_date':
+      return sorted.sort((a, b) => {
+        if (!a.due_date && !b.due_date) return 0
+        if (!a.due_date) return 1
+        if (!b.due_date) return -1
+        return a.due_date.localeCompare(b.due_date)
+      })
+    case 'project': {
+      const name = id => projects.find(p => p.id === id)?.name || 'zzz'
+      return sorted.sort((a, b) => name(a.project_id).localeCompare(name(b.project_id)))
+    }
+    case 'title':
+      return sorted.sort((a, b) => a.title.localeCompare(b.title))
+    case 'created':
+      return sorted.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    default: // status — preserve natural grouping
+      return sorted
+  }
+}
+
+import { TaskCard } from '../tasks/TaskCard'
+
 export function MainContent() {
   const { state } = useApp()
   const { view, tasks, projects, viewMode } = state
+  const [showDone, setShowDone] = useState(true)
+  const [sortBy, setSortBy] = useState('status')
 
-  const { title, visibleTasks, groupBy, emptyMessage } = useMemo(() => {
-    if (view === 'inbox') {
-      return {
-        title: 'Inbox',
-        visibleTasks: tasks.filter(t => t.status !== 'done'),
-        groupBy: 'status',
-        emptyMessage: 'Inbox is empty',
-      }
+  const { title, baseTasks, groupBy, emptyMessage } = useMemo(() => {
+    if (view === 'inbox') return {
+      title: 'Inbox',
+      baseTasks: tasks,
+      groupBy: 'status',
+      emptyMessage: 'Inbox is empty',
     }
-    if (view === 'today') {
-      return {
-        title: 'Today',
-        visibleTasks: tasks.filter(t => isToday(t)),
-        groupBy: 'status',
-        emptyMessage: 'Nothing due today',
-      }
+    if (view === 'today') return {
+      title: 'Today',
+      baseTasks: tasks.filter(t => isToday(t)),
+      groupBy: 'status',
+      emptyMessage: 'Nothing due today',
     }
-    if (view === 'all') {
-      return {
-        title: 'All Tasks',
-        visibleTasks: tasks,
-        groupBy: 'status',
-        emptyMessage: 'No tasks yet',
-      }
+    if (view === 'all') return {
+      title: 'All Tasks',
+      baseTasks: tasks,
+      groupBy: 'status',
+      emptyMessage: 'No tasks yet',
     }
-    if (view === 'overdue') {
-      return {
-        title: '🔴 Overdue',
-        visibleTasks: tasks.filter(t => isOverdue(t)),
-        groupBy: 'date',
-        emptyMessage: 'No overdue tasks',
-      }
+    if (view === 'overdue') return {
+      title: '🔴 Overdue',
+      baseTasks: tasks.filter(t => isOverdue(t)),
+      groupBy: 'date',
+      emptyMessage: 'No overdue tasks',
     }
     if (view.startsWith('project:')) {
       const pid = view.replace('project:', '')
       const project = projects.find(p => p.id === pid)
       return {
         title: project ? `${project.icon} ${project.name}` : 'Project',
-        visibleTasks: tasks.filter(t => t.project_id === pid),
+        baseTasks: tasks.filter(t => t.project_id === pid),
         groupBy: 'status',
         emptyMessage: 'No tasks in this project',
       }
     }
-    return { title: 'Tasks', visibleTasks: tasks, groupBy: 'status', emptyMessage: 'No tasks' }
+    return { title: 'Tasks', baseTasks: tasks, groupBy: 'status', emptyMessage: 'No tasks' }
   }, [view, tasks, projects])
 
+  // Apply show/hide done + sort
+  const visibleTasks = useMemo(() => {
+    let result = showDone ? baseTasks : baseTasks.filter(t => t.status !== 'done')
+    if (sortBy !== 'status') result = sortTasks(result, sortBy, projects)
+    return result
+  }, [baseTasks, showDone, sortBy, projects])
+
   const activeCount = useMemo(() =>
-    visibleTasks.filter(t => t.status !== 'done').length, [visibleTasks])
+    baseTasks.filter(t => t.status !== 'done').length, [baseTasks])
+
+  const isListView = viewMode === 'list' && view !== 'calendar' && view !== 'overdue'
 
   return (
     <div className="flex-1 flex flex-col min-h-0 min-w-0">
-      <ViewHeader
-        title={title}
-        count={activeCount > 0 ? activeCount : null}
-      />
+      <ViewHeader title={title} count={activeCount > 0 ? activeCount : null} />
+
+      {isListView && (
+        <ListToolbar
+          showDone={showDone}
+          onToggleDone={() => setShowDone(v => !v)}
+          sortBy={sortBy}
+          onSortBy={setSortBy}
+        />
+      )}
 
       <div className="flex-1 overflow-y-auto"
         style={{ paddingBottom: 'calc(80px + env(safe-area-inset-bottom, 0px))' }}>
@@ -168,7 +251,11 @@ export function MainContent() {
         ) : viewMode === 'board' ? (
           <KanbanBoard tasks={visibleTasks} />
         ) : (
-          <TaskList tasks={visibleTasks} groupBy={groupBy} emptyMessage={emptyMessage} />
+          <TaskList
+            tasks={visibleTasks}
+            groupBy={sortBy === 'status' ? 'status' : 'flat'}
+            emptyMessage={emptyMessage}
+          />
         )}
       </div>
     </div>

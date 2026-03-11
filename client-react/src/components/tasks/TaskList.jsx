@@ -39,10 +39,12 @@ export function TaskList({ tasks, groupBy = 'status', emptyMessage = 'No tasks h
     )
   }
 
-  // flat list (e.g. for today/overdue)
-  return (
-    <div>
-      {tasks.map(task => <TaskCard key={task.id} task={task} />)}
-    </div>
-  )
+  // flat list (non-status sort or overdue)
+  if (groupBy !== 'status') {
+    return (
+      <div>
+        {tasks.map(task => <TaskCard key={task.id} task={task} />)}
+      </div>
+    )
+  }
 }
