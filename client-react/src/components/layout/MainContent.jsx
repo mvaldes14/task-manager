@@ -176,8 +176,20 @@ import { TaskCard } from '../tasks/TaskCard'
 export function MainContent() {
   const { state } = useApp()
   const { view, tasks, projects, viewMode } = state
-  const [showDone, setShowDone] = useState(true)
-  const [sortBy, setSortBy] = useState('status')
+  const [showDone, setShowDone] = useState(() => {
+    const saved = localStorage.getItem('td-show-done')
+    return saved === null ? true : saved === 'true'
+  })
+  const [sortBy, setSortBy] = useState(() => localStorage.getItem('td-sort-by') || 'status')
+
+  const toggleShowDone = () => setShowDone(v => {
+    localStorage.setItem('td-show-done', String(!v))
+    return !v
+  })
+  const handleSortBy = (v) => {
+    localStorage.setItem('td-sort-by', v)
+    setSortBy(v)
+  }
 
   const { title, baseTasks, groupBy, emptyMessage } = useMemo(() => {
     if (view === 'inbox') return {
@@ -227,18 +239,18 @@ export function MainContent() {
   const activeCount = useMemo(() =>
     baseTasks.filter(t => t.status !== 'done').length, [baseTasks])
 
-  const isListView = viewMode === 'list' && view !== 'calendar' && view !== 'overdue'
+  const showToolbar = view !== 'calendar' && view !== 'overdue'
 
   return (
     <div className="flex-1 flex flex-col min-h-0 min-w-0">
       <ViewHeader title={title} count={activeCount > 0 ? activeCount : null} />
 
-      {isListView && (
+      {showToolbar && (
         <ListToolbar
           showDone={showDone}
-          onToggleDone={() => setShowDone(v => !v)}
+          onToggleDone={toggleShowDone}
           sortBy={sortBy}
-          onSortBy={setSortBy}
+          onSortBy={handleSortBy}
         />
       )}
 
