@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Plus, X } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { useTasks } from '../../hooks/useTasks'
 import { api } from '../../api'
@@ -110,79 +110,57 @@ export function FAB() {
       {/* Backdrop */}
       {open && <div className="fixed inset-0 z-[88] bg-black/60 animate-fade-in" onClick={close} />}
 
-      {/* Mobile bottom sheet */}
-      <div
-        className={`md:hidden fixed left-0 right-0 z-[89]
-          bg-td-bg2 dark:bg-tn-bg2 rounded-t-2xl
-          transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]
-          ${open ? 'translate-y-0' : 'translate-y-full'}`}
-        style={{ bottom: 'calc(56px + env(safe-area-inset-bottom, 0px))' }}
-      >
-        <div className="flex justify-center pt-3 pb-1">
-          <div className="w-10 h-1 rounded-full bg-td-border dark:bg-tn-border" />
-        </div>
-        <div className="px-4 pt-2 pb-1">
-          <input
-            ref={inputRef}
-            type="text" value={text}
-            onChange={handleChange} onKeyDown={handleKeyDown}
-            placeholder="What needs to be done?"
-            className="w-full bg-transparent text-td-fg dark:text-tn-fg text-lg
-              placeholder-td-muted/50 dark:placeholder-tn-muted/50 outline-none"
-          />
-        </div>
-        <div className="flex items-center gap-2 px-4 py-3 border-t border-td-border dark:border-tn-border">
-          <div className="flex-1 min-w-0 overflow-x-auto flex items-center gap-2 scrollbar-none">
-            {chips.map((c, i) => <NlpChip key={i} {...c} />)}
-          </div>
-          <button onClick={submit} disabled={!text.trim() || loading}
-            className="shrink-0 bg-td-blue dark:bg-tn-blue text-white font-semibold text-sm
-              px-5 py-2.5 rounded-xl disabled:opacity-40 transition-opacity active:scale-95">
-            {loading ? '…' : 'Add Task'}
-          </button>
-        </div>
-      </div>
-
-      {/* Desktop centered modal */}
+      {/* Centered modal — same on all screen sizes */}
       {open && (
-        <div className="hidden md:flex fixed inset-0 z-[89] items-center justify-center">
-          <div className="w-full max-w-lg mx-4 bg-td-bg2 dark:bg-tn-bg2 rounded-2xl shadow-2xl
-            border border-td-border dark:border-tn-border animate-fade-in"
-            onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-5 pt-5 pb-3">
-              <span className="text-xs text-td-muted dark:text-tn-muted font-semibold uppercase tracking-wider">
-                Quick Add
-              </span>
-              <button onClick={close} className="text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg transition-colors">
-                <X size={16} />
-              </button>
-            </div>
-            <div className="px-5 pb-2">
+        <div className="fixed inset-0 z-[89] flex items-center justify-center px-4 pointer-events-none">
+          <div
+            className="w-full max-w-lg rounded-2xl shadow-2xl animate-fade-in pointer-events-auto"
+            style={{ background: 'var(--bg2)', border: '1px solid var(--border)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Input */}
+            <div className="px-5 pt-6 pb-3">
               <input
                 ref={inputRef}
-                type="text" value={text}
-                onChange={handleChange} onKeyDown={handleKeyDown}
+                type="text"
+                value={text}
+                onChange={handleChange}
+                onKeyDown={handleKeyDown}
                 placeholder="What needs to be done?"
-                className="w-full bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg
-                  text-base placeholder-td-muted/40 dark:placeholder-tn-muted/40
-                  outline-none rounded-xl px-4 py-3
-                  border border-td-border dark:border-tn-border
-                  focus:border-td-blue dark:focus:border-tn-blue transition-colors"
+                className="w-full bg-transparent text-xl font-medium outline-none leading-snug"
+                style={{ color: 'var(--fg)' }}
               />
+              <p className="text-xs mt-2.5" style={{ color: 'var(--muted)' }}>
+                Try: "call dentist tomorrow at 3pm @health"
+              </p>
             </div>
+
+            {/* NLP chips */}
             {chips.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 px-5 py-2">
+              <div className="flex flex-wrap gap-2 px-5 py-2">
                 {chips.map((c, i) => <NlpChip key={i} {...c} />)}
               </div>
             )}
-            <div className="flex items-center justify-between px-5 pt-2 pb-5
-              border-t border-td-border dark:border-tn-border mt-2">
-              <p className="text-[11px] text-td-muted/40 dark:text-tn-muted/40">
-                Try: "dentist tomorrow @health"
-              </p>
-              <button onClick={submit} disabled={!text.trim() || loading}
-                className="bg-td-blue dark:bg-tn-blue text-white font-semibold text-sm
-                  px-6 py-2.5 rounded-xl disabled:opacity-40 transition-opacity ml-4 shrink-0">
+
+            {/* Footer */}
+            <div
+              className="flex items-center justify-between px-5 py-4 mt-1"
+              style={{ borderTop: '1px solid var(--border)' }}
+            >
+              <button
+                onClick={close}
+                className="text-sm font-medium transition-colors"
+                style={{ color: 'var(--muted)' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={submit}
+                disabled={!text.trim() || loading}
+                className="px-6 py-2.5 rounded-xl text-sm font-semibold transition-all
+                  disabled:opacity-40 active:scale-95"
+                style={{ background: 'var(--blue)', color: 'var(--bg)' }}
+              >
                 {loading ? 'Adding…' : 'Add Task'}
               </button>
             </div>
