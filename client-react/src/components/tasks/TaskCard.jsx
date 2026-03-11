@@ -31,6 +31,7 @@ function LinkIcon({ url }) {
 export function TaskCard({ task }) {
   const { state, dispatch } = useApp()
   const { toggleTask } = useTasks()
+  const project = state.projects.find(p => p.id === task.project_id)
   const isDark = state.theme === 'dark'
   const overdue = isOverdue(task)
   const done = task.status === 'done'
