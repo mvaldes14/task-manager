@@ -35,9 +35,7 @@ function ViewHeader({ title, count }) {
         <h1 className="text-td-fg dark:text-tn-fg font-semibold text-base truncate">
           {project ? project.name : title}
         </h1>
-        {count != null && (
-          <span className="text-xs text-td-muted/60 dark:text-tn-muted/60">{count}</span>
-        )}
+        {count != null && null}
       </div>
 
       <div className="flex items-center gap-1 bg-td-surface dark:bg-tn-surface rounded-lg p-0.5">
@@ -225,7 +223,7 @@ export function MainContent() {
       emptyMessage: 'No tasks yet',
     }
     if (view === 'overdue') return {
-      title: '🔴 Overdue',
+      title: 'Overdue',
       baseTasks: tasks.filter(t => isOverdue(t)),
       groupBy: 'date',
       emptyMessage: 'No overdue tasks',
