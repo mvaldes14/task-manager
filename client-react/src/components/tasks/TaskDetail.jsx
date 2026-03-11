@@ -47,7 +47,7 @@ function SubtaskRow({ sub, taskId }) {
 
 function linkStyle(url = '') {
   if (url.startsWith('obsidian://')) return { icon: '📎', color: '#bb9af7', bg: 'rgba(187,154,247,0.15)' }
-  if (url.includes('github.com'))   return { icon: '🐙', color: '#e6edf3', bg: 'rgba(230,237,243,0.15)' }
+  if (url.includes('github.com'))   return { icon: '🐙', color: '#57606a', bg: 'rgba(87,96,106,0.12)' }
   return                                    { icon: '🔗', color: '#e0af68', bg: 'rgba(224,175,104,0.15)' }
 }
 
@@ -265,11 +265,12 @@ export function TaskDetail() {
           />
 
           {/* Status */}
-          <div className="flex gap-2">
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-td-muted dark:text-tn-muted">Status</label>
             <select
               value={status}
               onChange={e => { setStatus(e.target.value); markDirty(); save() }}
-              className="flex-1 bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-xs rounded-lg px-2.5 py-2 outline-none border border-td-border/50 dark:border-tn-border/50 appearance-none cursor-pointer"
+              className="w-full bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-xs rounded-lg px-2.5 py-2 outline-none border border-td-border/50 dark:border-tn-border/50 appearance-none cursor-pointer"
             >
               {STATUSES.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
             </select>

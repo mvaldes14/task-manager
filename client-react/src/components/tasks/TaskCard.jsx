@@ -4,7 +4,7 @@ import { formatDate, isOverdue, priorityColor, recurrenceLabel, obsidianNoteName
 
 function linkStyle(url = '') {
   if (url.startsWith('obsidian://')) return { icon: '📎', color: '#bb9af7', bg: 'rgba(187,154,247,0.15)' }
-  if (url.includes('github.com'))   return { icon: '🐙', color: '#e6edf3', bg: 'rgba(230,237,243,0.15)' }
+  if (url.includes('github.com'))   return { icon: '🐙', color: '#57606a', bg: 'rgba(87,96,106,0.12)' }
   return                                    { icon: '🔗', color: '#e0af68', bg: 'rgba(224,175,104,0.15)' }
 }
 
