@@ -1,5 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useCallback } from 'react'
 import { useApp } from '../../context/AppContext'
+import { useTasks } from '../../hooks/useTasks'
+import { usePullToRefresh } from '../../hooks/usePullToRefresh'
 import { isOverdue, isToday } from '../../utils'
 import { TaskList } from '../tasks/TaskList'
 import { KanbanBoard } from '../tasks/KanbanBoard'
@@ -183,12 +185,16 @@ import { TaskCard } from '../tasks/TaskCard'
 
 export function MainContent() {
   const { state } = useApp()
+  const { loadAll } = useTasks()
   const { view, tasks, projects, viewMode } = state
   const [showDone, setShowDone] = useState(() => {
     const saved = localStorage.getItem('td-show-done')
     return saved === null ? true : saved === 'true'
   })
   const [sortBy, setSortBy] = useState(() => localStorage.getItem('td-sort-by') || 'status')
+
+  const handleRefresh = useCallback(async () => { await loadAll() }, [loadAll])
+  const { indicatorEl, onTouchStart, onTouchMove, onTouchEnd } = usePullToRefresh(handleRefresh)
 
   const toggleShowDone = () => setShowDone(v => {
     localStorage.setItem('td-show-done', String(!v))
@@ -262,8 +268,26 @@ export function MainContent() {
         />
       )}
 
-      <div className={`flex-1 min-h-0 ${viewMode === 'calendar' ? 'overflow-hidden flex flex-col' : 'overflow-y-auto'}`}
-        style={viewMode !== 'calendar' ? { paddingBottom: 'calc(80px + env(safe-area-inset-bottom, 0px))' } : undefined}>
+      <div
+        className={`flex-1 min-h-0 ${viewMode === 'calendar' ? 'overflow-hidden flex flex-col' : 'overflow-y-auto'}`}
+        style={viewMode !== 'calendar' ? { paddingBottom: 'calc(80px + env(safe-area-inset-bottom, 0px))' } : undefined}
+        onTouchStart={viewMode !== 'calendar' ? onTouchStart : undefined}
+        onTouchMove={viewMode !== 'calendar' ? onTouchMove : undefined}
+        onTouchEnd={viewMode !== 'calendar' ? onTouchEnd : undefined}
+      >
+        {/* Pull to refresh indicator */}
+        {viewMode !== 'calendar' && (
+          <div ref={indicatorEl} className="flex items-center justify-center overflow-hidden transition-all duration-200" style={{ height: 0, opacity: 0 }}>
+            <div className="flex flex-col items-center gap-1">
+              <svg data-arrow width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-td-muted dark:text-tn-muted transition-transform duration-150">
+                <path d="M12 5v14M5 12l7 7 7-7"/>
+              </svg>
+              <svg data-spinner width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-td-blue dark:text-tn-blue animate-spin" style={{ display: 'none' }}>
+                <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+              </svg>
+            </div>
+          </div>
+        )}
         {viewMode === 'calendar' ? (
           <CalendarView tasks={tasks} />
         ) : view === 'overdue' ? (
