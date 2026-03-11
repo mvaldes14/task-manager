@@ -290,7 +290,7 @@ export function TaskDetail() {
               className="w-full bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-xs rounded-lg px-2.5 py-2 outline-none border border-td-border/50 dark:border-tn-border/50"
             >
               <option value="">No project</option>
-              {state.projects.map(p => (
+              {state.projects.filter(p => p.id !== 'inbox').map(p => (
                 <option key={p.id} value={p.id}>{p.icon} {p.name}</option>
               ))}
             </select>

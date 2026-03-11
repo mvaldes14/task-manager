@@ -99,7 +99,7 @@ export function MainContent() {
     if (view === 'inbox') {
       return {
         title: 'Inbox',
-        visibleTasks: tasks.filter(t => !t.project_id),
+        visibleTasks: tasks.filter(t => t.status !== 'done'),
         groupBy: 'status',
         emptyMessage: 'Inbox is empty',
       }

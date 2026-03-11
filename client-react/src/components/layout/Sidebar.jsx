@@ -100,7 +100,7 @@ export function Sidebar() {
   const overdueCount = useMemo(() =>
     state.tasks.filter(t => isOverdue(t)).length, [state.tasks])
   const inboxCount = useMemo(() =>
-    state.tasks.filter(t => !t.project_id && t.status !== 'done').length, [state.tasks])
+    state.tasks.filter(t => t.status !== 'done').length, [state.tasks])
   const todayCount = useMemo(() =>
     state.tasks.filter(t => isToday(t) && t.status !== 'done').length, [state.tasks])
 
@@ -155,7 +155,7 @@ export function Sidebar() {
             </button>
           </div>
         </div>
-        {state.projects.map(p => {
+        {state.projects.filter(p => p.id !== 'inbox').map(p => {
           const count = state.tasks.filter(t => t.project_id === p.id && t.status !== 'done').length
           const active = state.view === `project:${p.id}`
           return (

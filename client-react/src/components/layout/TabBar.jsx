@@ -16,7 +16,7 @@ export function TabBar() {
   const todayCount = useMemo(() =>
     state.tasks.filter(t => isToday(t) && t.status !== 'done').length, [state.tasks])
   const inboxCount = useMemo(() =>
-    state.tasks.filter(t => !t.project_id && t.status !== 'done').length, [state.tasks])
+    state.tasks.filter(t => t.status !== 'done').length, [state.tasks])
 
   const badges = { inbox: inboxCount, today: todayCount }
 
