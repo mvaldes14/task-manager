@@ -870,6 +870,7 @@ body.light .color-swatch.selected { box-shadow: 0 0 0 2px var(--bg2), 0 0 0 4px 
 
   /* push content up so tab bar doesn't overlap */
   .content { padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px)); }
+  .list-view { padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)); }
   .fab { bottom: calc(72px + env(safe-area-inset-bottom, 0px)); right: 16px; }
   /* overlay: lighter scrim for bottom sheet */
   .fab-modal-overlay { backdrop-filter: none; -webkit-backdrop-filter: none; background: rgba(0,0,0,0.4); }
@@ -889,9 +890,7 @@ body.light .color-swatch.selected { box-shadow: 0 0 0 2px var(--bg2), 0 0 0 4px 
   }
   .sidebar-overlay.open { display: block; }
   .menu-btn { display: flex; }
-  .fab { bottom: calc(20px + var(--safe-bottom)); right: calc(16px + var(--safe-right)); }
   .task-group-list { margin: 0 12px 4px; }
-  .list-view { padding: 4px 0 120px; }
 }
 
 /* ─── DRAG OVER ─── */
