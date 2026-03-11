@@ -159,8 +159,7 @@ export function KanbanBoard({ tasks }) {
                   onTouchStart={e => handleTouchStart(e, task)}
                   onTouchMove={handleTouchMove}
                   onTouchEnd={handleTouchEnd}
-                  className={`cursor-grab active:cursor-grabbing touch-none transition-opacity
-                    ${draggingId === task.id ? 'opacity-30' : 'opacity-100'}`}
+                  className="cursor-grab active:cursor-grabbing touch-none"
                 >
                   <TaskCard task={task} />
                 </div>
