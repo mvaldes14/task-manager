@@ -548,109 +548,6 @@ body.light .topbar { background: rgba(242,242,247,0.85); }
   }
   .fab-modal.open { transform: translateY(0); opacity: 1; }
 
-  .fab-sheet-handle {
-    display: flex; justify-content: center;
-    padding: 10px 0 4px;
-  }
-  .fab-sheet-handle-bar {
-    width: 36px; height: 4px;
-    border-radius: 2px;
-    background: var(--border2);
-  }
-
-  .fab-sheet-body {
-    padding: 8px 20px 12px;
-  }
-
-  .fab-sheet-title-input {
-    width: 100%; background: none; border: none; outline: none;
-    font-family: var(--font); font-size: 22px; font-weight: 600;
-    color: var(--text); padding: 8px 0 4px;
-    letter-spacing: -0.4px; caret-color: var(--accent);
-  }
-  .fab-sheet-title-input::placeholder { color: var(--text4); font-weight: 600; }
-
-  .fab-sheet-desc-input {
-    width: 100%; background: none; border: none; outline: none;
-    font-family: var(--font); font-size: 15px; font-weight: 400;
-    color: var(--text2); padding: 4px 0 16px;
-    border-bottom: 0.5px solid var(--border);
-    resize: none; min-height: 28px;
-  }
-  .fab-sheet-desc-input::placeholder { color: var(--text4); }
-
-  .fab-sheet-chips {
-    display: flex; gap: 8px; flex-wrap: nowrap;
-    overflow-x: auto; padding: 14px 0 10px;
-    scrollbar-width: none; -ms-overflow-style: none;
-    -webkit-overflow-scrolling: touch;
-  }
-  .fab-sheet-chips::-webkit-scrollbar { display: none; }
-
-  .fab-sheet-chip {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 7px 14px; border-radius: 100px;
-    border: 1.5px solid var(--border2);
-    background: var(--bg3);
-    font-size: 13px; font-weight: 500; color: var(--text2);
-    white-space: nowrap; cursor: pointer;
-    transition: background 0.15s, border-color 0.15s, color 0.15s;
-    -webkit-tap-highlight-color: transparent;
-    flex-shrink: 0;
-  }
-  .fab-sheet-chip.active {
-    border-color: var(--accent);
-    background: var(--accent-dim);
-    color: var(--accent);
-  }
-  .fab-sheet-chip svg { flex-shrink: 0; }
-
-  .fab-sheet-footer {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 8px 0;
-    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
-    border-top: 0.5px solid var(--border);
-    margin-top: 4px;
-  }
-
-  .fab-sheet-project {
-    display: flex; align-items: center; gap: 6px;
-    font-size: 14px; color: var(--text3);
-    cursor: pointer; padding: 6px 0;
-    -webkit-tap-highlight-color: transparent;
-  }
-  .fab-sheet-project select {
-    background: none; border: none; outline: none;
-    font-family: var(--font); font-size: 14px;
-    color: var(--text3); cursor: pointer;
-    appearance: none; -webkit-appearance: none;
-    padding-right: 4px;
-  }
-
-  .fab-sheet-submit {
-    width: 44px; height: 44px; border-radius: 50%;
-    background: var(--accent); border: none;
-    display: flex; align-items: center; justify-content: center;
-    cursor: pointer; flex-shrink: 0;
-    box-shadow: 0 4px 16px rgba(122,162,247,0.4);
-    -webkit-tap-highlight-color: transparent;
-    transition: transform 0.1s, opacity 0.1s;
-  }
-  .fab-sheet-submit:active { transform: scale(0.92); opacity: 0.85; }
-
-  /* hide desktop elements inside modal on mobile */
-  .fab-modal .fab-modal-input,
-  .fab-modal .fab-modal-hint,
-  .fab-modal .fab-modal-footer,
-  .fab-modal #fabNlpChips { display: none !important; }
-
-  /* show mobile elements */
-  .fab-sheet-handle, .fab-sheet-body { display: block; }
-}
-
-/* hide mobile elements on desktop */
-@media (min-width: 701px) {
-  .fab-sheet-handle, .fab-sheet-body { display: none; }
 }
 
 @keyframes fadeIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
@@ -1306,72 +1203,13 @@ body.light .color-swatch.selected { box-shadow: 0 0 0 2px var(--bg2), 0 0 0 4px 
 <!-- FAB Modal -->
 <div class="fab-modal-overlay" id="fabOverlay" onclick="closeFab()"></div>
 <div class="fab-modal" id="fabModal">
-
-  <!-- Desktop layout -->
   <input class="fab-modal-input" id="fabInput" type="text"
-    placeholder='e.g. "dentist tuesday 2pm #health @urgent"'
+    placeholder="What needs to be done?"
     autocomplete="off" autocorrect="off" spellcheck="false">
-  <div class="fab-modal-hint">
-    <span><span class="hint-hash">#project</span> to assign</span>
-    <span><span class="hint-at">@label</span> to tag</span>
-    <span><span class="hint-cal">next monday · at 3pm</span> for dates</span>
-    <span><span class="hint-obs">!notename</span> links Obsidian</span>
-    <span><span style="color:#34d399">every monday</span> recurs</span>
-  </div>
   <div id="fabNlpChips" style="display:none;margin-bottom:10px;display:flex;gap:6px;flex-wrap:wrap;"></div>
   <div class="fab-modal-footer">
     <button class="btn btn-primary" style="padding:8px 20px;" onclick="submitFab()">Add Task</button>
   </div>
-
-  <!-- Mobile bottom sheet layout -->
-  <div class="fab-sheet-handle">
-    <div class="fab-sheet-handle-bar"></div>
-  </div>
-  <div class="fab-sheet-body">
-    <input class="fab-sheet-title-input" id="fabSheetTitle" type="text"
-      placeholder="Task Name"
-      autocomplete="off" autocorrect="off" spellcheck="false">
-    <textarea class="fab-sheet-desc-input" id="fabSheetDesc"
-      placeholder="Description" rows="1"
-      autocomplete="off" spellcheck="false"></textarea>
-
-    <!-- Quick pick chips -->
-    <div class="fab-sheet-chips" id="fabSheetChips">
-      <button class="fab-sheet-chip" id="chip-date" onclick="toggleSheetChip('date')">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-        <span id="chip-date-label">Date</span>
-      </button>
-      <button class="fab-sheet-chip" id="chip-priority" onclick="toggleSheetChip('priority')">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
-        <span id="chip-priority-label">Priority</span>
-      </button>
-      <button class="fab-sheet-chip" id="chip-today" onclick="setSheetDate('today')">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-        Today
-      </button>
-      <button class="fab-sheet-chip" id="chip-tomorrow" onclick="setSheetDate('tomorrow')">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-        Tomorrow
-      </button>
-    </div>
-
-    <!-- NLP chips preview on mobile -->
-    <div id="fabSheetNlpChips" style="display:none;gap:6px;flex-wrap:wrap;margin-bottom:10px;"></div>
-
-    <div class="fab-sheet-footer">
-      <div class="fab-sheet-project">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
-        <select id="fabSheetProject" onclick="event.stopPropagation()">
-          <option value="inbox">Inbox</option>
-        </select>
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-      </div>
-      <button class="fab-sheet-submit" onclick="submitFabSheet()">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-      </button>
-    </div>
-  </div>
-
 </div>
 
 <!-- Detail Panel -->
@@ -2034,47 +1872,7 @@ function setupFab() {
     if (e.key === 'Escape') closeFab();
   });
 
-  // Mobile sheet title — NLP preview
-  const sheetTitle = document.getElementById('fabSheetTitle');
-  if (sheetTitle) {
-    sheetTitle.addEventListener('input', () => {
-      clearTimeout(nlpTimer);
-      const val = sheetTitle.value.trim();
-      if (!val) { const n=document.getElementById('fabSheetNlpChips'); if(n){n.innerHTML='';n.style.display='none';} return; }
-      nlpTimer = setTimeout(() => updateSheetNlpChips(val), 320);
-    });
-    sheetTitle.addEventListener('keydown', e => {
-      if (e.key === 'Enter') { e.preventDefault(); submitFabSheet(); }
-      if (e.key === 'Escape') closeFab();
-    });
-  }
-
-  // Auto-resize sheet description
-  const sheetDesc = document.getElementById('fabSheetDesc');
-  if (sheetDesc) {
-    sheetDesc.addEventListener('input', () => {
-      sheetDesc.style.height = 'auto';
-      sheetDesc.style.height = sheetDesc.scrollHeight + 'px';
-    });
-  }
 }
-
-async function updateSheetNlpChips(text) {
-  const r = await api('/nlp/parse', 'POST', { text });
-  const chips = document.getElementById('fabSheetNlpChips');
-  if (!chips) return;
-  chips.innerHTML = ''; let hasChips = false;
-  if (r?.due_date && !state.sheetDate) {
-    let lbl = formatDate(r.due_date)?.label || r.due_date;
-    if (r.due_time) { const [h,m]=r.due_time.split(':').map(Number); lbl+=` ${h%12||12}:${String(m).padStart(2,'0')}${h>=12?'pm':'am'}`; }
-    chips.appendChild(makeChip('📅 '+lbl,'var(--blue)','rgba(96,165,250,0.1)')); hasChips=true;
-  }
-  if (r?.project_name) { chips.appendChild(makeChip('#'+r.project_name,'var(--accent2)','var(--accent-dim)')); hasChips=true; }
-  if (r?.labels?.length) { r.labels.forEach(l=>{ chips.appendChild(makeChip('@'+l,'var(--green)','rgba(74,222,128,0.1)')); hasChips=true; }); }
-  if (r?.priority && r.priority!=='medium' && !state.sheetPriority) {
-    chips.appendChild(makeChip(r.priority==='high'?'↑ High':'↓ Low', r.priority==='high'?'var(--red)':'var(--text3)','rgba(248,113,113,0.1)')); hasChips=true;
-  }
-  chips.style.display = hasChips ? 'flex' : 'none';
 }
 
 async function updateFabChips(text) {
@@ -2147,21 +1945,7 @@ function openFab() {
   document.getElementById('fab').classList.add('open');
   document.getElementById('fabModal').classList.add('open');
   document.getElementById('fabOverlay').classList.add('open');
-  // Populate project selector in sheet
-  const sel = document.getElementById('fabSheetProject');
-  if (sel) {
-    sel.innerHTML = '<option value="inbox">Inbox</option>' +
-      state.projects.filter(p=>p.id!=='inbox')
-        .map(p=>`<option value="${escH(p.id)}">${escH(p.icon||'')} ${escH(p.name)}</option>`).join('');
-  }
-  // Focus right input based on viewport
-  setTimeout(() => {
-    if (window.innerWidth <= 700) {
-      document.getElementById('fabSheetTitle')?.focus();
-    } else {
-      document.getElementById('fabInput')?.focus();
-    }
-  }, 100);
+  setTimeout(() => document.getElementById('fabInput')?.focus(), 100);
 }
 
 function closeFab() {
@@ -2171,88 +1955,7 @@ function closeFab() {
   document.getElementById('fabModal').classList.remove('open');
   document.getElementById('fabOverlay').classList.remove('open');
   document.getElementById('fabInput').value = '';
-  const t = document.getElementById('fabSheetTitle');
-  const d = document.getElementById('fabSheetDesc');
-  if (t) t.value = '';
-  if (d) d.value = '';
-  // Reset sheet chips
-  state.sheetDate = null; state.sheetPriority = null;
-  ['chip-date','chip-priority','chip-today','chip-tomorrow'].forEach(id => {
-    document.getElementById(id)?.classList.remove('active');
-  });
-  document.getElementById('chip-date-label').textContent = 'Date';
-  document.getElementById('chip-priority-label').textContent = 'Priority';
-  const nlp = document.getElementById('fabSheetNlpChips');
-  if (nlp) { nlp.innerHTML=''; nlp.style.display='none'; }
   clearFabChips();
-}
-
-// Sheet state
-if (!state.sheetDate) state.sheetDate = null;
-if (!state.sheetPriority) state.sheetPriority = null;
-
-function setSheetDate(when) {
-  const today = new Date().toISOString().split('T')[0];
-  const tmr   = new Date(Date.now()+86400000).toISOString().split('T')[0];
-  if (when === 'today') {
-    state.sheetDate = state.sheetDate === today ? null : today;
-    document.getElementById('chip-today').classList.toggle('active', !!state.sheetDate);
-    document.getElementById('chip-tomorrow').classList.remove('active');
-  } else {
-    state.sheetDate = state.sheetDate === tmr ? null : tmr;
-    document.getElementById('chip-tomorrow').classList.toggle('active', !!state.sheetDate);
-    document.getElementById('chip-today').classList.remove('active');
-  }
-}
-
-function toggleSheetChip(type) {
-  if (type === 'priority') {
-    const cycle = [null, 'high', 'medium', 'low'];
-    const cur = cycle.indexOf(state.sheetPriority);
-    state.sheetPriority = cycle[(cur + 1) % cycle.length];
-    const labels = {null:'Priority', high:'↑ High', medium:'· Medium', low:'↓ Low'};
-    document.getElementById('chip-priority-label').textContent = labels[state.sheetPriority] || 'Priority';
-    document.getElementById('chip-priority').classList.toggle('active', !!state.sheetPriority);
-  } else if (type === 'date') {
-    // open native date picker
-    const inp = document.createElement('input');
-    inp.type = 'date'; inp.style.cssText = 'position:fixed;opacity:0;top:0;left:0;';
-    if (state.sheetDate) inp.value = state.sheetDate;
-    document.body.appendChild(inp);
-    inp.addEventListener('change', () => {
-      state.sheetDate = inp.value || null;
-      document.getElementById('chip-date-label').textContent = state.sheetDate
-        ? new Date(state.sheetDate + 'T12:00:00').toLocaleDateString('en',{month:'short',day:'numeric'})
-        : 'Date';
-      document.getElementById('chip-date').classList.toggle('active', !!state.sheetDate);
-      document.getElementById('chip-today').classList.remove('active');
-      document.getElementById('chip-tomorrow').classList.remove('active');
-      inp.remove();
-    });
-    inp.addEventListener('blur', () => setTimeout(() => inp.remove(), 300));
-    inp.click(); inp.focus();
-  }
-}
-
-async function submitFabSheet() {
-  const title = document.getElementById('fabSheetTitle')?.value.trim();
-  if (!title) return;
-  const desc = document.getElementById('fabSheetDesc')?.value.trim();
-  const proj  = document.getElementById('fabSheetProject')?.value;
-  const body  = { title, nlp: true };
-  if (desc) body.description = desc;
-  if (state.sheetDate) body.due_date = state.sheetDate;
-  if (state.sheetPriority) body.priority = state.sheetPriority;
-  if (proj) body.project_id = proj;
-  if (state.fabTargetStatus) body.status = state.fabTargetStatus;
-  const task = await api('/tasks', 'POST', body);
-  if (task) {
-    if (task.obsidian_new_url) window.open(task.obsidian_new_url, '_blank');
-    closeFab();
-    toast(`✓ Added${task.nlp_summary ? ' · ' + task.nlp_summary : ''}`);
-    await loadTasks(); await loadProjects();
-    renderSidebar(); renderContent();
-  }
 }
 
 async function submitFab() {
