@@ -481,36 +481,46 @@ _get_gcal_service()
 
 def gcal_upsert(task):
     svc = _get_gcal_service()
-    if not svc or not task.get('due_date'): return None
+    tid = task.get('id','?'); ttitle = task.get('title','?')
+    if not svc:
+        print(f"[gcal] skip — not enabled (task {tid} '{ttitle}')", flush=True); return None
+    if not task.get('due_date'):
+        print(f"[gcal] skip — no due_date (task {tid} '{ttitle}')", flush=True); return None
     try:
         if task.get('due_time'):
             dt = f"{task['due_date']}T{task['due_time']}:00"
             end_dt = (datetime.fromisoformat(dt)+timedelta(hours=1)).isoformat()
             start={'dateTime':dt,'timeZone':'UTC'}; end={'dateTime':end_dt,'timeZone':'UTC'}
+            time_str = f"{task['due_date']} {task['due_time']}"
         else:
             start={'date':task['due_date']}; end={'date':task['due_date']}
+            time_str = f"{task['due_date']} (all-day)"
         done = task.get('status') == 'done'
-        title = f"✓ {task['title']}" if done else task['title']
+        title = f"\u2713 {task['title']}" if done else task['title']
         body={'summary':title,'description':task.get('description') or '',
               'start':start,'end':end,
-              'colorId': '8' if done else None,  # 8 = graphite in GCal
+              'colorId': '8' if done else None,
               'extendedProperties':{'private':{'td_task_id':task['id']}}}
-        # Remove None colorId so GCal uses default
         if body['colorId'] is None: del body['colorId']
         eid = task.get('gcal_event_id')
         if eid:
             ev = svc.events().update(calendarId=GCAL_CALENDAR_ID,eventId=eid,body=body).execute()
+            print(f"[gcal] updated  {eid} — '{ttitle}' @ {time_str} status={task.get('status')}", flush=True)
         else:
             ev = svc.events().insert(calendarId=GCAL_CALENDAR_ID,body=body).execute()
+            print(f"[gcal] created  {ev.get('id')} — '{ttitle}' @ {time_str} status={task.get('status')}", flush=True)
         return ev.get('id')
     except Exception as e:
-        print(f"[gcal] upsert error: {e}", flush=True); return None
+        print(f"[gcal] upsert error task {tid} '{ttitle}': {e}", flush=True); return None
 
 def gcal_delete(event_id):
     svc = _get_gcal_service()
     if not svc or not event_id: return
-    try: svc.events().delete(calendarId=GCAL_CALENDAR_ID,eventId=event_id).execute()
-    except Exception as e: print(f"[gcal] delete error: {e}", flush=True)
+    try:
+        svc.events().delete(calendarId=GCAL_CALENDAR_ID,eventId=event_id).execute()
+        print(f"[gcal] deleted  {event_id}", flush=True)
+    except Exception as e:
+        print(f"[gcal] delete error {event_id}: {e}", flush=True)
 
 def _gcal_save(task_id, event_id):
     conn = get_db()
