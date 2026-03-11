@@ -1,13 +1,13 @@
 import { useMemo, useState } from 'react'
 import { useApp } from '../../context/AppContext'
 import { isOverdue, isToday } from '../../utils'
-import { Plus, LogOut, Sun, Moon, Settings, Trash2, CheckCircle2, Calendar } from 'lucide-react'
+import { Plus, LogOut, Sun, Moon, Settings, Trash2, CheckCircle2, Calendar, Inbox, Layers, AlertCircle } from 'lucide-react'
 import { api } from '../../api'
 
 const PROJECT_COLORS = ['#f7768e','#ff9e64','#e0af68','#9ece6a','#73daca','#7dcfff','#7aa2f7','#bb9af7','#c0caf5']
 const PROJECT_ICONS  = ['📁','📂','🏠','💼','🎯','🔬','📚','🎨','💡','🛒','🏋️','🎵','✈️','💻','🌱']
 
-function NavItem({ icon, label, viewKey, badge, badgeColor = 'bg-td-blue dark:bg-tn-blue' }) {
+function NavItem({ icon: Icon, label, viewKey, badge, badgeColor = 'bg-td-blue dark:bg-tn-blue' }) {
   const { state, dispatch } = useApp()
   const active = state.view === viewKey
   return (
@@ -19,7 +19,7 @@ function NavItem({ icon, label, viewKey, badge, badgeColor = 'bg-td-blue dark:bg
           : 'text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg hover:bg-td-surface/50 dark:hover:bg-tn-surface/50'
         }`}
     >
-      <span className="text-base">{icon}</span>
+      <Icon size={16} className="shrink-0" />
       <span className="flex-1 text-left">{label}</span>
       {badge > 0 && (
         <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white min-w-[18px] text-center ${badgeColor}`}>
@@ -156,10 +156,10 @@ export function Sidebar() {
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
-        <NavItem icon="📥" label="Inbox"     viewKey="inbox"    badge={inboxCount} />
-        <NavItem icon="☀️" label="Today"     viewKey="today"    badge={todayCount} />
-        <NavItem icon="📋" label="All Tasks" viewKey="all" />
-        <NavItem icon="🔴" label="Overdue"   viewKey="overdue"
+        <NavItem icon={Inbox}       label="Inbox"     viewKey="inbox"    badge={inboxCount} />
+        <NavItem icon={Sun}         label="Today"     viewKey="today"    badge={todayCount} />
+        <NavItem icon={Layers}      label="All Tasks" viewKey="all" />
+        <NavItem icon={AlertCircle} label="Overdue"   viewKey="overdue"
           badge={overdueCount} badgeColor="bg-td-red dark:bg-tn-red" />
 
         <div className="pt-3 pb-1 px-3">
