@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { useApp } from '../../context/AppContext'
 import { useTasks } from '../../hooks/useTasks'
 import { TaskCard } from './TaskCard'
@@ -15,43 +15,104 @@ export function KanbanBoard({ tasks }) {
   const { updateTask } = useTasks()
   const [draggingId, setDraggingId] = useState(null)
   const [overColumn, setOverColumn] = useState(null)
-  const dragTask = useRef(null)
 
+  // Touch drag state
+  const touchDragTask = useRef(null)
+  const ghostEl = useRef(null)
+  const colRefs = useRef({})
+
+  // ── Desktop (HTML5) ───────────────────────────────────────────
   const handleDragStart = (e, task) => {
-    dragTask.current = task
     setDraggingId(task.id)
     e.dataTransfer.effectAllowed = 'move'
-    // Slight delay so the ghost image renders before we style the original
-    setTimeout(() => {
-      if (e.target) e.target.style.opacity = '0.4'
-    }, 0)
+    e.dataTransfer.setData('taskId', task.id)
   }
-
-  const handleDragEnd = (e) => {
-    if (e.target) e.target.style.opacity = ''
-    setDraggingId(null)
-    setOverColumn(null)
-    dragTask.current = null
-  }
-
-  const handleDragOver = (e, status) => {
-    e.preventDefault()
-    e.dataTransfer.dropEffect = 'move'
-    setOverColumn(status)
-  }
-
+  const handleDragEnd = () => { setDraggingId(null); setOverColumn(null) }
+  const handleDragOver = (e, status) => { e.preventDefault(); setOverColumn(status) }
   const handleDrop = async (e, status) => {
     e.preventDefault()
-    const task = dragTask.current
-    if (!task || task.status === status) {
-      setOverColumn(null)
-      return
-    }
-    // Optimistically update UI
+    const task = tasks.find(t => t.id === e.dataTransfer.getData('taskId'))
+    if (!task || task.status === status) { setOverColumn(null); return }
     dispatch({ type: 'UPDATE_TASK', payload: { ...task, status } })
     await updateTask(task.id, { status })
     setOverColumn(null)
   }
+
+  // ── Mobile (Touch) ────────────────────────────────────────────
+  const createGhost = useCallback((el, x, y) => {
+    const rect = el.getBoundingClientRect()
+    const ghost = el.cloneNode(true)
+    ghost.style.cssText = `
+      position: fixed;
+      left: ${rect.left}px;
+      top: ${rect.top}px;
+      width: ${rect.width}px;
+      pointer-events: none;
+      opacity: 0.85;
+      z-index: 9999;
+      transform: scale(1.03);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+      border-radius: 12px;
+      transition: transform 0.1s;
+    `
+    document.body.appendChild(ghost)
+    ghostEl.current = ghost
+    ghostEl.current._offsetX = x - rect.left
+    ghostEl.current._offsetY = y - rect.top
+  }, [])
+
+  const moveGhost = useCallback((x, y) => {
+    if (!ghostEl.current) return
+    ghostEl.current.style.left = `${x - ghostEl.current._offsetX}px`
+    ghostEl.current.style.top  = `${y - ghostEl.current._offsetY}px`
+  }, [])
+
+  const removeGhost = useCallback(() => {
+    if (ghostEl.current) { ghostEl.current.remove(); ghostEl.current = null }
+  }, [])
+
+  const getColumnAtPoint = useCallback((x, y) => {
+    for (const [status, el] of Object.entries(colRefs.current)) {
+      if (!el) continue
+      const r = el.getBoundingClientRect()
+      if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return status
+    }
+    return null
+  }, [])
+
+  const handleTouchStart = useCallback((e, task) => {
+    // Only handle single finger
+    if (e.touches.length !== 1) return
+    const touch = e.touches[0]
+    touchDragTask.current = task
+    setDraggingId(task.id)
+    createGhost(e.currentTarget, touch.clientX, touch.clientY)
+  }, [createGhost])
+
+  const handleTouchMove = useCallback((e) => {
+    if (!touchDragTask.current) return
+    e.preventDefault() // prevent scroll while dragging
+    const touch = e.touches[0]
+    moveGhost(touch.clientX, touch.clientY)
+    setOverColumn(getColumnAtPoint(touch.clientX, touch.clientY))
+  }, [moveGhost, getColumnAtPoint])
+
+  const handleTouchEnd = useCallback(async (e) => {
+    const task = touchDragTask.current
+    if (!task) return
+    const touch = e.changedTouches[0]
+    const targetStatus = getColumnAtPoint(touch.clientX, touch.clientY)
+
+    removeGhost()
+    setDraggingId(null)
+    setOverColumn(null)
+    touchDragTask.current = null
+
+    if (targetStatus && targetStatus !== task.status) {
+      dispatch({ type: 'UPDATE_TASK', payload: { ...task, status: targetStatus } })
+      await updateTask(task.id, { status: targetStatus })
+    }
+  }, [getColumnAtPoint, removeGhost, dispatch, updateTask])
 
   return (
     <div className="flex gap-3 p-4 overflow-x-auto h-full pb-6">
@@ -73,6 +134,7 @@ export function KanbanBoard({ tasks }) {
 
             {/* Drop zone */}
             <div
+              ref={el => colRefs.current[status] = el}
               onDragOver={e => handleDragOver(e, status)}
               onDragLeave={() => setOverColumn(null)}
               onDrop={e => handleDrop(e, status)}
@@ -81,14 +143,10 @@ export function KanbanBoard({ tasks }) {
                   ? 'bg-td-surface dark:bg-tn-surface ring-2 ring-td-blue/50 dark:ring-tn-blue/50'
                   : 'bg-td-bg3/50 dark:bg-tn-bg3/50'}`}
             >
-              {items.length === 0 && !isOver && (
-                <div className="py-8 text-center text-td-muted/40 dark:text-tn-muted/40 text-xs">
-                  Empty
-                </div>
-              )}
-              {isOver && items.length === 0 && (
-                <div className="py-8 text-center text-td-blue/60 dark:text-tn-blue/60 text-xs">
-                  Drop here
+              {items.length === 0 && (
+                <div className={`py-8 text-center text-xs transition-colors
+                  ${isOver ? 'text-td-blue/60 dark:text-tn-blue/60' : 'text-td-muted/40 dark:text-tn-muted/40'}`}>
+                  {isOver ? 'Drop here' : 'Empty'}
                 </div>
               )}
 
@@ -98,8 +156,11 @@ export function KanbanBoard({ tasks }) {
                   draggable
                   onDragStart={e => handleDragStart(e, task)}
                   onDragEnd={handleDragEnd}
-                  className={`cursor-grab active:cursor-grabbing transition-opacity
-                    ${draggingId === task.id ? 'opacity-40' : 'opacity-100'}`}
+                  onTouchStart={e => handleTouchStart(e, task)}
+                  onTouchMove={handleTouchMove}
+                  onTouchEnd={handleTouchEnd}
+                  className={`cursor-grab active:cursor-grabbing touch-none transition-opacity
+                    ${draggingId === task.id ? 'opacity-30' : 'opacity-100'}`}
                 >
                   <TaskCard task={task} />
                 </div>
