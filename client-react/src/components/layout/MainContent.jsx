@@ -226,29 +226,25 @@ export function MainContent() {
     setGroupBy(v)
   }
 
-  const { title, baseTasks, groupBy, emptyMessage } = useMemo(() => {
+  const { title, baseTasks, emptyMessage } = useMemo(() => {
     if (view === 'inbox') return {
       title: 'Inbox',
       baseTasks: tasks.filter(t => t.project_id === 'inbox'),
-      groupBy: 'status',
       emptyMessage: 'Inbox is empty',
     }
     if (view === 'today') return {
       title: 'Today',
       baseTasks: tasks.filter(t => isToday(t)),
-      groupBy: 'status',
       emptyMessage: 'Nothing due today',
     }
     if (view === 'all') return {
       title: 'All Tasks',
       baseTasks: tasks,
-      groupBy: 'status',
       emptyMessage: 'No tasks yet',
     }
     if (view === 'overdue') return {
       title: 'Overdue',
       baseTasks: tasks.filter(t => isOverdue(t)),
-      groupBy: 'date',
       emptyMessage: 'No overdue tasks',
     }
     if (view.startsWith('project:')) {
@@ -257,11 +253,15 @@ export function MainContent() {
       return {
         title: project ? project.name : 'Project',
         baseTasks: tasks.filter(t => t.project_id === pid),
-        groupBy: 'status',
         emptyMessage: 'No tasks in this project',
       }
     }
-    return { title: 'Tasks', baseTasks: tasks, groupBy: 'status', emptyMessage: 'No tasks' }
+    return { title: 'Tasks', baseTasks: tasks, emptyMessage: 'No tasks' }
+  }, [view, tasks, projects])
+        emptyMessage: 'No tasks in this project',
+      }
+    }
+    return { title: 'Tasks', baseTasks: tasks, emptyMessage: 'No tasks' }
   }, [view, tasks, projects])
 
   // Apply show/hide done + sort
