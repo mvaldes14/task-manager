@@ -126,7 +126,7 @@ export function Sidebar() {
   const [showIcsManager, setShowIcsManager] = useState(false)
 
   const overdueCount = useMemo(() => state.tasks.filter(t => isOverdue(t)).length, [state.tasks])
-  const inboxCount   = useMemo(() => state.tasks.filter(t => t.status !== 'done').length, [state.tasks])
+  const inboxCount   = useMemo(() => state.tasks.filter(t => t.project_id === 'inbox' && t.status !== 'done').length, [state.tasks])
   const todayCount   = useMemo(() => state.tasks.filter(t => isToday(t) && t.status !== 'done').length, [state.tasks])
 
   const toggleTheme = () => {
