@@ -7,7 +7,7 @@ function GroupSection({ label, count, children }) {
   return (
     <section>
       <div className="flex items-center gap-2 px-4 py-2 sticky top-0 bg-td-bg dark:bg-tn-bg z-10">
-        <span className="text-[10px] font-semibold tracking-widest text-td-muted dark:text-tn-muted uppercase">
+        <span className="text-xs md:text-[10px] font-semibold tracking-widest text-td-muted dark:text-tn-muted uppercase">
           {label}
         </span>
         <span className="text-[10px] text-td-muted/60 dark:text-tn-muted/60 bg-td-surface dark:bg-tn-surface px-1.5 rounded-full">

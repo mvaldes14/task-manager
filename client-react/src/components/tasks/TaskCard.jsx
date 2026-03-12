@@ -68,7 +68,7 @@ export function TaskCard({ task }) {
 
       {/* Content */}
       <div className="flex-1 min-w-0">
-        <p className={`text-sm leading-snug ${done ? 'line-through text-td-muted dark:text-tn-muted' : 'text-td-fg dark:text-tn-fg'}`}>
+        <p className={`text-base md:text-sm leading-snug ${done ? 'line-through text-td-muted dark:text-tn-muted' : 'text-td-fg dark:text-tn-fg'}`}>
           {task.title}
         </p>
 
@@ -81,14 +81,14 @@ export function TaskCard({ task }) {
 
           {/* Due date */}
           {task.due_date && (
-            <span className={`text-[11px] font-medium ${overdue ? 'text-td-red dark:text-tn-red' : 'text-td-muted dark:text-tn-muted'}`}>
+            <span className={`text-xs md:text-[11px] font-medium ${overdue ? 'text-td-red dark:text-tn-red' : 'text-td-muted dark:text-tn-muted'}`}>
               {formatDate(task.due_date)}{task.due_time ? ' · ' + fmtTime(task.due_time) : ''}
             </span>
           )}
 
           {/* Project */}
           {project && (
-            <span className="text-[11px] px-1.5 py-0.5 rounded-md font-medium flex items-center gap-1"
+            <span className="text-xs md:text-[11px] px-1.5 py-0.5 rounded-md font-medium flex items-center gap-1"
               style={{ color: project.color, background: project.color + '20' }}>
               <ProjectIcon icon={project.icon} size={10} />
               {project.name}
@@ -97,14 +97,14 @@ export function TaskCard({ task }) {
 
           {/* Tags */}
           {(task.tags || []).map(tag => (
-            <span key={tag} className="text-[11px] text-td-purple dark:text-tn-purple bg-td-purple/10 dark:bg-tn-purple/10 px-1.5 py-0.5 rounded-md">
+            <span key={tag} className="text-xs md:text-[11px] text-td-purple dark:text-tn-purple bg-td-purple/10 dark:bg-tn-purple/10 px-1.5 py-0.5 rounded-md">
               @{tag}
             </span>
           ))}
 
           {/* Recurrence */}
           {recurrenceLabel(task.recurrence) && (
-            <span className="text-[11px] text-td-teal dark:text-tn-teal">{recurrenceLabel(task.recurrence)}</span>
+            <span className="text-xs md:text-[11px] text-td-teal dark:text-tn-teal">{recurrenceLabel(task.recurrence)}</span>
           )}
 
           {/* Links */}
@@ -113,7 +113,7 @@ export function TaskCard({ task }) {
             return (
               <a key={i} href={link.url} target="_blank" rel="noopener noreferrer"
                 onClick={e => e.stopPropagation()}
-                className="flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-md transition-opacity hover:opacity-80"
+                className="flex items-center gap-1 text-xs md:text-[11px] font-medium px-1.5 py-0.5 rounded-md transition-opacity hover:opacity-80"
                 style={{ color: s.color, background: s.bg }}>
                 <LinkIcon url={link.url} />
                 {getLinkLabel(link.url)}
@@ -123,7 +123,7 @@ export function TaskCard({ task }) {
 
           {/* Subtasks */}
           {subtasksTotal > 0 && (
-            <span className="text-[11px] text-td-muted dark:text-tn-muted">
+            <span className="text-xs md:text-[11px] text-td-muted dark:text-tn-muted">
               ◦ {subtasksDone}/{subtasksTotal}
             </span>
           )}
