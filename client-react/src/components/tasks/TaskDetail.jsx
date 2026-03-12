@@ -3,9 +3,76 @@ import { useApp } from '../../context/AppContext'
 import { useTasks } from '../../hooks/useTasks'
 import { api } from '../../api'
 import { formatDate, fmtTime, recurrenceLabel } from '../../utils'
-import { X, Trash2, Plus, Check, ChevronRight, Paperclip, GitBranch, Link2 } from 'lucide-react'
+import { X, Trash2, Plus, Check, ChevronRight, Paperclip, GitBranch, Link2, Repeat2 } from 'lucide-react'
 
 const STATUSES = ['todo', 'doing', 'done']
+
+const RECUR_OPTIONS = [
+  { label: 'None',       value: null },
+  { label: 'Daily',      value: JSON.stringify({ type: 'daily' }) },
+  { label: 'Weekdays',   value: JSON.stringify({ type: 'weekly', days: [1,2,3,4,5] }) },
+  { label: 'Weekly',     value: JSON.stringify({ type: 'weekly', days: [] }) },
+  { label: 'Monthly',    value: JSON.stringify({ type: 'monthly_dom', dom: null }) },
+  { label: 'Yearly',     value: JSON.stringify({ type: 'yearly' }) },
+]
+
+function RecurrenceEditor({ task, onSave }) {
+  const [open, setOpen] = useState(false)
+  const current = task.recurrence ? JSON.stringify(
+    typeof task.recurrence === 'string' ? JSON.parse(task.recurrence) : task.recurrence
+  ) : null
+  const label = recurrenceLabel(task.recurrence)
+
+  const select = (value) => {
+    onSave({ recurrence: value, recurrence_end: value ? task.recurrence_end : null })
+    setOpen(false)
+  }
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className={`flex items-center gap-2 w-full text-xs px-3 py-2 rounded-lg transition-colors text-left
+          ${label
+            ? 'text-td-teal dark:text-tn-teal bg-td-teal/10 dark:bg-tn-teal/10 hover:bg-td-teal/20 dark:hover:bg-tn-teal/20'
+            : 'text-td-muted dark:text-tn-muted hover:bg-td-surface dark:hover:bg-tn-surface'}`}
+      >
+        <Repeat2 size={13} />
+        <span>{label || 'Set recurrence…'}</span>
+        {task.recurrence_end && <span className="ml-auto opacity-60">until {task.recurrence_end}</span>}
+      </button>
+
+      {open && (
+        <div className="absolute left-0 right-0 bottom-full mb-1 z-10 rounded-xl border border-td-border dark:border-tn-border bg-white dark:bg-tn-bg2 shadow-xl overflow-hidden">
+          {RECUR_OPTIONS.map(opt => (
+            <button
+              key={opt.label}
+              onClick={() => select(opt.value)}
+              className={`w-full text-left text-xs px-3 py-2.5 transition-colors
+                hover:bg-td-surface dark:hover:bg-tn-surface
+                ${current === opt.value || (!current && !opt.value) ? 'text-td-teal dark:text-tn-teal font-semibold' : 'text-td-fg dark:text-tn-fg'}`}
+            >
+              {opt.label}
+            </button>
+          ))}
+          {task.recurrence && (
+            <div className="border-t border-td-border dark:border-tn-border px-3 py-2">
+              <label className="block text-[10px] text-td-muted dark:text-tn-muted mb-1">End date (optional)</label>
+              <input
+                type="date"
+                defaultValue={task.recurrence_end || ''}
+                onChange={e => onSave({ recurrence_end: e.target.value || null })}
+                className="w-full bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-xs rounded-lg px-2 py-1.5 outline-none border border-td-border/50 dark:border-tn-border/50"
+              />
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+
 
 function SubtaskRow({ sub, taskId }) {
   const { dispatch } = useApp()
@@ -386,12 +453,7 @@ export function TaskDetail() {
           </div>
 
           {/* Recurrence */}
-          {recurrenceLabel(task.recurrence) && (
-            <div className="text-xs text-td-teal dark:text-tn-teal bg-td-teal/10 dark:bg-tn-teal/10 px-3 py-2 rounded-lg">
-              {recurrenceLabel(task.recurrence)}
-              {task.recurrence_end && ` · until ${task.recurrence_end}`}
-            </div>
-          )}
+          <RecurrenceEditor task={task} onSave={data => updateTask(task.id, data)} />
 
           {/* Meta */}
           <div className="text-[10px] text-td-muted/40 dark:text-tn-muted/40 pt-2">
