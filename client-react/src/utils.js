@@ -72,7 +72,8 @@ export function recurrenceLabel(ruleStr) {
         const m = byday.match(/^(-?\d+)(MO|TU|WE|TH|FR|SA|SU)$/)
         if (m) {
           const n = parseInt(m[1], 10)
-          const ordLabel = { 1:'1st',2:'2nd',3:'3rd',4:'4th',-1:'Last' }[n] || `${n}th`
+          const ordMap = { 1:'1st', 2:'2nd', 3:'3rd', 4:'4th', [-1]:'Last' }
+          const ordLabel = ordMap[n] || `${n}th`
           return `🔁 ${ordLabel} ${DAY[m[2]] || m[2]} of month`
         }
       }
