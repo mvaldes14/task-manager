@@ -42,6 +42,10 @@ def parse_recurrence(text):
     elif re.search(r'\b(?:1st|first)\s+of\s+(?:the\s+)?month\b|\bstart\s+of\s+(?:the\s+)?month\b', tl):
         rule = {"type": "monthly_dom", "dom": 1}
         text = re.sub(r'\b(?:1st|first)\s+of\s+(?:the\s+)?month\b|\bstart\s+of\s+(?:the\s+)?month\b', '', text, flags=re.IGNORECASE)
+    elif m := re.search(r'\bevery\s+(\d{1,2})(?:st|nd|rd|th)\b', tl):
+        dom = int(m.group(1))
+        rule = {"type": "monthly_dom", "dom": dom if 1 <= dom <= 31 else None}
+        text = text[:m.start()] + text[m.end():]
     elif re.search(r'\bevery\s+month\b|\bmonthly\b', tl):
         dom_m = re.search(r'\b(\d{1,2})(?:st|nd|rd|th)?\b', tl)
         dom = int(dom_m.group(1)) if dom_m else None
@@ -137,6 +141,30 @@ def parse_natural_language(text):
     if m: result['project_name'] = m.group(1); text = re.sub(r'#\w+', '', text).strip()
     labels = re.findall(r'@(\w+)', text)
     if labels: result['labels'] = labels; text = re.sub(r'@\w+', '', text).strip()
+
+    tl = text.lower().strip()
+
+    # ── Named time slots ───────────────────────────────────────────────────
+    if not found_time:
+        if re.search(r'\bnoon\b', tl):
+            found_time = "12:00"; text = re.sub(r'\bnoon\b', '', text, flags=re.IGNORECASE)
+        elif re.search(r'\bmidnight\b', tl):
+            found_time = "00:00"; text = re.sub(r'\bmidnight\b', '', text, flags=re.IGNORECASE)
+        elif re.search(r'\b(end\s+of\s+day|eod)\b', tl):
+            found_time = "17:00"; text = re.sub(r'\b(end\s+of\s+day|eod)\b', '', text, flags=re.IGNORECASE)
+        elif re.search(r'\bin\s+the\s+morning\b|\bthis\s+morning\b|\btomorrow\s+morning\b', tl):
+            found_time = "09:00"
+            if re.search(r'\bthis\s+morning\b', tl):
+                if not found_date: found_date = today
+            text = re.sub(r'\b(in\s+the\s+morning|this\s+morning|tomorrow\s+morning)\b', '', text, flags=re.IGNORECASE)
+        elif re.search(r'\bthis\s+afternoon\b|\bin\s+the\s+afternoon\b', tl):
+            found_time = "14:00"
+            if not found_date: found_date = today
+            text = re.sub(r'\b(this\s+afternoon|in\s+the\s+afternoon)\b', '', text, flags=re.IGNORECASE)
+        elif re.search(r'\bthis\s+evening\b|\btonight\b', tl) and not found_time:
+            found_time = "19:00"
+            if not found_date: found_date = today
+            text = re.sub(r'\b(this\s+evening)\b', '', text, flags=re.IGNORECASE)
 
     tl = text.lower().strip()
     for pat, kind in [(r'\bat\s+(\d{1,2}):(\d{2})\s*(am|pm)?\b','hm'),(r'\bat\s+(\d{1,2})\s*(am|pm)\b','h'),
