@@ -49,7 +49,11 @@ export function useKeyboardShortcuts() {
           break
         case 's':
           e.preventDefault()
-          dispatch({ type: 'TOGGLE_SIDEBAR_COLLAPSED' })
+          if (window.innerWidth < 768) {
+            dispatch({ type: 'SET_SIDEBAR', payload: !state.sidebarOpen })
+          } else {
+            dispatch({ type: 'TOGGLE_SIDEBAR_COLLAPSED' })
+          }
           break
         default:
           break
@@ -58,5 +62,5 @@ export function useKeyboardShortcuts() {
 
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [state.fabOpen, state.showShortcuts, dispatch])
+  }, [state.fabOpen, state.sidebarOpen, state.showShortcuts, dispatch])
 }
