@@ -30,33 +30,64 @@ export function priorityColor(p) {
   return '#565f89'
 }
 
+function ordinal(n) {
+  const abs = Math.abs(n)
+  const s = ['th','st','nd','rd'], v = abs % 100
+  return s[(v - 20) % 10] || s[v] || s[0]
+}
+
 export function recurrenceLabel(ruleStr) {
   if (!ruleStr) return null
   try {
-    const r = typeof ruleStr === 'string' ? JSON.parse(ruleStr) : ruleStr
-    if (r.type === 'daily') return '🔁 Daily'
-    if (r.type === 'weekly') {
-      const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
-      if (r.days?.length === 5 && r.days.join(',') === '1,2,3,4,5') return '🔁 Weekdays'
-      if (r.days?.length) return '🔁 ' + r.days.map(d => days[d]).join(', ')
-      return '🔁 Weekly'
+    // RRULE string format: "RRULE:FREQ=WEEKLY;BYDAY=MO,FR"
+    const src = ruleStr.startsWith('RRULE:') ? ruleStr.slice(6) : ruleStr
+    const props = Object.fromEntries(src.split(';').map(p => p.split('=')))
+    const freq     = props.FREQ     || ''
+    const interval = parseInt(props.INTERVAL || '1', 10)
+    const byday    = props.BYDAY    || ''
+    const bymd     = props.BYMONTHDAY || ''
+
+    const DAY = { MO:'Mon', TU:'Tue', WE:'Wed', TH:'Thu', FR:'Fri', SA:'Sat', SU:'Sun' }
+
+    if (freq === 'DAILY')
+      return interval === 1 ? '🔁 Daily' : `🔁 Every ${interval} days`
+
+    if (freq === 'WEEKLY') {
+      const days = byday.split(',').filter(Boolean)
+      const daySet = new Set(days)
+      let label
+      if (daySet.size === 5 && ['MO','TU','WE','TH','FR'].every(d => daySet.has(d)))
+        label = 'Weekdays'
+      else if (daySet.size === 2 && daySet.has('SA') && daySet.has('SU'))
+        label = 'Weekends'
+      else if (days.length)
+        label = days.map(d => DAY[d] || d).join(', ')
+      else
+        label = 'Weekly'
+      return interval === 1 ? `🔁 ${label}` : `🔁 Every ${interval} weeks · ${label}`
     }
-    if (r.type === 'monthly_dom') return r.dom === -1 ? '🔁 End of month' : r.dom ? `🔁 Monthly (${r.dom}${ordinal(r.dom)})` : '🔁 Monthly'
-    if (r.type === 'monthly_dow') {
-      const weeks = ['1st','2nd','3rd','4th','5th']
-      const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
-      return `🔁 ${weeks[r.week] || ''} ${days[r.dow] || ''} of month`
+
+    if (freq === 'MONTHLY') {
+      if (byday) {
+        const m = byday.match(/^(-?\d+)(MO|TU|WE|TH|FR|SA|SU)$/)
+        if (m) {
+          const n = parseInt(m[1], 10)
+          const ordLabel = { 1:'1st',2:'2nd',3:'3rd',4:'4th',-1:'Last' }[n] || `${n}th`
+          return `🔁 ${ordLabel} ${DAY[m[2]] || m[2]} of month`
+        }
+      }
+      if (bymd) {
+        const dom = parseInt(bymd, 10)
+        if (dom === -1) return '🔁 End of month'
+        return `🔁 ${dom}${ordinal(dom)} of month`
+      }
+      return '🔁 Monthly'
     }
-    if (r.type === 'monthly') return '🔁 Monthly'
-    if (r.type === 'yearly') return '🔁 Yearly'
-    if (r.type === 'interval') return `🔁 Every ${r.days || r.interval} days`
+
+    if (freq === 'YEARLY') return '🔁 Yearly'
+
   } catch { /* */ }
   return null
-}
-
-function ordinal(n) {
-  const s = ['th','st','nd','rd'], v = n % 100
-  return s[(v-20)%10] || s[v] || s[0]
 }
 
 export function obsidianNoteName(url) {

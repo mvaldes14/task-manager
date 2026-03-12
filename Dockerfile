@@ -11,6 +11,7 @@ FROM python:3.12-slim
 WORKDIR /app
 RUN pip install flask gunicorn psycopg2-binary icalendar \
     google-api-python-client google-auth-httplib2 google-auth-oauthlib \
+    python-dateutil dateparser \
     --no-cache-dir
 COPY server.py .
 COPY lib/ ./lib/

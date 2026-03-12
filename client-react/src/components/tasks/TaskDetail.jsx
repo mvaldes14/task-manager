@@ -8,40 +8,44 @@ import { X, Trash2, Plus, Check, ChevronRight, Paperclip, GitBranch, Link2, Repe
 const STATUSES = ['todo', 'doing', 'done']
 
 const RECUR_PRESETS = [
-  { label: 'None',         value: null },
-  { label: 'Daily',        value: { type: 'daily' } },
-  { label: 'Weekdays (Mon–Fri)', value: { type: 'weekly', days: [1,2,3,4,5] } },
-  { label: 'Weekly (same day)',  value: { type: 'weekly', days: [] } },
-  { label: 'Monthly (pick day)', value: { type: 'monthly_dom', dom: null } },
-  { label: 'Yearly',       value: { type: 'yearly' } },
+  { label: 'None',               value: null },
+  { label: 'Daily',              value: 'RRULE:FREQ=DAILY' },
+  { label: 'Weekdays (Mon–Fri)', value: 'RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR' },
+  { label: 'Weekly (same day)',  value: 'RRULE:FREQ=WEEKLY' },
+  { label: 'Monthly (pick day)', value: '__monthly_dom__' },
+  { label: 'Yearly',             value: 'RRULE:FREQ=YEARLY' },
 ]
+
+function _rruleProps(str) {
+  if (!str || !str.includes('FREQ=')) return {}
+  const src = str.startsWith('RRULE:') ? str.slice(6) : str
+  return Object.fromEntries(src.split(';').map(p => p.split('=')))
+}
 
 function RecurrenceEditor({ recurrence, recurrenceEnd, onChange }) {
   const [open, setOpen] = useState(false)
   const [domInput, setDomInput] = useState('')
 
-  const parsed = recurrence
-    ? (typeof recurrence === 'string' ? (() => { try { return JSON.parse(recurrence) } catch { return null } })() : recurrence)
-    : null
-
-  const label = recurrenceLabel(recurrence)
-  const isMonthlyDom = parsed?.type === 'monthly_dom'
+  const label        = recurrenceLabel(recurrence)
+  const props        = _rruleProps(recurrence)
+  const isMonthlyDom = props.FREQ === 'MONTHLY' && props.BYMONTHDAY && !props.BYDAY
+  const currentDom   = isMonthlyDom ? parseInt(props.BYMONTHDAY, 10) : null
 
   const selectPreset = (value) => {
     if (!value) {
       onChange({ recurrence: null, recurrence_end: null })
+      setOpen(false)
+    } else if (value === '__monthly_dom__') {
+      // stay open so user can pick the day
     } else {
-      // For monthly_dom, default dom to 1 if not set
-      const rule = { ...value }
-      if (rule.type === 'monthly_dom') rule.dom = parseInt(domInput) || 1
-      onChange({ recurrence: JSON.stringify(rule) })
+      onChange({ recurrence: value })
+      setOpen(false)
     }
-    if (value?.type !== 'monthly_dom') setOpen(false)
   }
 
   const applyDom = () => {
-    const dom = Math.max(1, Math.min(31, parseInt(domInput) || 1))
-    onChange({ recurrence: JSON.stringify({ type: 'monthly_dom', dom }) })
+    const dom = Math.max(1, Math.min(31, parseInt(domInput) || currentDom || 1))
+    onChange({ recurrence: `RRULE:FREQ=MONTHLY;BYMONTHDAY=${dom}` })
     setOpen(false)
   }
 
@@ -69,7 +73,7 @@ function RecurrenceEditor({ recurrence, recurrenceEnd, onChange }) {
                 onClick={() => selectPreset(opt.value)}
                 className={`w-full text-left text-xs px-3 py-2.5 transition-colors
                   hover:bg-td-surface dark:hover:bg-tn-surface
-                  ${(!recurrence && !opt.value) || (parsed?.type === opt.value?.type && opt.value?.type !== 'monthly_dom')
+                  ${(!recurrence && !opt.value) || (opt.value && opt.value !== '__monthly_dom__' && recurrence === opt.value)
                     ? 'text-td-teal dark:text-tn-teal font-semibold bg-td-teal/5 dark:bg-tn-teal/5'
                     : 'text-td-fg dark:text-tn-fg'}`}
               >
@@ -82,9 +86,9 @@ function RecurrenceEditor({ recurrence, recurrenceEnd, onChange }) {
               <div className="flex gap-2">
                 <input
                   type="number" min="1" max="31"
-                  value={domInput || (isMonthlyDom ? parsed.dom : '')}
+                  value={domInput || (currentDom && currentDom > 0 ? currentDom : '')}
                   onChange={e => setDomInput(e.target.value)}
-                  placeholder={isMonthlyDom ? String(parsed.dom) : '1–31'}
+                  placeholder={currentDom && currentDom > 0 ? String(currentDom) : '1–31'}
                   className="flex-1 bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-xs rounded-lg px-2 py-1.5 outline-none border border-td-border/50 dark:border-tn-border/50"
                 />
                 <button
