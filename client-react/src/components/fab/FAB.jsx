@@ -136,15 +136,69 @@ export function FAB() {
       {/* Backdrop */}
       {open && <div className="fixed inset-0 z-[88] bg-black/60 animate-fade-in" onClick={close} />}
 
-      {/* Centered modal */}
+      {/* ── Mobile: bottom sheet ── */}
       {open && (
-        <div className="fixed inset-0 z-[89] flex items-center justify-center px-4 pointer-events-none">
+        <div
+          className="md:hidden fixed inset-x-0 bottom-0 z-[89] rounded-t-2xl shadow-2xl
+            bg-white dark:bg-tn-bg2 border-t border-td-border dark:border-tn-border
+            animate-slide-up"
+          style={{ paddingBottom: 'env(safe-area-inset-bottom, 16px)' }}
+          onClick={e => e.stopPropagation()}
+        >
+          {/* Drag handle */}
+          <div className="flex justify-center pt-3 pb-1">
+            <div className="w-10 h-1 rounded-full bg-td-border dark:bg-tn-border" />
+          </div>
+
+          {/* Task name */}
+          <div className="px-5 pt-3 pb-1">
+            <input
+              ref={inputRef}
+              type="text"
+              value={text}
+              onChange={handleChange}
+              onKeyDown={handleKeyDown}
+              placeholder="Task Name"
+              className="w-full bg-transparent text-td-fg dark:text-tn-fg text-2xl font-semibold
+                outline-none leading-snug placeholder-td-muted/30 dark:placeholder-tn-muted/30"
+            />
+          </div>
+
+          {/* NLP chips */}
+          {chips.length > 0 && (
+            <div className="flex flex-wrap gap-2 px-5 py-2">
+              {chips.map((c, i) => <NlpChip key={i} {...c} />)}
+            </div>
+          )}
+
+          {/* Footer row: project hint + submit */}
+          <div className="flex items-center justify-between px-5 py-3 mt-1 border-t border-td-border/40 dark:border-tn-border/40">
+            <span className="text-sm text-td-muted/50 dark:text-tn-muted/50 select-none">
+              Use #project @label for context
+            </span>
+            <button
+              onClick={submit}
+              disabled={!text.trim() || loading}
+              className="w-10 h-10 rounded-full flex items-center justify-center
+                bg-tn-red disabled:opacity-30 active:scale-95 transition-all shrink-0"
+            >
+              {loading
+                ? <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              }
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Desktop: centered modal ── */}
+      {open && (
+        <div className="hidden md:flex fixed inset-0 z-[89] items-center justify-center px-4 pointer-events-none">
           <div
             className="w-full max-w-lg rounded-2xl shadow-2xl animate-fade-in pointer-events-auto
               bg-white dark:bg-tn-bg2 border border-td-border dark:border-tn-border"
             onClick={e => e.stopPropagation()}
           >
-            {/* Input */}
             <div className="px-5 pt-6 pb-3">
               <input
                 ref={inputRef}
@@ -157,29 +211,19 @@ export function FAB() {
                   outline-none leading-snug placeholder-td-muted/40 dark:placeholder-tn-muted/40"
               />
             </div>
-
-            {/* NLP chips */}
             {chips.length > 0 && (
               <div className="flex flex-wrap gap-2 px-5 py-2">
                 {chips.map((c, i) => <NlpChip key={i} {...c} />)}
               </div>
             )}
-
-            {/* Footer */}
             <div className="flex items-center justify-between px-5 py-4 mt-1">
-              <button
-                onClick={close}
-                className="text-sm font-medium text-td-muted dark:text-tn-muted
-                  hover:text-td-fg dark:hover:text-tn-fg transition-colors"
-              >
+              <button onClick={close} className="text-sm font-medium text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg transition-colors">
                 Cancel
               </button>
               <button
                 onClick={submit}
                 disabled={!text.trim() || loading}
-                className="px-6 py-2.5 rounded-xl text-sm font-semibold transition-all
-                  disabled:opacity-40 active:scale-95
-                  bg-td-blue dark:bg-tn-blue text-white"
+                className="px-6 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-40 active:scale-95 bg-td-blue dark:bg-tn-blue text-white"
               >
                 {loading ? 'Adding…' : 'Add Task'}
               </button>
