@@ -285,7 +285,7 @@ export function Sidebar() {
               {state.gcalEnabled && <CheckCircle2 size={9} className="absolute bottom-1 right-1 text-td-green dark:text-tn-green" />}
             </div>
             <button onClick={toggle} title="Expand sidebar"
-              className="p-2 rounded-lg text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg hover:bg-td-surface/50 dark:hover:bg-tn-surface/50 transition-colors">
+              className="hidden md:flex p-2 rounded-lg text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg hover:bg-td-surface/50 dark:hover:bg-tn-surface/50 transition-colors">
               <PanelLeftOpen size={15} />
             </button>
           </div>
@@ -310,7 +310,7 @@ export function Sidebar() {
               {state.gcalEnabled && <CheckCircle2 size={10} className="text-td-green dark:text-tn-green -ml-0.5" />}
             </div>
             <button onClick={toggle} title="Collapse sidebar"
-              className="flex items-center justify-center p-2 rounded-lg text-td-muted dark:text-tn-muted
+              className="hidden md:flex items-center justify-center p-2 rounded-lg text-td-muted dark:text-tn-muted
                 hover:text-td-fg dark:hover:text-tn-fg hover:bg-td-surface/50 dark:hover:bg-tn-surface/50 transition-colors">
               <PanelLeftClose size={15} />
             </button>
