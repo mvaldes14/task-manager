@@ -56,10 +56,19 @@ export function AppProvider({ children }) {
 
   // PWA app icon badge — overdue + today incomplete
   useEffect(() => {
-    if (!('setAppBadge' in navigator)) return
-    const count = state.tasks.filter(t => isOverdue(t) || isToday(t)).filter(t => t.status !== 'done').length
-    if (count > 0) navigator.setAppBadge(count)
-    else navigator.clearAppBadge()
+    const count = state.tasks
+      .filter(t => isOverdue(t) || isToday(t))
+      .filter(t => t.status !== 'done').length
+
+    // Request notification permission if needed — required to show badges on macOS
+    if ('setAppBadge' in navigator && 'Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission()
+    }
+
+    if ('setAppBadge' in navigator) {
+      if (count > 0) navigator.setAppBadge(count).catch(() => {})
+      else navigator.clearAppBadge().catch(() => {})
+    }
   }, [state.tasks])
 
   const toast = useCallback((msg) => {
