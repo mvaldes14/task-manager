@@ -139,10 +139,13 @@ export function FAB() {
       {/* ── Mobile: bottom sheet ── */}
       {open && (
         <div
-          className="md:hidden fixed inset-x-0 bottom-0 z-[89] rounded-t-2xl shadow-2xl
+          className="md:hidden fixed inset-x-0 z-[89] rounded-t-2xl shadow-2xl
             bg-white dark:bg-tn-bg2 border-t border-td-border dark:border-tn-border
             animate-slide-up"
-          style={{ paddingBottom: 'env(safe-area-inset-bottom, 16px)' }}
+          style={{
+            bottom: 'calc(64px + env(safe-area-inset-bottom, 0px))',
+            paddingBottom: '8px'
+          }}
           onClick={e => e.stopPropagation()}
         >
           {/* Drag handle */}
