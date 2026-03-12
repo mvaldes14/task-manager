@@ -6,6 +6,8 @@ export function useKeyboardShortcuts() {
 
   useEffect(() => {
     const handler = (e) => {
+      // Desktop only — no shortcuts on mobile/touch devices
+      if (window.innerWidth < 768) return
       const tag = e.target.tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return
       if (e.metaKey || e.ctrlKey || e.altKey) return
@@ -49,11 +51,7 @@ export function useKeyboardShortcuts() {
           break
         case 's':
           e.preventDefault()
-          if (window.innerWidth < 768) {
-            dispatch({ type: 'SET_SIDEBAR', payload: !state.sidebarOpen })
-          } else {
-            dispatch({ type: 'TOGGLE_SIDEBAR_COLLAPSED' })
-          }
+          dispatch({ type: 'TOGGLE_SIDEBAR_COLLAPSED' })
           break
         default:
           break
