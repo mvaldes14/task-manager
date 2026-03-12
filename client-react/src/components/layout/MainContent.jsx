@@ -105,14 +105,19 @@ const SORT_OPTIONS = [
   { value: 'status',   label: 'Status' },
   { value: 'due_date', label: 'Due Date' },
   { value: 'project',  label: 'Project' },
-  { value: 'tags',     label: 'Tags' },
   { value: 'title',    label: 'Title' },
   { value: 'created',  label: 'Created' },
 ]
 
-function ListToolbar({ showDone, onToggleDone, sortBy, onSortBy }) {
+const GROUP_OPTIONS = [
+  { value: 'status', label: 'Status' },
+  { value: 'tags',   label: 'Tags' },
+  { value: 'none',   label: 'None' },
+]
+
+function ListToolbar({ showDone, onToggleDone, sortBy, onSortBy, groupBy, onGroupBy }) {
   return (
-    <div className="flex items-center gap-3 px-4 py-2 border-b border-td-border/30 dark:border-tn-border/30 bg-td-bg dark:bg-tn-bg">
+    <div className="flex items-center gap-3 px-4 py-2 border-b border-td-border/30 dark:border-tn-border/30 bg-td-bg dark:bg-tn-bg flex-wrap">
       {/* Hide/show done */}
       <button
         onClick={onToggleDone}
@@ -127,6 +132,25 @@ function ListToolbar({ showDone, onToggleDone, sortBy, onSortBy }) {
         </span>
         Show done
       </button>
+
+      <div className="h-3.5 w-px bg-td-border dark:bg-tn-border" />
+
+      {/* Group */}
+      <div className="flex items-center gap-1.5 text-xs text-td-muted dark:text-tn-muted">
+        <span>Group:</span>
+        <div className="relative">
+          <select
+            value={groupBy}
+            onChange={e => onGroupBy(e.target.value)}
+            className="appearance-none bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg
+              text-xs pl-2.5 pr-6 py-1 rounded-lg outline-none cursor-pointer
+              border border-td-border/50 dark:border-tn-border/50"
+          >
+            {GROUP_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+          <ChevronDown size={10} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-td-muted dark:text-tn-muted pointer-events-none" />
+        </div>
+      </div>
 
       <div className="h-3.5 w-px bg-td-border dark:bg-tn-border" />
 
@@ -184,6 +208,7 @@ export function MainContent() {
     return saved === null ? true : saved === 'true'
   })
   const [sortBy, setSortBy] = useState(() => localStorage.getItem('td-sort-by') || 'status')
+  const [groupBy, setGroupBy] = useState(() => localStorage.getItem('td-group-by') || 'status')
 
   const handleRefresh = useCallback(async () => { await loadAll() }, [loadAll])
   const { indicatorEl, onTouchStart, onTouchMove, onTouchEnd } = usePullToRefresh(handleRefresh)
@@ -195,6 +220,10 @@ export function MainContent() {
   const handleSortBy = (v) => {
     localStorage.setItem('td-sort-by', v)
     setSortBy(v)
+  }
+  const handleGroupBy = (v) => {
+    localStorage.setItem('td-group-by', v)
+    setGroupBy(v)
   }
 
   const { title, baseTasks, groupBy, emptyMessage } = useMemo(() => {
@@ -258,6 +287,8 @@ export function MainContent() {
           onToggleDone={toggleShowDone}
           sortBy={sortBy}
           onSortBy={handleSortBy}
+          groupBy={groupBy}
+          onGroupBy={handleGroupBy}
         />
       )}
 
@@ -290,7 +321,7 @@ export function MainContent() {
         ) : (
           <TaskList
             tasks={visibleTasks}
-            groupBy={sortBy === 'status' ? 'status' : sortBy === 'tags' ? 'tags' : 'flat'}
+            groupBy={groupBy === 'none' ? 'flat' : groupBy}
             emptyMessage={emptyMessage}
           />
         )}
