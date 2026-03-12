@@ -150,14 +150,17 @@ export function Sidebar() {
 
   return (
     <aside
-      style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
       className={`
-        fixed inset-y-0 left-0 z-50 bg-td-bg2 dark:bg-tn-bg2 border-r border-td-border dark:border-tn-border
+        fixed left-0 top-0 z-50 bg-td-bg2 dark:bg-tn-bg2 border-r border-td-border dark:border-tn-border
         flex flex-col transition-all duration-200
-        md:relative md:translate-x-0 md:flex
+        md:relative md:inset-y-0 md:translate-x-0 md:flex
         ${collapsed ? 'w-[56px]' : 'w-64'}
         ${state.sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
-      `}>
+      `}
+      style={{
+        paddingTop: 'env(safe-area-inset-top, 0px)',
+        bottom: window.innerWidth < 768 ? 'calc(56px + env(safe-area-inset-bottom, 0px))' : '0',
+      }}>
 
       {/* Header */}
       <div className={`flex items-center py-4 ${collapsed ? 'justify-center px-0' : 'justify-between px-4'}`}>
