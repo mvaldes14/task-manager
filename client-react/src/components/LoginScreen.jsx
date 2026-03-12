@@ -30,7 +30,7 @@ export function LoginScreen({ onLogin }) {
       <div className="w-full max-w-xs">
         <div className="text-center mb-8">
           <div className="text-4xl mb-2">✓</div>
-          <h1 className="text-td-fg dark:text-tn-fg font-bold text-2xl tracking-tight">TD</h1>
+          <h1 className="text-td-fg dark:text-tn-fg font-bold text-2xl tracking-tight">Doit</h1>
           <p className="text-td-muted dark:text-tn-muted text-sm mt-1">Task manager</p>
         </div>
 
