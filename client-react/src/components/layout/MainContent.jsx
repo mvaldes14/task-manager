@@ -105,6 +105,7 @@ const SORT_OPTIONS = [
   { value: 'status',   label: 'Status' },
   { value: 'due_date', label: 'Due Date' },
   { value: 'project',  label: 'Project' },
+  { value: 'tags',     label: 'Tags' },
   { value: 'title',    label: 'Title' },
   { value: 'created',  label: 'Created' },
 ]
@@ -289,7 +290,7 @@ export function MainContent() {
         ) : (
           <TaskList
             tasks={visibleTasks}
-            groupBy={sortBy === 'status' ? 'status' : 'flat'}
+            groupBy={sortBy === 'status' ? 'status' : sortBy === 'tags' ? 'tags' : 'flat'}
             emptyMessage={emptyMessage}
           />
         )}
