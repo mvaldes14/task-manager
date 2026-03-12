@@ -55,10 +55,9 @@ function RecurrenceEditor({ recurrence, recurrenceEnd, onChange }) {
       <div className="relative">
         <button
           onClick={() => setOpen(o => !o)}
-          className={`flex items-center gap-2 w-full text-xs px-3 py-2 rounded-lg transition-colors text-left
-            ${label
-              ? 'text-td-teal dark:text-tn-teal bg-td-teal/10 dark:bg-tn-teal/10 hover:bg-td-teal/20 dark:hover:bg-tn-teal/20'
-              : 'text-td-muted dark:text-tn-muted bg-td-surface dark:bg-tn-surface hover:bg-td-border/30 dark:hover:bg-tn-border/30 border border-td-border/50 dark:border-tn-border/50'}`}
+          className="flex items-center gap-2 w-full text-xs px-3 py-2 rounded-lg transition-colors text-left
+            bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg
+            hover:bg-td-border/30 dark:hover:bg-tn-border/30 border border-td-border/50 dark:border-tn-border/50"
         >
           <Repeat2 size={13} />
           <span>{label || 'None'}</span>
