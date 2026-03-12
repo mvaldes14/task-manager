@@ -423,6 +423,16 @@ export function TaskDetail() {
             </div>
           </div>
 
+          {/* Recurrence */}
+          <RecurrenceEditor
+            recurrence={recurrence}
+            recurrenceEnd={recurrenceEnd}
+            onChange={({ recurrence: r, recurrence_end: re }) => {
+              if (r !== undefined) { setRecurrence(r); markDirty() }
+              if (re !== undefined) { setRecurrenceEnd(re || ''); markDirty() }
+            }}
+          />
+
           {/* Project */}
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-td-muted dark:text-tn-muted">Project</label>
@@ -465,7 +475,10 @@ export function TaskDetail() {
             </div>
           </div>
 
-          {/* Description */}
+          {/* Links */}
+          <LinksSection task={task} onUpdate={updated => dispatch({ type: 'UPDATE_TASK', payload: updated })} />
+
+          {/* Notes */}
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-td-muted dark:text-tn-muted">Notes</label>
             <textarea
@@ -477,19 +490,6 @@ export function TaskDetail() {
               className="w-full bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-sm rounded-lg px-3 py-2.5 outline-none border border-td-border/50 dark:border-tn-border/50 resize-none placeholder-td-muted/40 dark:placeholder-tn-muted/40 font-mono text-xs leading-relaxed"
             />
           </div>
-
-          {/* Links */}
-          <LinksSection task={task} onUpdate={updated => dispatch({ type: 'UPDATE_TASK', payload: updated })} />
-
-          {/* Recurrence */}
-          <RecurrenceEditor
-            recurrence={recurrence}
-            recurrenceEnd={recurrenceEnd}
-            onChange={({ recurrence: r, recurrence_end: re }) => {
-              if (r !== undefined) { setRecurrence(r); markDirty() }
-              if (re !== undefined) { setRecurrenceEnd(re || ''); markDirty() }
-            }}
-          />
 
           {/* Subtasks */}
           <div className="space-y-1.5">
