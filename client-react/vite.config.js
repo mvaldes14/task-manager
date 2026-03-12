@@ -51,5 +51,13 @@ export default defineConfig({
   build: {
     outDir: '../client/dist',
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom'],
+          'vendor-ui': ['lucide-react'],
+        }
+      }
+    }
   }
 })
