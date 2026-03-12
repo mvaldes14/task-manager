@@ -33,32 +33,6 @@ function AppShell() {
 
   const closeSidebar = () => dispatch({ type: 'SET_SIDEBAR', payload: false })
 
-  // Keyboard shortcuts — skip when typing in an input/textarea
-  useEffect(() => {
-    if (!authed) return
-    const handler = (e) => {
-      const tag = document.activeElement?.tagName
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.isContentEditable) {
-        // Only allow Escape to close modal even when focused
-        if (e.key === 'Escape') dispatch({ type: 'SET_FAB', payload: { open: false } })
-        return
-      }
-      switch (e.key) {
-        case 'q': dispatch({ type: 'SET_FAB', payload: { open: true } });  break
-        case 'Escape': dispatch({ type: 'SET_FAB', payload: { open: false } }); break
-        case 's': dispatch({ type: 'TOGGLE_SIDEBAR_COLLAPSED' }); break
-        case 'l': dispatch({ type: 'SET_VIEW_MODE', payload: 'list' }); break
-        case 'k': dispatch({ type: 'SET_VIEW_MODE', payload: 'board' }); break
-        case 'c': dispatch({ type: 'SET_VIEW', payload: 'calendar' }); break
-        case 'o': dispatch({ type: 'SET_VIEW', payload: 'overdue' }); break
-        case 't': dispatch({ type: 'SET_VIEW', payload: 'today' }); break
-        default: break
-      }
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [authed, dispatch])
-
   if (authed === null) return (
     <div className="min-h-screen bg-td-bg dark:bg-tn-bg flex items-center justify-center">
       <div className="text-td-muted dark:text-tn-muted text-sm animate-pulse">Loading…</div>
