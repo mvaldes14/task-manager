@@ -36,6 +36,12 @@ def parse_recurrence(text):
     elif re.search(r'\bevery\s+other\s+week\b', tl):
         rule = {"type": "interval", "days": 14}
         text = re.sub(r'\bevery\s+other\s+week\b', '', text, flags=re.IGNORECASE)
+    elif re.search(r'\bend\s+of\s+(?:the\s+)?month\b|\blast\s+day\s+of\s+(?:the\s+)?month\b', tl):
+        rule = {"type": "monthly_dom", "dom": -1}  # -1 = last day of month
+        text = re.sub(r'\bend\s+of\s+(?:the\s+)?month\b|\blast\s+day\s+of\s+(?:the\s+)?month\b', '', text, flags=re.IGNORECASE)
+    elif re.search(r'\b(?:1st|first)\s+of\s+(?:the\s+)?month\b|\bstart\s+of\s+(?:the\s+)?month\b', tl):
+        rule = {"type": "monthly_dom", "dom": 1}
+        text = re.sub(r'\b(?:1st|first)\s+of\s+(?:the\s+)?month\b|\bstart\s+of\s+(?:the\s+)?month\b', '', text, flags=re.IGNORECASE)
     elif re.search(r'\bevery\s+month\b|\bmonthly\b', tl):
         dom_m = re.search(r'\b(\d{1,2})(?:st|nd|rd|th)?\b', tl)
         dom = int(dom_m.group(1)) if dom_m else None
@@ -85,8 +91,10 @@ def next_due_date(rule_str, from_date):
         import calendar
         dom = rule.get("dom"); month = from_date.month % 12 + 1
         year = from_date.year + (1 if from_date.month == 12 else 0)
+        last_day = calendar.monthrange(year, month)[1]
+        if dom == -1: return date(year, month, last_day)   # end of month
         if dom is None: dom = from_date.day
-        return date(year, month, min(dom, calendar.monthrange(year, month)[1]))
+        return date(year, month, min(dom, last_day))
     if rtype == "monthly_dow":
         month = from_date.month % 12 + 1; year = from_date.year + (1 if from_date.month == 12 else 0)
         return _nth_weekday_of_month(year, month, rule.get("dow", 0), rule.get("week", 0))

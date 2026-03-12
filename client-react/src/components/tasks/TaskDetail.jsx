@@ -10,9 +10,9 @@ const STATUSES = ['todo', 'doing', 'done']
 const RECUR_PRESETS = [
   { label: 'None',         value: null },
   { label: 'Daily',        value: { type: 'daily' } },
-  { label: 'Weekdays',     value: { type: 'weekly', days: [1,2,3,4,5] } },
-  { label: 'Weekly',       value: { type: 'weekly', days: [] } },
-  { label: 'Monthly',      value: { type: 'monthly_dom', dom: null } },
+  { label: 'Weekdays (Mon–Fri)', value: { type: 'weekly', days: [1,2,3,4,5] } },
+  { label: 'Weekly (same day)',  value: { type: 'weekly', days: [] } },
+  { label: 'Monthly (pick day)', value: { type: 'monthly_dom', dom: null } },
   { label: 'Yearly',       value: { type: 'yearly' } },
 ]
 
@@ -101,13 +101,15 @@ function RecurrenceEditor({ recurrence, recurrenceEnd, onChange }) {
 
       {/* End date — shown when recurrence is active */}
       {recurrence && (
-        <input
-          type="date"
-          value={recurrenceEnd || ''}
-          onChange={e => onChange({ recurrence_end: e.target.value || null })}
-          placeholder="End date (optional)"
-          className="w-full bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-xs rounded-lg px-2.5 py-2 outline-none border border-td-border/50 dark:border-tn-border/50"
-        />
+        <div className="space-y-1">
+          <label className="text-[10px] font-semibold tracking-wider text-td-muted/60 dark:text-tn-muted/60 uppercase">Stop repeating on</label>
+          <input
+            type="date"
+            value={recurrenceEnd || ''}
+            onChange={e => onChange({ recurrence_end: e.target.value || null })}
+            className="w-full bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-xs rounded-lg px-2.5 py-2 outline-none border border-td-border/50 dark:border-tn-border/50"
+          />
+        </div>
       )}
     </div>
   )

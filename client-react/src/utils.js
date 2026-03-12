@@ -41,7 +41,7 @@ export function recurrenceLabel(ruleStr) {
       if (r.days?.length) return '🔁 ' + r.days.map(d => days[d]).join(', ')
       return '🔁 Weekly'
     }
-    if (r.type === 'monthly_dom') return r.dom ? `🔁 Monthly (${r.dom}${ordinal(r.dom)})` : '🔁 Monthly'
+    if (r.type === 'monthly_dom') return r.dom === -1 ? '🔁 End of month' : r.dom ? `🔁 Monthly (${r.dom}${ordinal(r.dom)})` : '🔁 Monthly'
     if (r.type === 'monthly_dow') {
       const weeks = ['1st','2nd','3rd','4th','5th']
       const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
