@@ -62,7 +62,10 @@ def serve_spa(path):
     dist = app.static_folder
     full = os.path.join(dist, path)
     if path and os.path.exists(full):
-        return send_from_directory(dist, path)
+        mimetype = None
+        if path.endswith('.webmanifest'):
+            mimetype = 'application/manifest+json'
+        return send_from_directory(dist, path, mimetype=mimetype)
     return send_from_directory(dist, 'index.html')
 
 # ── Startup ───────────────────────────────────────────────────────────────────
