@@ -172,10 +172,7 @@ export function FAB() {
           )}
 
           {/* Footer row: project hint + submit */}
-          <div className="flex items-center justify-between px-5 py-3 mt-1 border-t border-td-border/40 dark:border-tn-border/40">
-            <span className="text-sm text-td-muted/50 dark:text-tn-muted/50 select-none">
-              Use #project @label for context
-            </span>
+          <div className="flex items-center justify-end px-5 py-3 mt-1 border-t border-td-border/40 dark:border-tn-border/40">
             <button
               onClick={submit}
               disabled={!text.trim() || loading}
