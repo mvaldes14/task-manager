@@ -477,6 +477,16 @@ export function TaskDetail() {
           {/* Links */}
           <LinksSection task={task} onUpdate={updated => dispatch({ type: 'UPDATE_TASK', payload: updated })} />
 
+          {/* Recurrence */}
+          <RecurrenceEditor
+            recurrence={recurrence}
+            recurrenceEnd={recurrenceEnd}
+            onChange={({ recurrence: r, recurrence_end: re }) => {
+              if (r !== undefined) { setRecurrence(r); markDirty() }
+              if (re !== undefined) { setRecurrenceEnd(re || ''); markDirty() }
+            }}
+          />
+
           {/* Subtasks */}
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-td-muted dark:text-tn-muted">
@@ -500,16 +510,6 @@ export function TaskDetail() {
               </button>
             </div>
           </div>
-
-          {/* Recurrence */}
-          <RecurrenceEditor
-            recurrence={recurrence}
-            recurrenceEnd={recurrenceEnd}
-            onChange={({ recurrence: r, recurrence_end: re }) => {
-              if (r !== undefined) { setRecurrence(r); markDirty() }
-              if (re !== undefined) { setRecurrenceEnd(re || ''); markDirty() }
-            }}
-          />
 
           {/* Meta */}
           <div className="text-[10px] text-td-muted/40 dark:text-tn-muted/40 pt-2">
