@@ -16,7 +16,7 @@ function NavItem({ icon: Icon, label, viewKey, badge, badgeColor = 'bg-td-blue d
       className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors
         ${active
           ? 'bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg font-semibold'
-          : 'text-td-muted dark:text-tn-muted font-medium hover:text-td-fg dark:hover:text-tn-fg hover:bg-td-surface/50 dark:hover:bg-tn-surface/50'
+          : 'text-td-muted dark:text-tn-fg/60 font-medium hover:text-td-fg dark:hover:text-tn-fg hover:bg-td-surface/50 dark:hover:bg-tn-surface/50'
         }`}
     >
       <Icon size={16} className="shrink-0" />
@@ -161,6 +161,7 @@ export function Sidebar() {
         <NavItem icon={Inbox}       label="Inbox"     viewKey="inbox"    badge={inboxCount} />
         <NavItem icon={Sun}         label="Today"     viewKey="today"    badge={todayCount} />
         <NavItem icon={Layers}      label="All Tasks" viewKey="all" />
+        <NavItem icon={Calendar}    label="Calendar"  viewKey="calendar" />
         <NavItem icon={AlertCircle} label="Overdue"   viewKey="overdue"
           badge={overdueCount} badgeColor="bg-td-red dark:bg-tn-red" />
 
@@ -183,7 +184,7 @@ export function Sidebar() {
               className={`group w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors
                 ${active
                   ? 'bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg font-semibold'
-                  : 'text-td-muted dark:text-tn-muted font-medium hover:text-td-fg dark:hover:text-tn-fg hover:bg-td-surface/50 dark:hover:bg-tn-surface/50'}`}
+                  : 'text-td-muted dark:text-tn-fg/60 font-medium hover:text-td-fg dark:hover:text-tn-fg hover:bg-td-surface/50 dark:hover:bg-tn-surface/50'}`}
             >
               <span className="w-6 h-6 rounded-md flex items-center justify-center shrink-0"
                 style={{ background: p.color + '25' }}>

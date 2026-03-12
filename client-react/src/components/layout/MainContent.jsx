@@ -6,7 +6,7 @@ import { isOverdue, isToday } from '../../utils'
 import { TaskList } from '../tasks/TaskList'
 import { KanbanBoard } from '../tasks/KanbanBoard'
 import { CalendarView } from '../calendar/CalendarView'
-import { LayoutList, Columns, Menu, ChevronDown, CalendarDays } from 'lucide-react'
+import { LayoutList, Columns, Menu, ChevronDown } from 'lucide-react'
 import { ProjectIcon } from '../shared/ProjectIcon'
 
 function ViewHeader({ title, count }) {
@@ -38,6 +38,7 @@ function ViewHeader({ title, count }) {
         {count != null && null}
       </div>
 
+      {state.view !== 'calendar' && (
       <div className="flex items-center gap-1 bg-td-surface dark:bg-tn-surface rounded-lg p-0.5">
           <button
             onClick={() => dispatch({ type: 'SET_VIEW_MODE', payload: 'list' })}
@@ -57,16 +58,8 @@ function ViewHeader({ title, count }) {
           >
             <Columns size={15} />
           </button>
-          <button
-            onClick={() => dispatch({ type: 'SET_VIEW_MODE', payload: 'calendar' })}
-            className={`p-1.5 rounded-md transition-colors
-              ${state.viewMode === 'calendar'
-                ? 'bg-td-bg2 dark:bg-tn-bg2 text-td-fg dark:text-tn-fg shadow-sm'
-                : 'text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg'}`}
-          >
-            <CalendarDays size={15} />
-          </button>
         </div>
+      )}
     </div>
   )
 }
@@ -251,7 +244,8 @@ export function MainContent() {
   const activeCount = useMemo(() =>
     baseTasks.filter(t => t.status !== 'done').length, [baseTasks])
 
-  const showToolbar = viewMode === 'list' && view !== 'overdue'
+  const showToolbar = viewMode === 'list' && view !== 'overdue' && view !== 'calendar'
+  const isCalendar = view === 'calendar'
 
   return (
     <div className="flex-1 flex flex-col min-h-0 min-w-0">
@@ -267,14 +261,14 @@ export function MainContent() {
       )}
 
       <div
-        className={`flex-1 min-h-0 ${viewMode === 'calendar' ? 'overflow-hidden flex flex-col' : 'overflow-y-auto'}`}
-        style={viewMode !== 'calendar' ? { paddingBottom: 'calc(80px + env(safe-area-inset-bottom, 0px))' } : undefined}
-        onTouchStart={viewMode !== 'calendar' ? onTouchStart : undefined}
-        onTouchMove={viewMode !== 'calendar' ? onTouchMove : undefined}
-        onTouchEnd={viewMode !== 'calendar' ? onTouchEnd : undefined}
+        className={`flex-1 min-h-0 ${isCalendar ? 'overflow-hidden flex flex-col' : 'overflow-y-auto'}`}
+        style={!isCalendar ? { paddingBottom: 'calc(80px + env(safe-area-inset-bottom, 0px))' } : undefined}
+        onTouchStart={!isCalendar ? onTouchStart : undefined}
+        onTouchMove={!isCalendar ? onTouchMove : undefined}
+        onTouchEnd={!isCalendar ? onTouchEnd : undefined}
       >
         {/* Pull to refresh indicator */}
-        {viewMode !== 'calendar' && (
+        {!isCalendar && (
           <div ref={indicatorEl} className="flex items-center justify-center overflow-hidden transition-all duration-200" style={{ height: 0, opacity: 0 }}>
             <div className="flex flex-col items-center gap-1">
               <svg data-arrow width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-td-muted dark:text-tn-muted transition-transform duration-150">
@@ -286,7 +280,7 @@ export function MainContent() {
             </div>
           </div>
         )}
-        {viewMode === 'calendar' ? (
+        {isCalendar ? (
           <CalendarView tasks={tasks} />
         ) : view === 'overdue' ? (
           <OverdueView tasks={visibleTasks} />

@@ -1,13 +1,14 @@
 import { useMemo } from 'react'
 import { useApp } from '../../context/AppContext'
 import { isToday, isOverdue } from '../../utils'
-import { Inbox, Sun, LayoutList, Menu } from 'lucide-react'
+import { Inbox, Sun, LayoutList, CalendarDays, Menu } from 'lucide-react'
 
 const TABS = [
-  { key: 'inbox',  icon: Inbox,      label: 'Inbox' },
-  { key: 'today',  icon: Sun,        label: 'Today' },
-  { key: 'all',    icon: LayoutList, label: 'All'   },
-  { key: 'browse', icon: Menu,       label: 'Browse' },
+  { key: 'inbox',    icon: Inbox,        label: 'Inbox' },
+  { key: 'today',    icon: Sun,          label: 'Today' },
+  { key: 'all',      icon: LayoutList,   label: 'All'   },
+  { key: 'calendar', icon: CalendarDays, label: 'Calendar' },
+  { key: 'browse',   icon: Menu,         label: 'Browse' },
 ]
 
 export function TabBar() {
@@ -46,7 +47,7 @@ export function TabBar() {
             key={key}
             onClick={() => handleTab(key)}
             className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors relative
-              ${active ? 'text-td-blue dark:text-tn-blue' : 'text-td-muted/60 dark:text-tn-muted/60'}`}
+              ${active ? 'text-td-blue dark:text-tn-blue' : 'text-td-muted/60 dark:text-tn-fg/50'}`}
           >
             <div className="relative">
               <Icon size={22} strokeWidth={active ? 2.5 : 1.8} />
