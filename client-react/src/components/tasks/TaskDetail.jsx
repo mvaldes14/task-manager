@@ -51,7 +51,7 @@ function RecurrenceEditor({ recurrence, recurrenceEnd, onChange }) {
 
   return (
     <div className="space-y-1.5">
-      <label className="text-[10px] font-semibold tracking-wider text-td-muted/60 dark:text-tn-muted/60 uppercase">Recurrence</label>
+      <label className="text-xs font-bold text-td-muted dark:text-tn-muted">Recurrence</label>
       <div className="relative">
         <button
           onClick={() => setOpen(o => !o)}
