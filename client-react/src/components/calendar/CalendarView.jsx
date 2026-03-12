@@ -1,7 +1,8 @@
-import { useMemo, useRef, useCallback, useState } from 'react'
+import { useMemo, useRef, useCallback, useState, useEffect } from 'react'
 import { useApp } from '../../context/AppContext'
 import { useTasks } from '../../hooks/useTasks'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { api } from '../../api'
 
 const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
@@ -28,6 +29,20 @@ function TaskPill({ task, onDragStart, onTouchStart }) {
   )
 }
 
+function IcsPill({ event, color }) {
+  const bg = color + '25'
+  const timeStr = event.due_time ? event.due_time.slice(0,5) + ' ' : ''
+  return (
+    <div
+      title={event.title}
+      className="w-full text-[10px] px-1.5 py-0.5 rounded truncate font-medium select-none"
+      style={{ background: bg, color }}
+    >
+      {timeStr}{event.title}
+    </div>
+  )
+}
+
 export function CalendarView({ tasks }) {
   const { state, dispatch } = useApp()
   const { updateTask } = useTasks()
@@ -38,6 +53,32 @@ export function CalendarView({ tasks }) {
   const dragTask = useRef(null)
   const ghostEl = useRef(null)
   const cellRefs = useRef({})
+
+  // ── ICS events ────────────────────────────────────────────────
+  const [icsCalendars, setIcsCalendars] = useState([])
+  const [icsEventsByDate, setIcsEventsByDate] = useState({})
+
+  useEffect(() => {
+    api.listIcs().then(cals => setIcsCalendars(cals || [])).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    if (!icsCalendars.length) { setIcsEventsByDate({}); return }
+    Promise.all(
+      icsCalendars.map(cal =>
+        api.getIcsEvents(cal.id, year, month + 1).then(evs => ({ cal, evs: evs || [] })).catch(() => ({ cal, evs: [] }))
+      )
+    ).then(results => {
+      const byDate = {}
+      results.forEach(({ cal, evs }) => {
+        evs.forEach(ev => {
+          if (!byDate[ev.due_date]) byDate[ev.due_date] = []
+          byDate[ev.due_date].push({ ...ev, _color: cal.color, _calName: cal.name })
+        })
+      })
+      setIcsEventsByDate(byDate)
+    })
+  }, [icsCalendars, year, month])
 
   // ── Desktop drag ──────────────────────────────────────────────
   const handleDragStart = useCallback((e, task) => {
@@ -201,8 +242,10 @@ export function CalendarView({ tasks }) {
                 ? `${year}-${String(month+1).padStart(2,'0')}-${String(cell.day).padStart(2,'0')}`
                 : null
               const dayTasks = (dateStr && tasksByDate[dateStr]) || []
+              const dayIcs   = (dateStr && icsEventsByDate[dateStr]) || []
               const isOver = dateStr && overDate === dateStr
-              const MAX_SHOW = Math.max(2, Math.floor((dayTasks.length > 0 ? 4 : 2)))
+              const totalItems = dayTasks.length + dayIcs.length
+              const MAX_SHOW = Math.max(2, Math.floor((totalItems > 0 ? 4 : 2)))
 
               return (
                 <div
@@ -222,12 +265,15 @@ export function CalendarView({ tasks }) {
                     {cell.day}
                   </div>
                   <div className="space-y-0.5 overflow-hidden flex-1 min-h-0">
-                    {dayTasks.slice(0, MAX_SHOW).map(t => (
+                    {dayIcs.slice(0, MAX_SHOW).map(ev => (
+                      <IcsPill key={ev.id + ev.due_date} event={ev} color={ev._color} />
+                    ))}
+                    {dayTasks.slice(0, Math.max(0, MAX_SHOW - dayIcs.length)).map(t => (
                       <TaskPill key={t.id} task={t} onDragStart={handleDragStart} onTouchStart={handleTouchStart} />
                     ))}
-                    {dayTasks.length > MAX_SHOW && (
+                    {totalItems > MAX_SHOW && (
                       <div className="text-[9px] text-td-muted/60 dark:text-tn-muted/60 pl-1">
-                        +{dayTasks.length - MAX_SHOW} more
+                        +{totalItems - MAX_SHOW} more
                       </div>
                     )}
                   </div>

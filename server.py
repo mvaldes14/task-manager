@@ -71,6 +71,11 @@ def init_db():
                 id TEXT PRIMARY KEY, created TIMESTAMPTZ DEFAULT NOW(),
                 expires TIMESTAMPTZ NOT NULL, remember BOOLEAN DEFAULT FALSE
             )""")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS ics_calendars (
+                id TEXT PRIMARY KEY, name TEXT NOT NULL, color TEXT DEFAULT '#bb9af7',
+                url TEXT, content TEXT, created_at TIMESTAMPTZ DEFAULT NOW()
+            )""")
         cur.execute("INSERT INTO projects (id,name,color,icon) VALUES ('inbox','Inbox','#6366f1','📥') ON CONFLICT (id) DO NOTHING")
         # Indexes for common query patterns
         cur.execute("CREATE INDEX IF NOT EXISTS idx_tasks_project_id ON tasks(project_id)")
@@ -959,6 +964,140 @@ def get_upcoming():
 @app.route('/api/tasks/overdue',methods=['GET'])
 def get_overdue():
     return jsonify(_fetch_tasks("SELECT * FROM tasks WHERE due_date<CURRENT_DATE AND status!='done' ORDER BY due_date,due_time"))
+
+
+# ── ICS Calendars ──────────────────────────────────────────────────────────────
+
+def _parse_ics(content: str, year: int, month: int) -> list:
+    """Parse ICS content and return events for the given month as dicts."""
+    from icalendar import Calendar as ICal
+    from datetime import datetime as dt
+    import re as _re
+    try:
+        cal = ICal.from_ical(content)
+    except Exception as e:
+        raise ValueError(f"Invalid ICS data: {e}")
+    events = []
+    for component in cal.walk():
+        if component.name != 'VEVENT':
+            continue
+        try:
+            dtstart = component.get('DTSTART')
+            if not dtstart:
+                continue
+            val = dtstart.dt
+            if isinstance(val, dt):
+                event_date = val.date()
+            else:
+                event_date = val
+            if event_date.year != year or event_date.month != month:
+                continue
+            summary = str(component.get('SUMMARY', 'Untitled'))
+            due_time = None
+            if isinstance(val, dt):
+                due_time = val.strftime('%H:%M')
+            events.append({
+                'id': str(component.get('UID', '')),
+                'title': summary,
+                'due_date': event_date.isoformat(),
+                'due_time': due_time,
+                'all_day': not isinstance(val, dt),
+            })
+        except Exception:
+            continue
+    return events
+
+
+@app.route('/api/ics', methods=['GET'])
+def list_ics():
+    conn = get_db()
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT id, name, color, url FROM ics_calendars ORDER BY created_at")
+        rows = [dict(r) for r in cur.fetchall()]
+    finally:
+        release_db(conn)
+    return jsonify(rows)
+
+
+@app.route('/api/ics', methods=['POST'])
+def add_ics():
+    """Accept either {name, url, color} or a multipart file upload."""
+    cid = str(uuid.uuid4())
+    color = '#bb9af7'
+    name = 'Calendar'
+    url = None
+    content = None
+
+    if request.content_type and 'multipart' in request.content_type:
+        f = request.files.get('file')
+        if not f:
+            return jsonify({'error': 'No file'}), 400
+        content = f.read().decode('utf-8', errors='replace')
+        name = request.form.get('name', f.filename or 'Calendar')
+        color = request.form.get('color', color)
+    else:
+        data = request.get_json() or {}
+        name = data.get('name', name)
+        color = data.get('color', color)
+        url = data.get('url')
+        if url:
+            import urllib.request
+            try:
+                with urllib.request.urlopen(url, timeout=10) as r:
+                    content = r.read().decode('utf-8', errors='replace')
+            except Exception as e:
+                return jsonify({'error': f'Could not fetch URL: {e}'}), 400
+        else:
+            return jsonify({'error': 'Provide url or file'}), 400
+
+    # Quick validation
+    if not content or 'VCALENDAR' not in content:
+        return jsonify({'error': 'Not a valid ICS file'}), 400
+
+    conn = get_db()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO ics_calendars (id,name,color,url,content) VALUES (%s,%s,%s,%s,%s)",
+            (cid, name, color, url, content)
+        )
+        conn.commit()
+    finally:
+        release_db(conn)
+    return jsonify({'id': cid, 'name': name, 'color': color, 'url': url}), 201
+
+
+@app.route('/api/ics/<cid>', methods=['DELETE'])
+def delete_ics(cid):
+    conn = get_db()
+    try:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM ics_calendars WHERE id=%s", (cid,))
+        conn.commit()
+    finally:
+        release_db(conn)
+    return '', 204
+
+
+@app.route('/api/ics/<cid>/events', methods=['GET'])
+def get_ics_events(cid):
+    year  = int(request.args.get('year',  date.today().year))
+    month = int(request.args.get('month', date.today().month))
+    conn = get_db()
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT content FROM ics_calendars WHERE id=%s", (cid,))
+        row = cur.fetchone()
+    finally:
+        release_db(conn)
+    if not row:
+        return jsonify({'error': 'Not found'}), 404
+    try:
+        events = _parse_ics(row['content'], year, month)
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    return jsonify(events)
 
 
 # ─────────────────────────────────────────────

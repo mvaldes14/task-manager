@@ -56,7 +56,18 @@ export const api = {
   gcalStatus: () => req('/gcal/status'),
   gcalSync: () => req('/gcal/sync', 'POST'),
 
-  // Settings
-  getSettings: () => fetch('/auth/status', { credentials: 'include' }).then(r => r.json()).catch(() => null),
+  // ICS Calendars
+  listIcs: () => req('/ics'),
+  addIcsUrl: (name, url, color) => req('/ics', 'POST', { name, url, color }),
+  addIcsFile: (name, color, file) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    fd.append('name', name)
+    fd.append('color', color)
+    return fetch(base + '/ics', { method: 'POST', body: fd, credentials: 'include' })
+      .then(r => r.json())
+  },
+  deleteIcs: (id) => req(`/ics/${id}`, 'DELETE'),
+  getIcsEvents: (id, year, month) => req(`/ics/${id}/events?year=${year}&month=${month}`),
   updateSettings: (data) => req('/settings', 'PATCH', data),
 }
