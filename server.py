@@ -30,7 +30,8 @@ _last_purge = [0.0]
 @app.before_request
 def require_auth():
     path = request.path
-    if (path in _PUBLIC_PATHS
+    if (request.method == 'OPTIONS'
+            or path in _PUBLIC_PATHS
             or path.startswith('/assets/')
             or path.startswith('/icons/')):
         return None
@@ -46,6 +47,14 @@ def require_auth():
         _last_purge[0] = now
 
 # ── Static / SPA fallback ────────────────────────────────────────────────────
+
+@app.after_request
+def add_cors(response):
+    response.headers['Access-Control-Allow-Origin']  = '*'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-API-Key'
+    response.headers['Access-Control-Allow-Methods'] = 'GET,POST,PUT,PATCH,DELETE,OPTIONS'
+    return response
+
 
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
