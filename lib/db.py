@@ -27,8 +27,9 @@ def row_to_dict(row):
     d = dict(row)
     for field in ('created_at', 'updated_at', 'completed_at'):
         if field in d and d[field] is not None: d[field] = str(d[field])
-    if 'due_date' in d and d['due_date'] is not None: d['due_date'] = str(d['due_date'])[:10]
-    if 'due_time' in d and d['due_time'] is not None: d['due_time'] = str(d['due_time'])[:5]
+    if 'due_date'       in d and d['due_date']       is not None: d['due_date']       = str(d['due_date'])[:10]
+    if 'recurrence_end' in d and d['recurrence_end'] is not None: d['recurrence_end'] = str(d['recurrence_end'])[:10]
+    if 'due_time'       in d and d['due_time']       is not None: d['due_time']       = str(d['due_time'])[:5]
     for field in ('tags', 'labels', 'links'):
         if field in d:
             if isinstance(d[field], str):
