@@ -19,7 +19,7 @@ make pull   # pulls ghcr.io/mvaldes14/task-manager:latest
 
 ### Install on phone
 
-1. Open `http://<your-ip>:5001` in Safari (iOS) or Chrome (Android)
+1. Open `http://<your-ip>:5000` in Safari (iOS) or Chrome (Android)
 2. Share → **Add to Home Screen**
 
 ---
@@ -86,7 +86,7 @@ meeting every monday and friday at 10am
 ## Features
 
 - **NLP scheduling** — natural language → due date, time, project, tags, recurrence
-- **3 views** — List, Kanban board, Calendar
+- **2 views** — List, Kanban board
 - **Group & sort** — group by Status or Tags; sort by Status, Due Date, Project, Title, or Created
 - **Drag and drop** — Kanban: drag cards between columns; Calendar: drag tasks to reschedule
 - **Pull to refresh** — pull down on mobile to reload
@@ -95,12 +95,12 @@ meeting every monday and friday at 10am
 - **Subtasks** — nested tasks with completion tracking
 - **Links** — attach URLs per task (Obsidian, GitHub, or any URL), auto-labeled
 - **Overdue view** — past-due tasks grouped by date
-- **Google Calendar sync** — tasks with due dates sync automatically; done tasks shown in graphite
+- **Google Calendar sync** — tasks with due dates sync automatically; done tasks shown in linked calendar
 - **Obsidian integration** — `!notename` creates a note; detail panel links existing notes
-- **PWA** — installable on iOS, Android, and macOS; app icon badge shows overdue + today count
+- **PWA** — installable on iOS, Android, and macOS
 - **Collapsible sidebar** — full sidebar or slim icon rail (desktop); persisted preference
 - **Keyboard shortcuts** — full shortcut set on desktop (press `?` to see them)
-- **Theme** — Tokyo Night (dark) and Tokyo Day (light), toggle in sidebar
+- **Theme** — toggle in sidebar
 
 ---
 
@@ -113,7 +113,7 @@ meeting every monday and friday at 10am
 | **All Tasks** | Everything |
 | **Overdue** | Past-due tasks grouped by date |
 | **Calendar** | Monthly calendar view |
-| **Project** | Tasks scoped to a project |
+| **Projects** | Tasks scoped to a project |
 
 Each list view supports 3 display modes:
 
@@ -121,7 +121,6 @@ Each list view supports 3 display modes:
 |---|---|
 | List | Grouped by status or tags; show/hide done; sortable |
 | Board | Kanban with drag-to-reorder between columns |
-| Calendar | Monthly calendar with drag-to-reschedule |
 
 ---
 
@@ -179,8 +178,10 @@ Authorization: Bearer <TD_API_KEY>
 |---|---|---|
 | `POST` | `/api/nlp/parse` | Parse natural language into task fields |
 
+> If running locally baseurl is localhost:5001, otherwise it is your custom domain.
+
 ```bash
-curl -X POST http://localhost:5001/api/nlp/parse \
+curl -X POST http://baseurl/api/nlp/parse \
   -H "Authorization: Bearer $TD_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"text": "call dentist tuesday at 2pm #health"}'
@@ -233,23 +234,23 @@ curl -X POST http://localhost:5001/api/nlp/parse \
 
 ```bash
 # Create a task
-curl -X POST http://localhost:5001/api/tasks \
+curl -X POST http://baseurl/api/tasks \
   -H "Authorization: Bearer $TD_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"title": "Buy groceries", "due_date": "2026-03-15", "tags": ["errands"]}'
 
 # Update status
-curl -X PATCH http://localhost:5001/api/tasks/<id> \
+curl -X PATCH http://baseurl/api/tasks/<id> \
   -H "Authorization: Bearer $TD_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"status": "done"}'
 
 # Parse NLP + create in one shot (requires jq)
-curl -s -X POST http://localhost:5001/api/nlp/parse \
+curl -s -X POST http://baseurl/api/nlp/parse \
   -H "Authorization: Bearer $TD_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"text": "standup tomorrow at 9am #work"}' \
-  | curl -X POST http://localhost:5001/api/tasks \
+  | curl -X POST http://baseurl/api/tasks \
     -H "Authorization: Bearer $TD_API_KEY" \
     -H "Content-Type: application/json" \
     -d @-
@@ -312,19 +313,22 @@ Available icons: `folder`, `home`, `briefcase`, `target`, `flask`, `book`, `pale
 Add tasks from anywhere on your phone via the iOS Shortcuts app:
 
 ```
-POST /api/nlp/parse  →  POST /api/tasks
-Authorization: Bearer <TD_API_KEY>
+POST baseurl/api/tasks
+Headers:
+  Authorization: Bearer <TD_API_KEY>
+Body:
+  title: Shortcut input
 ```
 
 ### Shell alias — add task from terminal
 
 ```bash
 td() {
-  curl -s -X POST http://localhost:5001/api/nlp/parse \
+  curl -s -X POST http://baseurl/api/nlp/parse \
     -H "Authorization: Bearer $TD_API_KEY" \
     -H "Content-Type: application/json" \
     -d "{\"text\": \"$*\"}" \
-  | curl -s -X POST http://localhost:5001/api/tasks \
+  | curl -s -X POST http://baseurl/api/tasks \
     -H "Authorization: Bearer $TD_API_KEY" \
     -H "Content-Type: application/json" \
     -d @-
@@ -339,7 +343,7 @@ td standup daily at 9am #work
 ### Query overdue tasks
 
 ```bash
-curl -s http://localhost:5001/api/tasks/overdue \
+curl -s http://baseurl/api/tasks/overdue \
   -H "Authorization: Bearer $TD_API_KEY" \
   | jq '[.[] | {id, title, due_date, status}]'
 ```
@@ -351,7 +355,7 @@ curl -s http://localhost:5001/api/tasks/overdue \
 - **Backend** — Python 3.12 + Flask + PostgreSQL
 - **Frontend** — React 19 + Vite + Tailwind CSS
 - **NLP** — `dateparser` + `python-dateutil` (RRULE) — no external AI API
-- **Theme** — Tokyo Night (dark) / Tokyo Day (light)
+- **Theme** — TailwindCSS dark/light
 - **Auth** — Session-based with PostgreSQL storage; optional Bearer API key
 - **Deployment** — Docker Compose; data persisted in `./data/postgres/`
 
