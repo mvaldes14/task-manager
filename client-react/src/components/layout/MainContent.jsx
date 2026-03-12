@@ -258,11 +258,6 @@ export function MainContent() {
     }
     return { title: 'Tasks', baseTasks: tasks, emptyMessage: 'No tasks' }
   }, [view, tasks, projects])
-        emptyMessage: 'No tasks in this project',
-      }
-    }
-    return { title: 'Tasks', baseTasks: tasks, emptyMessage: 'No tasks' }
-  }, [view, tasks, projects])
 
   // Apply show/hide done + sort
   const visibleTasks = useMemo(() => {
