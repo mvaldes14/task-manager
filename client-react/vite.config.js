@@ -9,8 +9,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['apple-touch-icon.png', 'icon-192.png', 'icon-512.png'],
       manifest: {
-        name: 'TD',
-        short_name: 'TD',
+        name: 'Doit',
+        short_name: 'Doit',
         description: 'Smart task manager with natural language input',
         start_url: '/',
         display: 'standalone',

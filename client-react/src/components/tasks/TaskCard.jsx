@@ -68,7 +68,7 @@ export function TaskCard({ task }) {
 
       {/* Content */}
       <div className="flex-1 min-w-0">
-        <p className={`text-base md:text-sm leading-snug ${done ? 'line-through text-td-muted dark:text-tn-muted' : 'text-td-fg dark:text-tn-fg'}`}>
+        <p className={`text-xl md:text-sm leading-snug ${done ? 'line-through text-td-muted dark:text-tn-muted' : 'text-td-fg dark:text-tn-fg'}`}>
           {task.title}
         </p>
 

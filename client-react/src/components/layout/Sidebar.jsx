@@ -170,7 +170,7 @@ export function Sidebar() {
               style={{ background: '#7aa2f7', boxShadow: '0 2px 8px rgba(122,162,247,0.45)' }}>
               ✓
             </div>
-            <span className="text-td-fg dark:text-tn-fg font-bold text-base tracking-tight">TD</span>
+            <span className="text-td-fg dark:text-tn-fg font-bold text-base tracking-tight">Doit</span>
           </div>
         )}
         {collapsed && (

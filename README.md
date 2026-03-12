@@ -1,4 +1,4 @@
-# TD — Task Manager
+# Doit — Task Manager
 
 A self-hosted task manager that runs as a PWA on phone and web. Understands natural language, syncs with Google Calendar, and links to Obsidian notes.
 
@@ -14,7 +14,7 @@ Open [http://localhost:5001](http://localhost:5001).
 ### Pull pre-built image (no build required)
 
 ```bash
-make pull   # pulls ghcr.io/mvaldes14/task-manager:latest
+make pull   # pulls ghcr.io/mvaldes14/doit:latest
 ```
 
 ### Install on phone
@@ -363,6 +363,6 @@ curl -s http://baseurl/api/tasks/overdue \
 
 ## CI / Deployment
 
-Every push to `main` builds and pushes a multi-arch image (`amd64` + `arm64`) to `ghcr.io/mvaldes14/task-manager:latest` via GitHub Actions.
+Every push to `main` builds and pushes a multi-arch image (`amd64` + `arm64`) to `ghcr.io/mvaldes14/doit:latest` via GitHub Actions.
 
 Development happens on `dev` — merge to `main` to trigger a release.
