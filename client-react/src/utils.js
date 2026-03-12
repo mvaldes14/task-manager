@@ -37,13 +37,26 @@ export function recurrenceLabel(ruleStr) {
     if (r.type === 'daily') return '🔁 Daily'
     if (r.type === 'weekly') {
       const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+      if (r.days?.length === 5 && r.days.join(',') === '1,2,3,4,5') return '🔁 Weekdays'
       if (r.days?.length) return '🔁 ' + r.days.map(d => days[d]).join(', ')
       return '🔁 Weekly'
     }
+    if (r.type === 'monthly_dom') return r.dom ? `🔁 Monthly (${r.dom}${ordinal(r.dom)})` : '🔁 Monthly'
+    if (r.type === 'monthly_dow') {
+      const weeks = ['1st','2nd','3rd','4th','5th']
+      const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+      return `🔁 ${weeks[r.week] || ''} ${days[r.dow] || ''} of month`
+    }
     if (r.type === 'monthly') return '🔁 Monthly'
-    if (r.type === 'interval') return `🔁 Every ${r.interval} days`
+    if (r.type === 'yearly') return '🔁 Yearly'
+    if (r.type === 'interval') return `🔁 Every ${r.days || r.interval} days`
   } catch { /* */ }
   return null
+}
+
+function ordinal(n) {
+  const s = ['th','st','nd','rd'], v = n % 100
+  return s[(v-20)%10] || s[v] || s[0]
 }
 
 export function obsidianNoteName(url) {
