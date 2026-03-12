@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useApp } from '../../context/AppContext'
 import { isOverdue, isToday } from '../../utils'
-import { Plus, LogOut, Sun, Moon, Settings, Trash2, CheckCircle2, Calendar, Inbox, Layers, AlertCircle, CalendarDays } from 'lucide-react'
+import { Plus, LogOut, Sun, Moon, Settings, Trash2, CheckCircle2, RefreshCw, Inbox, Layers, AlertCircle, CalendarDays } from 'lucide-react'
 import { api } from '../../api'
 import { ProjectIcon, PROJECT_ICON_OPTIONS } from '../shared/ProjectIcon'
 import { IcsManager } from '../calendar/IcsManager'
@@ -236,7 +236,7 @@ export function Sidebar() {
             title={state.gcalEnabled ? 'Synced to Google Calendar' : 'Google Calendar not connected'}
             className="flex items-center gap-1 px-2 py-2 rounded-lg text-xs"
           >
-            <Calendar size={14} className={state.gcalEnabled ? 'text-td-green dark:text-tn-green' : 'text-td-muted/30 dark:text-tn-muted/30'} />
+            <RefreshCw size={14} className={state.gcalEnabled ? 'text-td-green dark:text-tn-green' : 'text-td-muted/30 dark:text-tn-muted/30'} />
             {state.gcalEnabled && <CheckCircle2 size={10} className="text-td-green dark:text-tn-green -ml-0.5" />}
           </div>
         </div>
