@@ -276,6 +276,11 @@ export function Sidebar() {
               className="p-2 rounded-lg text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg hover:bg-td-surface/50 dark:hover:bg-tn-surface/50 transition-colors">
               {state.theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
             </button>
+            <div title={state.gcalEnabled ? 'Synced to Google Calendar' : 'Google Calendar not connected'}
+              className="relative flex items-center justify-center p-2">
+              <RefreshCw size={15} className={state.gcalEnabled ? 'text-td-green dark:text-tn-green' : 'text-td-muted/30 dark:text-tn-muted/30'} />
+              {state.gcalEnabled && <CheckCircle2 size={9} className="absolute bottom-1 right-1 text-td-green dark:text-tn-green" />}
+            </div>
             <button onClick={toggle} title="Expand sidebar"
               className="p-2 rounded-lg text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg hover:bg-td-surface/50 dark:hover:bg-tn-surface/50 transition-colors">
               <PanelLeftOpen size={15} />
