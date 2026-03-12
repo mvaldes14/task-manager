@@ -163,8 +163,7 @@ export function FAB() {
             )}
 
             {/* Footer */}
-            <div className="flex items-center justify-between px-5 py-4 mt-1
-              border-t border-td-border dark:border-tn-border">
+            <div className="flex items-center justify-between px-5 py-4 mt-1">
               <button
                 onClick={close}
                 className="text-sm font-medium text-td-muted dark:text-tn-muted
