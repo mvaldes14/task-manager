@@ -62,6 +62,15 @@ def _clone_recurring_task(task: dict, next_date) -> dict:
     return new_task
 
 
+# ── NLP parse endpoint ─────────────────────────────────────────
+@bp.route('/api/nlp/parse', methods=['POST', 'OPTIONS'])
+def nlp_parse():
+    if request.method == 'OPTIONS': return '', 204
+    data = request.get_json() or {}
+    result = parse_natural_language(data.get('text', ''))
+    return jsonify(result)
+
+
 # ── Task routes ────────────────────────────────────────────────
 @bp.route('/api/tasks', methods=['GET'])
 def get_tasks():
