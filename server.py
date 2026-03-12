@@ -1,90 +1,76 @@
 #!/usr/bin/env python3
-"""TD Server — Flask + PostgreSQL backend."""
+"""TD Server — slim entry point, delegates to route blueprints."""
 
-import os
-from urllib.parse import quote
-
+import os, time as _time
 from flask import Flask, request, jsonify, redirect, send_from_directory
 
-from lib.db import init_db
-from lib.nlp import parse_natural_language
-from lib.gcal import is_enabled as gcal_is_enabled
+from lib.db   import init_db, DATABASE_URL
+from lib.gcal import _get_gcal_service  # triggers init at startup
 
-from routes.auth    import bp as auth_bp,    is_authenticated, _PUBLIC_PATHS, TD_PASSWORD, API_KEY
+from routes.auth     import bp as auth_bp,     is_authenticated, TD_PASSWORD, _PUBLIC_PATHS, _purge_expired_sessions
 from routes.projects import bp as projects_bp
 from routes.tasks    import bp as tasks_bp
 from routes.gcal     import bp as gcal_bp
 from routes.ics      import bp as ics_bp
 
+# ── App setup ─────────────────────────────────────────────────────────────────
+
 app = Flask(__name__, static_folder='client/dist')
 
-# ── Register blueprints ────────────────────────────────────────
 app.register_blueprint(auth_bp)
 app.register_blueprint(projects_bp)
 app.register_blueprint(tasks_bp)
 app.register_blueprint(gcal_bp)
 app.register_blueprint(ics_bp)
 
-# ── Middleware ─────────────────────────────────────────────────
+# ── Auth middleware ────────────────────────────────────────────────────────────
+
+_last_purge = [0.0]
+
 @app.before_request
-def auth_middleware():
+def require_auth():
     path = request.path
-    if path in _PUBLIC_PATHS or path.startswith('/icons/') or request.method == 'OPTIONS':
+    if (path in _PUBLIC_PATHS
+            or path.startswith('/assets/')
+            or path.startswith('/icons/')):
         return None
     if not TD_PASSWORD:
-        if path.startswith('/api/') and API_KEY:
-            auth = request.headers.get('Authorization', '')
-            xkey = request.headers.get('X-API-Key', '')
-            if not ((auth.startswith('Bearer ') and auth[7:] == API_KEY) or xkey == API_KEY):
-                return jsonify({'error': 'Unauthorized'}), 401
         return None
     if not is_authenticated():
         if path.startswith('/api/'):
             return jsonify({'error': 'Unauthorized'}), 401
-        return redirect(f'/login?next={quote(request.full_path.rstrip("?"))}')
+        return redirect(f'/login?next={path}')
+    now = _time.time()
+    if now - _last_purge[0] > 3600:
+        _purge_expired_sessions()
+        _last_purge[0] = now
 
-
-@app.after_request
-def add_cors(response):
-    response.headers['Access-Control-Allow-Origin']  = '*'
-    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-API-Key'
-    response.headers['Access-Control-Allow-Methods'] = 'GET,POST,PUT,PATCH,DELETE,OPTIONS'
-    return response
-
-
-# ── Static / PWA routes ────────────────────────────────────────
-@app.route('/share-target')
-def share_target():
-    from urllib.parse import urlencode
-    params = {f'share_{k}': v for k in ('title', 'text', 'url')
-              if (v := request.args.get(k, '').strip())}
-    qs = urlencode(params)
-    return redirect(f'/?{qs}' if qs else '/')
-
+# ── Static / SPA fallback ────────────────────────────────────────────────────
 
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
-def serve_frontend(path):
-    if path and os.path.exists(os.path.join(app.static_folder, path)):
-        return send_from_directory(app.static_folder, path)
-    return send_from_directory(app.static_folder, 'index.html')
+def serve_spa(path):
+    dist = app.static_folder
+    full = os.path.join(dist, path)
+    if path and os.path.exists(full):
+        return send_from_directory(dist, path)
+    return send_from_directory(dist, 'index.html')
 
+# ── Startup ───────────────────────────────────────────────────────────────────
 
-# ── NLP parse endpoint ─────────────────────────────────────────
-@app.route('/api/nlp/parse', methods=['POST', 'OPTIONS'])
-def nlp_parse():
-    if request.method == 'OPTIONS': return '', 204
-    data = request.get_json() or {}
-    result = parse_natural_language(data.get('text', ''))
-    return jsonify(result)
+OBSIDIAN_VAULT = os.environ.get('OBSIDIAN_VAULT', '').strip()
+OBSIDIAN_INBOX = os.environ.get('OBSIDIAN_INBOX', '').strip().strip('/')
 
+print(f"[startup] DATABASE_URL = {DATABASE_URL}", flush=True)
+if OBSIDIAN_VAULT:
+    print(f"[startup] Obsidian vault: {OBSIDIAN_VAULT}" +
+          (f" inbox: {OBSIDIAN_INBOX}" if OBSIDIAN_INBOX else ""), flush=True)
 
-# ── Bootstrap ──────────────────────────────────────────────────
 init_db()
 
 if __name__ == '__main__':
     import socket
-    try: ip = socket.gethostbyname(socket.gethostname())
+    try:    ip = socket.gethostbyname(socket.gethostname())
     except: ip = '127.0.0.1'
     print(f"\n{'='*50}\n  TD running!\n  Local:   http://localhost:5000\n  Network: http://{ip}:5000\n{'='*50}\n")
     app.run(host='0.0.0.0', port=5000, debug=False)
