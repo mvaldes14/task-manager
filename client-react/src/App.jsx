@@ -8,6 +8,7 @@ import { MainContent } from './components/layout/MainContent'
 import { TaskDetail } from './components/tasks/TaskDetail'
 import { FAB } from './components/fab/FAB'
 import { Toast, ConfirmSheet } from './components/shared/Overlays'
+import { KeyboardShortcutsModal } from './components/shared/KeyboardShortcutsModal'
 import { LoginScreen } from './components/LoginScreen'
 import { api } from './api'
 
@@ -80,6 +81,9 @@ function AppShell() {
       <FAB />
       <Toast />
       <ConfirmSheet />
+      {state.showShortcuts && (
+        <KeyboardShortcutsModal onClose={() => dispatch({ type: 'TOGGLE_SHORTCUTS' })} />
+      )}
     </div>
   )
 }
