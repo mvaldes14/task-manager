@@ -9,9 +9,8 @@ import { CalendarView } from '../calendar/CalendarView'
 import { LayoutList, Columns, Menu, Search, X } from 'lucide-react'
 import { ProjectIcon } from '../shared/ProjectIcon'
 
-function ViewHeader({ title, count, onSearch }) {
+function ViewHeader({ title, count, onSearch, searchOpen, setSearchOpen }) {
   const { state, dispatch } = useApp()
-  const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const inputRef = useRef(null)
 
@@ -19,16 +18,24 @@ function ViewHeader({ title, count, onSearch }) {
     ? state.projects.find(p => p.id === state.view.replace('project:', ''))
     : null
 
-  const openSearch = () => {
+  const openSearch = useCallback(() => {
     setSearchOpen(true)
     setTimeout(() => inputRef.current?.focus(), 50)
-  }
+  }, [setSearchOpen])
 
-  const closeSearch = () => {
+  const closeSearch = useCallback(() => {
     setSearchOpen(false)
     setSearchQuery('')
     onSearch('')
+  }, [setSearchOpen, onSearch])
+
+  // When searchOpen flips true externally (keyboard shortcut), focus input
+  useRef(null) // placeholder — use effect below
+  const prevOpen = useRef(false)
+  if (searchOpen && !prevOpen.current) {
+    setTimeout(() => inputRef.current?.focus(), 50)
   }
+  prevOpen.current = searchOpen
 
   const handleChange = (e) => {
     setSearchQuery(e.target.value)
@@ -258,15 +265,24 @@ function sortTasks(tasks, sortBy, projects) {
 import { TaskCard } from '../tasks/TaskCard'
 
 export function MainContent() {
-  const { state } = useApp()
+  const { state, dispatch } = useApp()
   const { loadAll } = useTasks()
-  const { view, tasks, projects, viewMode } = state
+  const { view, tasks, projects, viewMode, searchOpen: globalSearchOpen } = state
   const [showDone, setShowDone] = useState(() => {
     const saved = localStorage.getItem('td-show-done')
     return saved === null ? true : saved === 'true'
   })
   const [sortBy, setSortBy] = useState(() => localStorage.getItem('td-sort-by') || 'status')
   const [searchQuery, setSearchQuery] = useState('')
+  const [searchOpen, setSearchOpen] = useState(false)
+
+  // Sync global keyboard-triggered searchOpen into local state
+  const prevGlobal = useRef(false)
+  if (globalSearchOpen !== prevGlobal.current) {
+    setSearchOpen(globalSearchOpen)
+    if (!globalSearchOpen) setSearchQuery('')
+    prevGlobal.current = globalSearchOpen
+  }
   const [groupBy, setGroupBy] = useState(() => localStorage.getItem('td-group-by') || 'status')
 
   const handleRefresh = useCallback(async () => { await loadAll() }, [loadAll])
@@ -341,7 +357,17 @@ export function MainContent() {
 
   return (
     <div className="flex-1 flex flex-col min-h-0 min-w-0">
-      <ViewHeader title={title} count={activeCount > 0 ? activeCount : null} onSearch={setSearchQuery} />
+      <ViewHeader
+        title={title}
+        count={activeCount > 0 ? activeCount : null}
+        onSearch={setSearchQuery}
+        searchOpen={searchOpen}
+        setSearchOpen={(v) => {
+          setSearchOpen(v)
+          dispatch({ type: 'SET_SEARCH_OPEN', payload: v })
+          if (!v) setSearchQuery('')
+        }}
+      />
 
       {showToolbar && (
         <ListToolbar
