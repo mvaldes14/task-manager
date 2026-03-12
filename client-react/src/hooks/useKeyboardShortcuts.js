@@ -13,6 +13,10 @@ export function useKeyboardShortcuts() {
       if (e.metaKey || e.ctrlKey || e.altKey) return
 
       switch (e.key) {
+        case 'i':
+          e.preventDefault()
+          dispatch({ type: 'SET_VIEW', payload: 'inbox' })
+          break
         case 'q':
           e.preventDefault()
           dispatch({ type: 'SET_FAB', payload: { open: true } })
