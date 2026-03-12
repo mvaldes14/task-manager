@@ -70,8 +70,11 @@ export function FAB() {
         if (result.due_time) label += ' · ' + result.due_time.slice(0,5)
         next.push({ label, ...CHIP_COLORS.date })
       }
-      if (result.tags?.length) {
-        result.tags.forEach(t => next.push({ label: '@'+t, ...CHIP_COLORS.tag }))
+      if (result.labels?.length) {
+        result.labels.forEach(t => next.push({ label: '@'+t, ...CHIP_COLORS.tag }))
+      }
+      if (result.project_name) {
+        next.push({ label: '📁 ' + result.project_name, ...CHIP_COLORS.tag })
       }
       if (result.obsidian_url) {
         next.push({ label: '📎 Note', ...CHIP_COLORS.obsidian })
