@@ -6,7 +6,7 @@ import { isOverdue, isToday } from '../../utils'
 import { TaskList } from '../tasks/TaskList'
 import { KanbanBoard } from '../tasks/KanbanBoard'
 import { CalendarView } from '../calendar/CalendarView'
-import { LayoutList, Columns, Menu, Search, X } from 'lucide-react'
+import { LayoutList, Columns, Menu, Search, X, ChevronDown } from 'lucide-react'
 import { ProjectIcon } from '../shared/ProjectIcon'
 
 function ViewHeader({ title, count, onSearch, searchOpen, setSearchOpen }) {
