@@ -199,7 +199,7 @@ export function MainContent() {
   const { title, baseTasks, groupBy, emptyMessage } = useMemo(() => {
     if (view === 'inbox') return {
       title: 'Inbox',
-      baseTasks: tasks,
+      baseTasks: tasks.filter(t => t.project_id === 'inbox'),
       groupBy: 'status',
       emptyMessage: 'Inbox is empty',
     }
