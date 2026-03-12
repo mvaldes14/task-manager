@@ -150,8 +150,8 @@ export function FAB() {
             <div className="w-10 h-1 rounded-full bg-td-border dark:bg-tn-border" />
           </div>
 
-          {/* Task name */}
-          <div className="px-5 pt-3 pb-1">
+          {/* Task name + submit inline */}
+          <div className="flex items-center gap-3 px-4 pt-3 pb-3">
             <input
               ref={inputRef}
               type="text"
@@ -159,25 +159,14 @@ export function FAB() {
               onChange={handleChange}
               onKeyDown={handleKeyDown}
               placeholder="Task Name"
-              className="w-full bg-transparent text-td-fg dark:text-tn-fg text-2xl font-semibold
+              className="flex-1 bg-transparent text-td-fg dark:text-tn-fg text-2xl font-semibold
                 outline-none leading-snug placeholder-td-muted/30 dark:placeholder-tn-muted/30"
             />
-          </div>
-
-          {/* NLP chips */}
-          {chips.length > 0 && (
-            <div className="flex flex-wrap gap-2 px-5 py-2">
-              {chips.map((c, i) => <NlpChip key={i} {...c} />)}
-            </div>
-          )}
-
-          {/* Footer row: project hint + submit */}
-          <div className="flex items-center justify-end px-5 py-3 mt-1 border-t border-td-border/40 dark:border-tn-border/40">
             <button
               onClick={submit}
               disabled={!text.trim() || loading}
-              className="w-10 h-10 rounded-full flex items-center justify-center
-                bg-tn-red disabled:opacity-30 active:scale-95 transition-all shrink-0"
+              className="w-10 h-10 rounded-full flex items-center justify-center shrink-0
+                bg-tn-red disabled:opacity-30 active:scale-95 transition-all"
             >
               {loading
                 ? <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
@@ -185,6 +174,13 @@ export function FAB() {
               }
             </button>
           </div>
+
+          {/* NLP chips */}
+          {chips.length > 0 && (
+            <div className="flex flex-wrap gap-2 px-5 pb-3">
+              {chips.map((c, i) => <NlpChip key={i} {...c} />)}
+            </div>
+          )}
         </div>
       )}
 
