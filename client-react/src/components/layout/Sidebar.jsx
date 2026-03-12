@@ -137,7 +137,9 @@ export function Sidebar() {
   }
 
   return (
-    <aside className={`
+    <aside
+      style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
+      className={`
       fixed inset-y-0 left-0 z-50 w-64 bg-td-bg2 dark:bg-tn-bg2 border-r border-td-border dark:border-tn-border flex flex-col
       transition-transform duration-300
       md:relative md:translate-x-0 md:flex
