@@ -47,7 +47,7 @@ export function TabBar() {
             key={key}
             onClick={() => handleTab(key)}
             className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors relative
-              ${active ? 'text-td-blue dark:text-tn-blue' : 'text-td-muted/60 dark:text-tn-fg/50'}`}
+              ${active ? 'text-td-blue dark:text-tn-blue' : 'text-td-muted/60 dark:text-tn-nav'}`}
           >
             <div className="relative">
               <Icon size={22} strokeWidth={active ? 2.5 : 1.8} />

@@ -13,6 +13,7 @@ export default {
           surface: '#24283b',
           border:  '#292e42',
           muted:   '#565f89',
+          nav:     '#9aa5ce',   // readable sidebar text (between muted and fg)
           fg:      '#c0caf5',
           blue:    '#7aa2f7',
           purple:  '#bb9af7',
@@ -30,6 +31,7 @@ export default {
           surface: '#f0f0f3',
           border:  '#c8c9d0',
           muted:   '#6172b0',
+          nav:     '#4a5980',   // readable sidebar text
           fg:      '#3760bf',
           blue:    '#2e7de9',
           purple:  '#9854f1',
