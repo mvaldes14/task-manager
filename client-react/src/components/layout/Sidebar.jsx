@@ -1,28 +1,37 @@
 import { useMemo, useState } from 'react'
 import { useApp } from '../../context/AppContext'
 import { isOverdue, isToday } from '../../utils'
-import { Plus, LogOut, Sun, Moon, Settings, Trash2, CheckCircle2, RefreshCw, Calendar, Inbox, Layers, AlertCircle, CalendarDays } from 'lucide-react'
+import { Plus, LogOut, Sun, Moon, Settings, Trash2, CheckCircle2, RefreshCw, Calendar, Inbox, Layers, AlertCircle, CalendarDays, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { api } from '../../api'
 import { ProjectIcon, PROJECT_ICON_OPTIONS } from '../shared/ProjectIcon'
 import { IcsManager } from '../calendar/IcsManager'
 
 const PROJECT_COLORS = ['#f7768e','#ff9e64','#e0af68','#9ece6a','#73daca','#7dcfff','#7aa2f7','#bb9af7','#c0caf5']
 
-function NavItem({ icon: Icon, label, viewKey, badge, badgeColor = 'bg-td-blue dark:bg-tn-blue' }) {
+function NavItem({ icon: Icon, label, viewKey, badge, badgeColor = 'bg-td-blue dark:bg-tn-blue', collapsed }) {
   const { state, dispatch } = useApp()
   const active = state.view === viewKey
   return (
     <button
       onClick={() => dispatch({ type: 'SET_VIEW', payload: viewKey })}
-      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors
+      title={collapsed ? label : undefined}
+      className={`relative w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors
+        ${collapsed ? 'justify-center' : ''}
         ${active
           ? 'bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg font-semibold'
           : 'text-td-muted dark:text-tn-nav font-medium hover:text-td-fg dark:hover:text-tn-fg hover:bg-td-surface/50 dark:hover:bg-tn-surface/50'
         }`}
     >
-      <Icon size={16} className="shrink-0" />
-      <span className="flex-1 text-left">{label}</span>
-      {badge > 0 && (
+      <div className="relative shrink-0">
+        <Icon size={16} />
+        {collapsed && badge > 0 && (
+          <span className={`absolute -top-1.5 -right-1.5 text-[9px] font-bold px-1 py-px rounded-full text-white leading-none ${badgeColor}`}>
+            {badge > 9 ? '9+' : badge}
+          </span>
+        )}
+      </div>
+      {!collapsed && <span className="flex-1 text-left">{label}</span>}
+      {!collapsed && badge > 0 && (
         <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white min-w-[18px] text-center ${badgeColor}`}>
           {badge}
         </span>
@@ -125,6 +134,9 @@ export function Sidebar() {
   const [editingProject, setEditingProject] = useState(null)
   const [showIcsManager, setShowIcsManager] = useState(false)
 
+  const collapsed = state.sidebarCollapsed
+  const toggle = () => dispatch({ type: 'TOGGLE_SIDEBAR_COLLAPSED' })
+
   const overdueCount = useMemo(() => state.tasks.filter(t => isOverdue(t)).length, [state.tasks])
   const inboxCount   = useMemo(() => state.tasks.filter(t => t.project_id === 'inbox' && t.status !== 'done').length, [state.tasks])
   const todayCount   = useMemo(() => state.tasks.filter(t => isToday(t) && t.status !== 'done').length, [state.tasks])
@@ -140,49 +152,91 @@ export function Sidebar() {
     <aside
       style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
       className={`
-      fixed inset-y-0 left-0 z-50 w-64 bg-td-bg2 dark:bg-tn-bg2 border-r border-td-border dark:border-tn-border flex flex-col
-      transition-transform duration-300
-      md:relative md:translate-x-0 md:flex
-      ${state.sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-    `}>
+        fixed inset-y-0 left-0 z-50 bg-td-bg2 dark:bg-tn-bg2 border-r border-td-border dark:border-tn-border
+        flex flex-col transition-all duration-200
+        md:relative md:translate-x-0 md:flex
+        ${collapsed ? 'w-[56px]' : 'w-64'}
+        ${state.sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+      `}>
+
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-4">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-[10px] flex items-center justify-center shrink-0 text-white font-bold text-lg select-none"
+      <div className={`flex items-center py-4 ${collapsed ? 'justify-center px-0' : 'justify-between px-4'}`}>
+        {!collapsed && (
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-[10px] flex items-center justify-center shrink-0 text-white font-bold text-lg select-none"
+              style={{ background: '#7aa2f7', boxShadow: '0 2px 8px rgba(122,162,247,0.45)' }}>
+              ✓
+            </div>
+            <span className="text-td-fg dark:text-tn-fg font-bold text-base tracking-tight">TD</span>
+          </div>
+        )}
+        {collapsed && (
+          <div className="w-8 h-8 rounded-[10px] flex items-center justify-center text-white font-bold text-lg select-none"
             style={{ background: '#7aa2f7', boxShadow: '0 2px 8px rgba(122,162,247,0.45)' }}>
             ✓
           </div>
-          <span className="text-td-fg dark:text-tn-fg font-bold text-base tracking-tight">TD</span>
-        </div>
-        <button onClick={toggleTheme}
-          className="text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg transition-colors p-1">
-          {state.theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-        </button>
+        )}
+        {!collapsed && (
+          <button onClick={toggleTheme}
+            className="text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg transition-colors p-1">
+            {state.theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+          </button>
+        )}
       </div>
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
-        <NavItem icon={Inbox}       label="Inbox"     viewKey="inbox"    badge={inboxCount} />
-        <NavItem icon={Sun}         label="Today"     viewKey="today"    badge={todayCount} />
-        <NavItem icon={Layers}      label="All Tasks" viewKey="all" />
-        <NavItem icon={Calendar}    label="Calendar"  viewKey="calendar" />
+        <NavItem icon={Inbox}       label="Inbox"     viewKey="inbox"    badge={inboxCount} collapsed={collapsed} />
+        <NavItem icon={Sun}         label="Today"     viewKey="today"    badge={todayCount} collapsed={collapsed} />
+        <NavItem icon={Layers}      label="All Tasks" viewKey="all"      collapsed={collapsed} />
+        <NavItem icon={Calendar}    label="Calendar"  viewKey="calendar" collapsed={collapsed} />
         <NavItem icon={AlertCircle} label="Overdue"   viewKey="overdue"
-          badge={overdueCount} badgeColor="bg-td-red dark:bg-tn-red" />
+          badge={overdueCount} badgeColor="bg-td-red dark:bg-tn-red" collapsed={collapsed} />
 
-        <div className="pt-3 pb-1 px-3">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-semibold tracking-widest text-td-muted/60 dark:text-tn-muted/60 uppercase">Projects</span>
-            <button onClick={() => setShowNewProject(true)}
-              className="text-td-muted/60 dark:text-tn-muted/60 hover:text-td-blue dark:hover:text-tn-blue transition-colors">
+        {!collapsed && (
+          <div className="pt-3 pb-1 px-3">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-semibold tracking-widest text-td-muted/60 dark:text-tn-muted/60 uppercase">Projects</span>
+              <button onClick={() => setShowNewProject(true)}
+                className="text-td-muted/60 dark:text-tn-muted/60 hover:text-td-blue dark:hover:text-tn-blue transition-colors">
+                <Plus size={14} />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {collapsed && (
+          <div className="pt-2 pb-1 flex justify-center">
+            <button onClick={() => setShowNewProject(true)} title="New project"
+              className="text-td-muted/60 dark:text-tn-muted/60 hover:text-td-blue dark:hover:text-tn-blue transition-colors p-1">
               <Plus size={14} />
             </button>
           </div>
-        </div>
+        )}
 
         {state.projects.filter(p => p.id !== 'inbox').map(p => {
           const count = state.tasks.filter(t => t.project_id === p.id && t.status !== 'done').length
           const active = state.view === `project:${p.id}`
-          return (
+          return collapsed ? (
+            <button key={p.id}
+              onClick={() => dispatch({ type: 'SET_VIEW', payload: `project:${p.id}` })}
+              title={p.name}
+              className={`relative w-full flex items-center justify-center py-2 rounded-lg transition-colors
+                ${active
+                  ? 'bg-td-surface dark:bg-tn-surface'
+                  : 'hover:bg-td-surface/50 dark:hover:bg-tn-surface/50'}`}
+            >
+              <span className="w-6 h-6 rounded-md flex items-center justify-center"
+                style={{ background: p.color + '25' }}>
+                <ProjectIcon icon={p.icon} size={13} />
+              </span>
+              {count > 0 && (
+                <span className="absolute top-0.5 right-1 text-[9px] font-bold text-td-muted/60 dark:text-tn-muted/60">
+                  {count > 9 ? '9+' : count}
+                </span>
+              )}
+            </button>
+          ) : (
             <button key={p.id}
               onClick={() => dispatch({ type: 'SET_VIEW', payload: `project:${p.id}` })}
               className={`group w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors
@@ -200,7 +254,6 @@ export function Sidebar() {
                   {count}
                 </span>
               )}
-              {/* Gear — shown on hover, replaces count */}
               <button
                 onClick={e => { e.stopPropagation(); setEditingProject(p) }}
                 className="hidden group-hover:flex items-center justify-center w-5 h-5 rounded
@@ -217,31 +270,44 @@ export function Sidebar() {
 
       {/* Footer */}
       <div className="border-t border-td-border/50 dark:border-tn-border/50 px-2 py-3">
-        <div className="flex items-center gap-1">
-          <button
-            onClick={async () => { await api.logout(); window.location.reload() }}
-            className="flex-1 flex items-center gap-3 px-3 py-2 rounded-lg text-sm
-              text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg
-              hover:bg-td-surface/50 dark:hover:bg-tn-surface/50 transition-colors"
-          >
-            <LogOut size={16} /> Sign out
-          </button>
-          <button
-              onClick={() => setShowIcsManager(true)}
-              title="Import ICS calendar"
-              className="flex items-center justify-center p-2 rounded-lg text-td-muted dark:text-tn-nav
-                hover:text-td-fg dark:hover:text-tn-fg hover:bg-td-surface/50 dark:hover:bg-tn-surface/50 transition-colors"
+        {collapsed ? (
+          <div className="flex flex-col items-center gap-2">
+            <button onClick={toggleTheme} title={state.theme === 'dark' ? 'Light mode' : 'Dark mode'}
+              className="p-2 rounded-lg text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg hover:bg-td-surface/50 dark:hover:bg-tn-surface/50 transition-colors">
+              {state.theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+            </button>
+            <button onClick={toggle} title="Expand sidebar"
+              className="p-2 rounded-lg text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg hover:bg-td-surface/50 dark:hover:bg-tn-surface/50 transition-colors">
+              <PanelLeftOpen size={15} />
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1">
+            <button
+              onClick={async () => { await api.logout(); window.location.reload() }}
+              className="flex-1 flex items-center gap-3 px-3 py-2 rounded-lg text-sm
+                text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg
+                hover:bg-td-surface/50 dark:hover:bg-tn-surface/50 transition-colors"
             >
+              <LogOut size={16} /> Sign out
+            </button>
+            <button onClick={() => setShowIcsManager(true)} title="Import ICS calendar"
+              className="flex items-center justify-center p-2 rounded-lg text-td-muted dark:text-tn-nav
+                hover:text-td-fg dark:hover:text-tn-fg hover:bg-td-surface/50 dark:hover:bg-tn-surface/50 transition-colors">
               <CalendarDays size={15} />
             </button>
-            <div
-            title={state.gcalEnabled ? 'Synced to Google Calendar' : 'Google Calendar not connected'}
-            className="flex items-center gap-1 px-2 py-2 rounded-lg text-xs"
-          >
-            <RefreshCw size={14} className={state.gcalEnabled ? 'text-td-green dark:text-tn-green' : 'text-td-muted/30 dark:text-tn-muted/30'} />
-            {state.gcalEnabled && <CheckCircle2 size={10} className="text-td-green dark:text-tn-green -ml-0.5" />}
+            <div title={state.gcalEnabled ? 'Synced to Google Calendar' : 'Google Calendar not connected'}
+              className="flex items-center gap-1 px-2 py-2 rounded-lg text-xs">
+              <RefreshCw size={14} className={state.gcalEnabled ? 'text-td-green dark:text-tn-green' : 'text-td-muted/30 dark:text-tn-muted/30'} />
+              {state.gcalEnabled && <CheckCircle2 size={10} className="text-td-green dark:text-tn-green -ml-0.5" />}
+            </div>
+            <button onClick={toggle} title="Collapse sidebar"
+              className="flex items-center justify-center p-2 rounded-lg text-td-muted dark:text-tn-muted
+                hover:text-td-fg dark:hover:text-tn-fg hover:bg-td-surface/50 dark:hover:bg-tn-surface/50 transition-colors">
+              <PanelLeftClose size={15} />
+            </button>
           </div>
-        </div>
+        )}
       </div>
 
       {showNewProject && <ProjectFormModal onClose={() => setShowNewProject(false)} />}
@@ -250,3 +316,4 @@ export function Sidebar() {
     </aside>
   )
 }
+

@@ -14,6 +14,7 @@ const initialState = {
   selectedTaskId: null,
   // UI
   sidebarOpen: false,
+  sidebarCollapsed: localStorage.getItem('td-sidebar-collapsed') === 'true',
   fabOpen: false,
   fabTargetStatus: 'todo',
   toast: null,
@@ -41,6 +42,11 @@ function reducer(state, action) {
     case 'SET_VIEW_MODE':   return { ...state, viewMode: action.payload }
     case 'SELECT_TASK':     return { ...state, selectedTaskId: action.payload }
     case 'SET_SIDEBAR':     return { ...state, sidebarOpen: action.payload }
+    case 'TOGGLE_SIDEBAR_COLLAPSED': {
+      const next = !state.sidebarCollapsed
+      localStorage.setItem('td-sidebar-collapsed', String(next))
+      return { ...state, sidebarCollapsed: next }
+    }
     case 'SET_FAB':         return { ...state, fabOpen: action.payload.open, fabTargetStatus: action.payload.status || state.fabTargetStatus }
     case 'SET_TOAST':       return { ...state, toast: action.payload }
     case 'SET_CONFIRM':     return { ...state, confirm: action.payload }
