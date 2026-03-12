@@ -19,7 +19,7 @@ make pull   # pulls ghcr.io/mvaldes14/task-manager:latest
 
 ### Install on phone
 
-1. Open `http://<your-local-ip>:5001` in Safari (iOS) or Chrome (Android)
+1. Open `http://<your-ip>:5001` in Safari (iOS) or Chrome (Android)
 2. Share → **Add to Home Screen**
 
 ---
@@ -43,15 +43,16 @@ Copy `.env.example` to `.env` and set:
 
 ## Natural Language
 
-Type naturally in the FAB — dates, times, projects and recurrence are all parsed automatically.
+Type naturally in the task input — dates, times, projects, tags, and recurrence are all parsed automatically.
 
 ```
 take out trash next monday
 call dentist tuesday at 2:30pm #health
-finish report by friday
+finish report by friday @urgent
 standup daily at 9am
 pay rent end of month
 review PR in 3 days
+meeting every monday and friday at 10am
 ```
 
 ### Syntax
@@ -61,47 +62,85 @@ review PR in 3 days
 | `#projectname` | Assign to project |
 | `@label` | Add tag |
 | `next monday`, `tomorrow`, `in 3 days` | Due date |
-| `at 3pm`, `at 14:30` | Due time |
-| `every monday`, `daily`, `every 2 weeks` | Recurrence |
+| `at 3pm`, `noon`, `EOD`, `morning` | Due time |
+| `every monday`, `daily`, `every 2 weeks` | Recurrence (stored as RRULE) |
 | `!notename` | Create new Obsidian note and link it |
+
+### Recurrence Patterns
+
+| Input | RRULE |
+|---|---|
+| `daily` / `every day` | `RRULE:FREQ=DAILY` |
+| `every weekday` | `RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR` |
+| `every weekend` | `RRULE:FREQ=WEEKLY;BYDAY=SA,SU` |
+| `every monday` | `RRULE:FREQ=WEEKLY;BYDAY=MO` |
+| `every monday and friday` | `RRULE:FREQ=WEEKLY;BYDAY=MO,FR` |
+| `every 2 weeks` | `RRULE:FREQ=WEEKLY;INTERVAL=2` |
+| `monthly` | `RRULE:FREQ=MONTHLY` |
+| `end of month` | `RRULE:FREQ=MONTHLY;BYMONTHDAY=-1` |
+| `first monday of the month` | `RRULE:FREQ=MONTHLY;BYDAY=+1MO` |
+| `yearly` / `annually` | `RRULE:FREQ=YEARLY` |
 
 ---
 
 ## Features
 
-- **NLP scheduling** — natural language to due date, time, project, recurrence
-- **3 views** — List, Kanban board, Calendar (toggle in header)
+- **NLP scheduling** — natural language → due date, time, project, tags, recurrence
+- **3 views** — List, Kanban board, Calendar
+- **Group & sort** — group by Status or Tags; sort by Status, Due Date, Project, Title, or Created
 - **Drag and drop** — Kanban: drag cards between columns; Calendar: drag tasks to reschedule
 - **Pull to refresh** — pull down on mobile to reload
-- **Recurring tasks** — daily, weekly, monthly, interval; auto-reschedules on completion
+- **Recurring tasks** — RFC 5545 RRULE format; auto-reschedules on completion
 - **Projects** — custom icon (25 lucide icons) and color
 - **Subtasks** — nested tasks with completion tracking
 - **Links** — attach URLs per task (Obsidian, GitHub, or any URL), auto-labeled
 - **Overdue view** — past-due tasks grouped by date
 - **Google Calendar sync** — tasks with due dates sync automatically; done tasks shown in graphite
 - **Obsidian integration** — `!notename` creates a note; detail panel links existing notes
-- **PWA** — installable on iOS and Android
+- **PWA** — installable on iOS, Android, and macOS; app icon badge shows overdue + today count
+- **Collapsible sidebar** — full sidebar or slim icon rail (desktop); persisted preference
+- **Keyboard shortcuts** — full shortcut set on desktop (press `?` to see them)
 - **Theme** — Tokyo Night (dark) and Tokyo Day (light), toggle in sidebar
 
 ---
 
-## Views
+## Views & Modes
 
 | View | Description |
 |---|---|
-| **Inbox** | All tasks |
+| **Inbox** | Unassigned tasks |
 | **Today** | Tasks due today |
 | **All Tasks** | Everything |
 | **Overdue** | Past-due tasks grouped by date |
+| **Calendar** | Monthly calendar view |
 | **Project** | Tasks scoped to a project |
 
-Each view supports 3 display modes via the toggle in the header:
+Each list view supports 3 display modes:
 
 | Mode | Description |
 |---|---|
-| List | Grouped by status with show/hide done + sort options |
+| List | Grouped by status or tags; show/hide done; sortable |
 | Board | Kanban with drag-to-reorder between columns |
 | Calendar | Monthly calendar with drag-to-reschedule |
+
+---
+
+## Keyboard Shortcuts
+
+Desktop only.
+
+| Key | Action |
+|---|---|
+| `q` | Add new task |
+| `i` | Go to Inbox |
+| `t` | Go to Today |
+| `o` | Go to Overdue |
+| `c` | Go to Calendar |
+| `l` | List view |
+| `k` | Kanban view |
+| `s` | Toggle sidebar collapse |
+| `?` | Show shortcuts |
+| `Esc` | Close modal |
 
 ---
 
@@ -189,7 +228,7 @@ curl -X POST http://localhost:5001/api/nlp/parse \
 | `project_id` | string | Project ID (default: `inbox`) |
 | `tags` | string[] | Array of tag strings |
 | `links` | `{url, label}[]` | Array of link objects |
-| `recurrence` | string | e.g. `daily`, `weekly`, `every 2 weeks` |
+| `recurrence` | string | RFC 5545 RRULE e.g. `RRULE:FREQ=WEEKLY;BYDAY=MO` |
 | `recurrence_end` | `YYYY-MM-DD` | Stop date for recurrence |
 
 ```bash
@@ -205,7 +244,7 @@ curl -X PATCH http://localhost:5001/api/tasks/<id> \
   -H "Content-Type: application/json" \
   -d '{"status": "done"}'
 
-# Mark done via NLP parse + create in one shot (jq required)
+# Parse NLP + create in one shot (requires jq)
 curl -s -X POST http://localhost:5001/api/nlp/parse \
   -H "Authorization: Bearer $TD_API_KEY" \
   -H "Content-Type: application/json" \
@@ -226,20 +265,6 @@ curl -s -X POST http://localhost:5001/api/nlp/parse \
 | `PATCH` | `/api/tasks/<id>/subtasks/<sid>` | Update subtask (`completed`, `title`) |
 | `DELETE` | `/api/tasks/<id>/subtasks/<sid>` | Delete subtask |
 
-```bash
-# Add a subtask
-curl -X POST http://localhost:5001/api/tasks/<id>/subtasks \
-  -H "Authorization: Bearer $TD_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"title": "Pick up milk"}'
-
-# Mark subtask complete
-curl -X PATCH http://localhost:5001/api/tasks/<id>/subtasks/<sid> \
-  -H "Authorization: Bearer $TD_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"completed": true}'
-```
-
 ---
 
 ### Projects
@@ -257,15 +282,7 @@ curl -X PATCH http://localhost:5001/api/tasks/<id>/subtasks/<sid> \
 |---|---|---|
 | `name` | string | Project name |
 | `color` | string | Hex color e.g. `#7aa2f7` |
-| `icon` | string | Lucide icon name e.g. `rocket`, `briefcase`, `folder` |
-
-```bash
-# Create a project
-curl -X POST http://localhost:5001/api/projects \
-  -H "Authorization: Bearer $TD_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"name": "Work", "color": "#7aa2f7", "icon": "briefcase"}'
-```
+| `icon` | string | Lucide icon name e.g. `rocket`, `briefcase` |
 
 Available icons: `folder`, `home`, `briefcase`, `target`, `flask`, `book`, `palette`, `bulb`, `cart`, `dumbbell`, `music`, `plane`, `monitor`, `leaf`, `rocket`, `heart`, `star`, `zap`, `globe`, `code`, `camera`, `coffee`, `wrench`, `shield`, `smile`
 
@@ -291,10 +308,11 @@ Available icons: `folder`, `home`, `briefcase`, `target`, `flask`, `book`, `pale
 ## Automation Examples
 
 ### iOS Shortcut — quick capture
-Add tasks from anywhere on your phone using the iOS Shortcuts app:
+
+Add tasks from anywhere on your phone via the iOS Shortcuts app:
 
 ```
-POST /api/nlp/parse   → pipe result →   POST /api/tasks
+POST /api/nlp/parse  →  POST /api/tasks
 Authorization: Bearer <TD_API_KEY>
 ```
 
@@ -331,12 +349,16 @@ curl -s http://localhost:5001/api/tasks/overdue \
 ## Stack
 
 - **Backend** — Python 3.12 + Flask + PostgreSQL
-- **Frontend** — React + Vite + Tailwind CSS (Tokyo Night dark / Tokyo Day light)
-- **Auth** — Session-based with PostgreSQL storage, optional Bearer API key
-- **Deployment** — Docker Compose, data persisted in `./data/postgres/`
+- **Frontend** — React 19 + Vite + Tailwind CSS
+- **NLP** — `dateparser` + `python-dateutil` (RRULE) — no external AI API
+- **Theme** — Tokyo Night (dark) / Tokyo Day (light)
+- **Auth** — Session-based with PostgreSQL storage; optional Bearer API key
+- **Deployment** — Docker Compose; data persisted in `./data/postgres/`
 
 ---
 
-## CI
+## CI / Deployment
 
 Every push to `main` builds and pushes a multi-arch image (`amd64` + `arm64`) to `ghcr.io/mvaldes14/task-manager:latest` via GitHub Actions.
+
+Development happens on `dev` — merge to `main` to trigger a release.
