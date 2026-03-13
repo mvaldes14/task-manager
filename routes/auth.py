@@ -120,8 +120,8 @@ def do_login():
 @bp.route('/auth/logout', methods=['POST'])
 def do_logout():
     _delete_session(request.cookies.get('td_session', ''))
-    resp = make_response(redirect('/login'))
-    resp.delete_cookie('td_session')
+    resp = make_response(jsonify({'ok': True}))
+    resp.delete_cookie('td_session', path='/', samesite='Lax', httponly=True)
     return resp
 
 @bp.route('/auth/status')

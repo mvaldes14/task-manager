@@ -10,7 +10,7 @@ async function req(path, method = 'GET', body = null) {
   if (body) opts.body = JSON.stringify(body)
   const res = await fetch(base + path, opts)
   if (res.status === 401) {
-    window.location.reload()
+    window.location.href = '/login'
     return null
   }
   if (!res.ok) {
@@ -24,7 +24,7 @@ export const api = {
   // Auth
   login: (username, password, remember) =>
     req('/login', 'POST', { username, password, remember }),
-  logout: () => req('/logout', 'POST'),
+  logout: () => fetch('/auth/logout', { method: 'POST', credentials: 'include' }),
 
   // Projects
   getProjects: () => req('/projects'),

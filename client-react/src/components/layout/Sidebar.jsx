@@ -217,7 +217,7 @@ export function Sidebar() {
       <div className="border-t border-td-border/50 dark:border-tn-border/50 px-2 py-3">
         <div className="flex items-center gap-1">
           <button
-            onClick={async () => { await api.logout(); window.location.reload() }}
+            onClick={async () => { await api.logout(); window.location.href = '/login' }}
             className="flex-1 flex items-center gap-3 px-3 py-2 rounded-lg text-sm
               text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg
               hover:bg-td-surface/50 dark:hover:bg-tn-surface/50 transition-colors"
