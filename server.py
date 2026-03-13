@@ -30,7 +30,8 @@ _last_purge = [0.0]
 @app.before_request
 def require_auth():
     path = request.path
-    if (path in _PUBLIC_PATHS
+    if (request.method == 'OPTIONS'
+            or path in _PUBLIC_PATHS
             or path.startswith('/assets/')
             or path.startswith('/icons/')):
         return None
@@ -47,16 +48,24 @@ def require_auth():
 
 # ── Static / SPA fallback ────────────────────────────────────────────────────
 
+@app.after_request
+def add_cors(response):
+    response.headers['Access-Control-Allow-Origin']  = '*'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-API-Key'
+    response.headers['Access-Control-Allow-Methods'] = 'GET,POST,PUT,PATCH,DELETE,OPTIONS'
+    return response
+
+
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def serve_spa(path):
-    if path == 'login':
-        from routes.auth import login_page
-        return login_page()
     dist = app.static_folder
     full = os.path.join(dist, path)
     if path and os.path.exists(full):
-        return send_from_directory(dist, path)
+        mimetype = None
+        if path.endswith('.webmanifest'):
+            mimetype = 'application/manifest+json'
+        return send_from_directory(dist, path, mimetype=mimetype)
     return send_from_directory(dist, 'index.html')
 
 # ── Startup ───────────────────────────────────────────────────────────────────
