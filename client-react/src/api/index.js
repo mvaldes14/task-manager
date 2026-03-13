@@ -23,7 +23,7 @@ async function req(path, method = 'GET', body = null) {
 export const api = {
   // Auth
   login: (username, password, remember) =>
-    req('/login', 'POST', { username, password, remember }),
+    fetch('/auth/login', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password, remember }) }).then(r => r.json()),
   logout: () => fetch('/auth/logout', { method: 'POST', credentials: 'include' }),
 
   // Projects
