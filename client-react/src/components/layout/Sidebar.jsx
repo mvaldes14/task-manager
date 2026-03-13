@@ -191,7 +191,7 @@ export function Sidebar() {
       <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
         <NavItem icon={Inbox}       label="Inbox"     viewKey="inbox"    badge={inboxCount} collapsed={collapsed} />
         <NavItem icon={Sun}         label="Today"     viewKey="today"    badge={todayCount} collapsed={collapsed} />
-        <NavItem icon={Layers}      label="All Tasks" viewKey="all"      collapsed={collapsed} />
+        <NavItem icon={Layers}      label="All"       viewKey="all"      collapsed={collapsed} />
         <NavItem icon={Calendar}    label="Calendar"  viewKey="calendar" collapsed={collapsed} />
         <NavItem icon={AlertCircle} label="Overdue"   viewKey="overdue"
           badge={overdueCount} badgeColor="bg-td-red dark:bg-tn-red" collapsed={collapsed} />

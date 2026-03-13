@@ -9,7 +9,7 @@ import { CalendarView } from '../calendar/CalendarView'
 import { LayoutList, Columns, Menu, Search, X, ChevronDown } from 'lucide-react'
 import { ProjectIcon } from '../shared/ProjectIcon'
 
-function ViewHeader({ title, count, onSearch, searchOpen, setSearchOpen }) {
+function ViewHeader({ title, count, onSearch, searchOpen, setSearchOpen, searchScope, setSearchScope }) {
   const { state, dispatch } = useApp()
   const [searchQuery, setSearchQuery] = useState('')
   const inputRef = useRef(null)
@@ -30,7 +30,6 @@ function ViewHeader({ title, count, onSearch, searchOpen, setSearchOpen }) {
   }, [setSearchOpen, onSearch])
 
   // When searchOpen flips true externally (keyboard shortcut), focus input
-  useRef(null) // placeholder — use effect below
   const prevOpen = useRef(false)
   if (searchOpen && !prevOpen.current) {
     setTimeout(() => inputRef.current?.focus(), 50)
@@ -45,6 +44,9 @@ function ViewHeader({ title, count, onSearch, searchOpen, setSearchOpen }) {
   const handleKeyDown = (e) => {
     if (e.key === 'Escape') closeSearch()
   }
+
+  // Only show scope toggle when not already in "all" view
+  const showScopeToggle = searchOpen && state.view !== 'all'
 
   return (
     <div className="flex items-center justify-between px-4 py-3.5 border-b border-td-border/50 dark:border-tn-border/50 shrink-0 gap-2">
@@ -68,9 +70,21 @@ function ViewHeader({ title, count, onSearch, searchOpen, setSearchOpen }) {
             onChange={handleChange}
             onKeyDown={handleKeyDown}
             placeholder="Search tasks…"
-            className="flex-1 bg-transparent text-td-fg dark:text-tn-fg text-sm outline-none placeholder-td-muted/40 dark:placeholder-tn-muted/40"
+            className="flex-1 bg-transparent text-td-fg dark:text-tn-fg text-sm outline-none placeholder-td-muted/40 dark:placeholder-tn-muted/40 min-w-0"
           />
-          <button onClick={closeSearch} className="text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg transition-colors">
+          {showScopeToggle && (
+            <button
+              onClick={() => setSearchScope(s => s === 'view' ? 'all' : 'view')}
+              title={searchScope === 'all' ? 'Searching all tasks — click for current view' : 'Searching current view — click for all tasks'}
+              className={`shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-md border transition-colors whitespace-nowrap
+                ${searchScope === 'all'
+                  ? 'bg-td-blue/15 dark:bg-tn-blue/15 text-td-blue dark:text-tn-blue border-td-blue/30 dark:border-tn-blue/30'
+                  : 'text-td-muted dark:text-tn-muted border-td-border dark:border-tn-border hover:text-td-fg dark:hover:text-tn-fg'}`}
+            >
+              {searchScope === 'all' ? 'All tasks' : 'This view'}
+            </button>
+          )}
+          <button onClick={closeSearch} className="text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg transition-colors shrink-0">
             <X size={14} />
           </button>
         </div>
@@ -90,18 +104,16 @@ function ViewHeader({ title, count, onSearch, searchOpen, setSearchOpen }) {
       )}
 
       <div className="flex items-center gap-1 shrink-0">
-        {/* Search icon */}
         {!searchOpen && (
           <button
             onClick={openSearch}
             className="p-1.5 rounded-lg text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg hover:bg-td-surface dark:hover:bg-tn-surface transition-colors"
-            title="Search tasks"
+            title="Search tasks (/)"
           >
             <Search size={16} />
           </button>
         )}
 
-        {/* View mode toggle */}
         {state.view !== 'calendar' && !searchOpen && (
           <div className="flex items-center gap-1 bg-td-surface dark:bg-tn-surface rounded-lg p-0.5">
             <button
@@ -275,6 +287,7 @@ export function MainContent() {
   const [sortBy, setSortBy] = useState(() => localStorage.getItem('td-sort-by') || 'status')
   const [searchQuery, setSearchQuery] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
+  const [searchScope, setSearchScope] = useState('view') // 'view' | 'all'
 
   // Sync global keyboard-triggered searchOpen into local state
   const prevGlobal = useRef(false)
@@ -336,8 +349,11 @@ export function MainContent() {
 
   // Apply show/hide done + sort + search
   const visibleTasks = useMemo(() => {
-    let result = showDone ? baseTasks : baseTasks.filter(t => t.status !== 'done')
-    if (sortBy !== 'status') result = sortTasks(result, sortBy, projects)
+    // If searching across all tasks, start from full task list instead of view-filtered baseTasks
+    const pool = (searchQuery.trim() && searchScope === 'all')
+      ? (showDone ? tasks : tasks.filter(t => t.status !== 'done'))
+      : (showDone ? baseTasks : baseTasks.filter(t => t.status !== 'done'))
+    let result = sortBy !== 'status' ? sortTasks(pool, sortBy, projects) : pool
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase()
       result = result.filter(t =>
@@ -347,7 +363,7 @@ export function MainContent() {
       )
     }
     return result
-  }, [baseTasks, showDone, sortBy, projects, searchQuery])
+  }, [baseTasks, tasks, showDone, sortBy, projects, searchQuery, searchScope])
 
   const activeCount = useMemo(() =>
     baseTasks.filter(t => t.status !== 'done').length, [baseTasks])
@@ -362,10 +378,12 @@ export function MainContent() {
         count={activeCount > 0 ? activeCount : null}
         onSearch={setSearchQuery}
         searchOpen={searchOpen}
+        searchScope={searchScope}
+        setSearchScope={setSearchScope}
         setSearchOpen={(v) => {
           setSearchOpen(v)
           dispatch({ type: 'SET_SEARCH_OPEN', payload: v })
-          if (!v) setSearchQuery('')
+          if (!v) { setSearchQuery(''); setSearchScope('view') }
         }}
       />
 
