@@ -54,33 +54,42 @@ def _create_session(remember):
 
 def _valid_session(sid):
     if not sid: return False
+    conn = None
     try:
         conn = get_db()
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cur.execute("SELECT expires FROM sessions WHERE id=%s", (sid,))
-        row = cur.fetchone(); release_db(conn)
+        row = cur.fetchone()
         if not row: return False
         exp = row['expires']
         exp = exp.replace(tzinfo=timezone.utc) if exp.tzinfo is None else exp
         return datetime.now(timezone.utc) < exp
     except:
         return False
+    finally:
+        if conn: release_db(conn)
 
 def _delete_session(sid):
+    conn = None
     try:
         conn = get_db(); cur = conn.cursor()
         cur.execute("DELETE FROM sessions WHERE id=%s", (sid,))
-        conn.commit(); release_db(conn)
+        conn.commit()
     except:
         pass
+    finally:
+        if conn: release_db(conn)
 
 def _purge_expired_sessions():
+    conn = None
     try:
         conn = get_db(); cur = conn.cursor()
         cur.execute("DELETE FROM sessions WHERE expires<NOW()")
-        conn.commit(); release_db(conn)
+        conn.commit()
     except:
         pass
+    finally:
+        if conn: release_db(conn)
 
 def is_authenticated():
     if API_KEY:
