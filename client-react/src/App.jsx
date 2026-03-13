@@ -28,7 +28,10 @@ function AppShell() {
   }, [])
 
   useEffect(() => {
-    document.documentElement.classList.toggle('dark', state.theme === 'dark')
+    const dark = state.theme === 'dark'
+    document.documentElement.classList.toggle('dark', dark)
+    const meta = document.querySelector('meta[name="theme-color"]')
+    if (meta) meta.setAttribute('content', dark ? '#1a1b26' : '#e1e2e7')
   }, [state.theme])
 
   const closeSidebar = () => dispatch({ type: 'SET_SIDEBAR', payload: false })
