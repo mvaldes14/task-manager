@@ -1,6 +1,13 @@
 # Doit — Task Manager
 
+![Logo](https://s3.mvaldes.dev/doit-logo.png)
+
 A self-hosted task manager that runs as a PWA on phone and web. Understands natural language, syncs with Google Calendar, and links to Obsidian notes.
+
+![Dark Mode](https://s3.mvaldes.dev/doit.png)
+
+![Light Mode](https://s3.mvaldes.dev/doit2.png)
+
 
 ## Quick Start
 
