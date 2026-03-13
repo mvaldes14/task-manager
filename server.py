@@ -50,6 +50,9 @@ def require_auth():
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def serve_spa(path):
+    if path == 'login':
+        from routes.auth import login_page
+        return login_page()
     dist = app.static_folder
     full = os.path.join(dist, path)
     if path and os.path.exists(full):
