@@ -24,7 +24,7 @@ export const api = {
   // Auth
   login: (username, password, remember) =>
     req('/login', 'POST', { username, password, remember }),
-  logout: () => req('/logout', 'POST'),
+  logout: () => fetch('/auth/logout', { method: 'POST', credentials: 'include' }),
 
   // Projects
   getProjects: () => req('/projects'),
