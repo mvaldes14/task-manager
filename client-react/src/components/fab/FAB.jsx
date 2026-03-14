@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { Plus } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { useTasks } from '../../hooks/useTasks'
+import { useInlineAutocomplete } from '../../hooks/useInlineAutocomplete'
 import { api } from '../../api'
 
 // Hardcoded chip colors for dark — light mode uses same values (readable on both)
@@ -26,14 +27,27 @@ export function FAB() {
   const [text, setText] = useState('')
   const [chips, setChips] = useState([])
   const [loading, setLoading] = useState(false)
+  const [allTags, setAllTags] = useState([])
   const inputRef = useRef(null)
   const timerRef = useRef(null)
   const open = state.fabOpen
   const taskOpen = !!state.selectedTaskId
 
+  const { suggestions, trigger, onInputChange, onPick, dismiss } = useInlineAutocomplete({
+    tags: allTags,
+    projects: state.projects,
+  })
+
+  // Fetch tags once when FAB first opens
+  useEffect(() => {
+    if (open && allTags.length === 0) {
+      api.getTags().then(t => setAllTags(t || [])).catch(() => {})
+    }
+  }, [open])
+
   useEffect(() => {
     if (open) setTimeout(() => inputRef.current?.focus(), 80)
-    else { setText(''); setChips([]) }
+    else { setText(''); setChips([]); dismiss() }
   }, [open])
 
   // Global keyboard shortcut: Q or Cmd+K opens FAB (desktop only)
@@ -70,8 +84,8 @@ export function FAB() {
         if (result.due_time) label += ' · ' + result.due_time.slice(0,5)
         next.push({ label, ...CHIP_COLORS.date })
       }
-      if (result.tags?.length) {
-        result.tags.forEach(t => next.push({ label: '@'+t, ...CHIP_COLORS.tag }))
+      if (result.labels?.length) {
+        result.labels.forEach(t => next.push({ label: '@'+t, ...CHIP_COLORS.tag }))
       }
       if (result.obsidian_url) {
         next.push({ label: '📎 Note', ...CHIP_COLORS.obsidian })
@@ -83,8 +97,17 @@ export function FAB() {
   const handleChange = (e) => {
     const val = e.target.value
     setText(val)
+    onInputChange(val)
     clearTimeout(timerRef.current)
     timerRef.current = setTimeout(() => parseNlp(val), 400)
+  }
+
+  const handlePick = (picked) => {
+    const newVal = onPick(text, picked)
+    setText(newVal)
+    inputRef.current?.focus()
+    clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => parseNlp(newVal), 400)
   }
 
   const submit = async () => {
@@ -96,6 +119,7 @@ export function FAB() {
   }
 
   const handleKeyDown = (e) => {
+    if (suggestions.length && e.key === 'Escape') { e.preventDefault(); dismiss(); return }
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit() }
     if (e.key === 'Escape') dispatch({ type: 'SET_FAB', payload: { open: false } })
   }
@@ -133,7 +157,7 @@ export function FAB() {
       {/* Backdrop */}
       {open && <div className="fixed inset-0 z-[88] bg-black/60 animate-fade-in" onClick={close} />}
 
-      {/* Centered modal */}
+      {/* Modal */}
       {open && (
         <div className="fixed inset-0 z-[89] flex items-center justify-center px-4 pointer-events-none">
           <div
@@ -142,7 +166,7 @@ export function FAB() {
             onClick={e => e.stopPropagation()}
           >
             {/* Input */}
-            <div className="px-5 pt-6 pb-3">
+            <div className="px-5 pt-6 pb-3 relative">
               <input
                 ref={inputRef}
                 type="text"
@@ -153,6 +177,20 @@ export function FAB() {
                 className="w-full bg-transparent text-td-fg dark:text-tn-fg text-xl font-medium
                   outline-none leading-snug placeholder-td-muted/40 dark:placeholder-tn-muted/40"
               />
+              {/* Autocomplete dropdown */}
+              {suggestions.length > 0 && (
+                <div className="absolute left-5 right-5 bottom-full mb-1 bg-td-bg2 dark:bg-tn-bg2 border border-td-border dark:border-tn-border rounded-xl shadow-lg overflow-hidden z-10">
+                  {suggestions.map(s => (
+                    <button
+                      key={s}
+                      onMouseDown={e => { e.preventDefault(); handlePick(s) }}
+                      className="w-full text-left px-4 py-2 text-sm text-td-fg dark:text-tn-fg hover:bg-td-surface dark:hover:bg-tn-surface transition-colors"
+                    >
+                      <span className="text-td-muted dark:text-tn-muted">{trigger}</span>{s}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* NLP chips */}
