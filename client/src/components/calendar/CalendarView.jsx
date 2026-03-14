@@ -53,6 +53,7 @@ export function CalendarView({ tasks }) {
   const dragTask = useRef(null)
   const ghostEl = useRef(null)
   const cellRefs = useRef({})
+  const touchListeners = useRef({ onMove: null, onEnd: null })
 
   // ── ICS events ────────────────────────────────────────────────
   const [icsCalendars, setIcsCalendars] = useState([])
@@ -140,6 +141,14 @@ export function CalendarView({ tasks }) {
     return null
   }, [])
 
+  // Clean up any dangling touch listeners on unmount
+  useEffect(() => () => {
+    const { onMove, onEnd } = touchListeners.current
+    if (onMove) window.removeEventListener('touchmove', onMove)
+    if (onEnd)  window.removeEventListener('touchend',  onEnd)
+    ghostEl.current?.remove()
+  }, [])
+
   const handleTouchStart = useCallback((e, task) => {
     if (e.touches.length !== 1) return
     dragTask.current = task
@@ -155,6 +164,7 @@ export function CalendarView({ tasks }) {
     const onEnd = async (ev) => {
       window.removeEventListener('touchmove', onMove)
       window.removeEventListener('touchend', onEnd)
+      touchListeners.current = { onMove: null, onEnd: null }
       const task = dragTask.current
       const t = ev.changedTouches[0]
       const targetDate = getDateAtPoint(t.clientX, t.clientY)
@@ -166,6 +176,7 @@ export function CalendarView({ tasks }) {
         await updateTask(task.id, { due_date: targetDate })
       }
     }
+    touchListeners.current = { onMove, onEnd }
     window.addEventListener('touchmove', onMove, { passive: false })
     window.addEventListener('touchend', onEnd)
   }, [createGhost, moveGhost, removeGhost, getDateAtPoint, dispatch, updateTask])
@@ -245,7 +256,7 @@ export function CalendarView({ tasks }) {
               const dayIcs   = (dateStr && icsEventsByDate[dateStr]) || []
               const isOver = dateStr && overDate === dateStr
               const totalItems = dayTasks.length + dayIcs.length
-              const MAX_SHOW = Math.max(2, Math.floor((totalItems > 0 ? 4 : 2)))
+              const MAX_SHOW = totalItems > 0 ? 4 : 2
 
               return (
                 <div

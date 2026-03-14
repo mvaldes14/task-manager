@@ -68,11 +68,15 @@ function ProjectFormModal({ project, onClose }) {
 
   const handleDelete = () => {
     confirm('Delete this project? Tasks will be unassigned.', async () => {
-      await api.deleteProject(project.id)
-      dispatch({ type: 'DELETE_PROJECT', payload: project.id })
-      if (state.view === `project:${project.id}`) dispatch({ type: 'SET_VIEW', payload: 'inbox' })
-      toast('Project deleted')
-      onClose()
+      try {
+        await api.deleteProject(project.id)
+        dispatch({ type: 'DELETE_PROJECT', payload: project.id })
+        if (state.view === `project:${project.id}`) dispatch({ type: 'SET_VIEW', payload: 'inbox' })
+        toast('Project deleted')
+        onClose()
+      } catch {
+        toast('Failed to delete project')
+      }
     })
   }
 
@@ -152,15 +156,12 @@ export function Sidebar() {
     <aside
       className={`
         fixed left-0 top-0 z-50 bg-td-bg2 dark:bg-tn-bg2 border-r border-td-border dark:border-tn-border
-        flex flex-col transition-all duration-200
-        md:relative md:inset-y-0 md:translate-x-0 md:flex
+        flex flex-col transition-all duration-200 [bottom:calc(56px+env(safe-area-inset-bottom,0px))]
+        md:relative md:inset-y-0 md:translate-x-0 md:flex md:bottom-0
         ${collapsed ? 'w-[56px]' : 'w-64'}
         ${state.sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
       `}
-      style={{
-        paddingTop: 'env(safe-area-inset-top, 0px)',
-        bottom: window.innerWidth < 768 ? 'calc(56px + env(safe-area-inset-bottom, 0px))' : '0',
-      }}>
+      style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
 
       {/* Header */}
       <div className={`flex items-center py-4 ${collapsed ? 'justify-center px-0' : 'justify-between px-4'}`}>

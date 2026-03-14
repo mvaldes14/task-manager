@@ -16,13 +16,13 @@ function AppShell() {
   const [authed, setAuthed] = useState(null)
 
   useEffect(() => {
-    api.getProjects()
+    api.getSettings()
       .then(data => {
         if (data !== null) { setAuthed(true); loadAll() }
         else setAuthed(false)
       })
       .catch(() => setAuthed(false))
-  }, [])
+  }, [loadAll])
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', state.theme === 'dark')

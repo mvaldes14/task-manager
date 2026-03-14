@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { useApp } from '../../context/AppContext'
 import { useTasks } from '../../hooks/useTasks'
 import { TaskCard } from './TaskCard'
@@ -19,6 +19,15 @@ export function KanbanBoard({ tasks }) {
   const touchDragTask = useRef(null)
   const ghostEl = useRef(null)
   const colRefs = useRef({})
+  const touchListeners = useRef({ onMove: null, onEnd: null })
+
+  // Clean up any dangling touch listeners on unmount
+  useEffect(() => () => {
+    const { onMove, onEnd } = touchListeners.current
+    if (onMove) window.removeEventListener('touchmove', onMove)
+    if (onEnd)  window.removeEventListener('touchend',  onEnd)
+    if (ghostEl.current) { ghostEl.current.remove(); ghostEl.current = null }
+  }, [])
 
   // ── Desktop (HTML5) ───────────────────────────────────────────
   const handleDragStart = (e, task) => {

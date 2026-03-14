@@ -33,6 +33,7 @@ export const api = {
   deleteProject: (id) => req(`/projects/${id}`, 'DELETE'),
 
   // Tasks — always include browser timezone so GCal events land at the right time
+  getTask: (id) => req(`/tasks/${id}`),
   getTasks: (params = {}) => {
     const q = new URLSearchParams(params).toString()
     return req('/tasks' + (q ? '?' + q : ''))
@@ -65,7 +66,14 @@ export const api = {
     fd.append('name', name)
     fd.append('color', color)
     return fetch(base + '/ics', { method: 'POST', body: fd, credentials: 'include' })
-      .then(r => r.json())
+      .then(async r => {
+        if (r.status === 401) { window.location.reload(); return null }
+        if (!r.ok) {
+          const err = await r.json().catch(() => ({ error: r.statusText }))
+          throw new Error(err.error || r.statusText)
+        }
+        return r.json().catch(() => null)
+      })
   },
   deleteIcs: (id) => req(`/ics/${id}`, 'DELETE'),
   getIcsEvents: (id, year, month) => req(`/ics/${id}/events?year=${year}&month=${month}`),

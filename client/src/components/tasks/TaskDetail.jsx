@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useApp } from '../../context/AppContext'
 import { useTasks } from '../../hooks/useTasks'
 import { api } from '../../api'
-import { formatDate, fmtTime, recurrenceLabel } from '../../utils'
+import { formatDate, fmtTime, recurrenceLabel, getLinkLabel, getLinkStyle } from '../../utils'
 import { X, Trash2, Plus, Check, ChevronRight, Paperclip, GitBranch, Link2 } from 'lucide-react'
 
 const STATUSES = ['todo', 'doing', 'done']
@@ -13,9 +13,8 @@ function SubtaskRow({ sub, taskId }) {
 
   const toggle = async () => {
     try {
-      const updated = await api.updateSubtask(taskId, sub.id, { completed: !sub.completed })
-      // refresh task
-      const task = await api.getTasks().then(ts => ts?.find(t => t.id === taskId))
+      await api.updateSubtask(taskId, sub.id, { completed: !sub.completed })
+      const task = await api.getTask(taskId)
       if (task) dispatch({ type: 'UPDATE_TASK', payload: task })
     } catch { toast('Failed to update subtask') }
   }
@@ -23,7 +22,7 @@ function SubtaskRow({ sub, taskId }) {
   const del = async () => {
     try {
       await api.deleteSubtask(taskId, sub.id)
-      const task = await api.getTasks().then(ts => ts?.find(t => t.id === taskId))
+      const task = await api.getTask(taskId)
       if (task) dispatch({ type: 'UPDATE_TASK', payload: task })
     } catch { toast('Failed to delete subtask') }
   }
@@ -43,24 +42,6 @@ function SubtaskRow({ sub, taskId }) {
       </button>
     </div>
   )
-}
-
-function getLinkLabel(url = '') {
-  if (url.startsWith('obsidian://')) return 'Obsidian Note'
-  if (url.includes('github.com'))   return 'GitHub'
-  try { return new URL(url).hostname.replace(/^www\./, '') } catch { return 'Link' }
-}
-
-function linkStyle(url = '', dark = false) {
-  if (url.startsWith('obsidian://')) return dark
-    ? { color: '#bb9af7', bg: 'rgba(187,154,247,0.15)' }
-    : { color: '#7c4fb5', bg: 'rgba(187,154,247,0.18)' }
-  if (url.includes('github.com'))   return dark
-    ? { color: '#57606a', bg: 'rgba(87,96,106,0.12)' }
-    : { color: '#24292f', bg: 'rgba(87,96,106,0.14)' }
-  return dark
-    ? { color: '#e0af68', bg: 'rgba(224,175,104,0.15)' }
-    : { color: '#8f6120', bg: 'rgba(224,175,104,0.20)' }
 }
 
 function LinkIcon({ url }) {
@@ -106,7 +87,7 @@ function LinksSection({ task, onUpdate }) {
       </div>
 
       {links.map((link, i) => {
-        const s = linkStyle(link.url, isDark)
+        const s = getLinkStyle(link.url, isDark)
         return (
           <div key={i} className="flex items-center gap-2">
             <a href={link.url} target="_blank" rel="noopener noreferrer"
@@ -184,13 +165,13 @@ export function TaskDetail() {
 
   if (!task) return null
 
-  const close = () => {
-    if (dirty) save()
+  const close = async () => {
+    if (dirty) await save()
     dispatch({ type: 'SELECT_TASK', payload: null })
   }
 
-  const save = async () => {
-    if (!dirty) return
+  const save = async (overrides = {}) => {
+    if (!dirty && !Object.keys(overrides).length) return
     setSaving(true)
     await updateTask(task.id, {
       title, description, status,
@@ -198,6 +179,7 @@ export function TaskDetail() {
       due_time: dueTime || null,
       project_id: projectId || null,
       tags,
+      ...overrides,
     })
     setSaving(false)
     setDirty(false)
@@ -279,7 +261,7 @@ export function TaskDetail() {
             <label className="text-xs font-bold text-td-muted dark:text-tn-muted">Status</label>
             <select
               value={status}
-              onChange={e => { setStatus(e.target.value); markDirty(); save() }}
+              onChange={e => { const v = e.target.value; setStatus(v); markDirty(); save({ status: v }) }}
               className="w-full bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-xs rounded-lg px-2.5 py-2 outline-none border border-td-border/50 dark:border-tn-border/50 appearance-none cursor-pointer"
             >
               {STATUSES.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
@@ -308,7 +290,7 @@ export function TaskDetail() {
             <label className="text-xs font-bold text-td-muted dark:text-tn-muted">Project</label>
             <select
               value={projectId}
-              onChange={e => { setProjectId(e.target.value); markDirty(); save() }}
+              onChange={e => { const v = e.target.value; setProjectId(v); markDirty(); save({ project_id: v || null }) }}
               className="w-full bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-xs rounded-lg px-2.5 py-2 outline-none border border-td-border/50 dark:border-tn-border/50"
             >
               <option value="">No project</option>

@@ -1,4 +1,4 @@
-import { createContext, useContext, useReducer, useCallback, useEffect } from 'react'
+import { createContext, useContext, useReducer, useCallback, useEffect, useRef } from 'react'
 import { isOverdue, isToday } from '../utils'
 
 const AppContext = createContext(null)
@@ -14,6 +14,7 @@ const initialState = {
   selectedTaskId: null,
   // UI
   sidebarOpen: false,
+  sidebarCollapsed: false,
   fabOpen: false,
   fabTargetStatus: 'todo',
   toast: null,
@@ -40,7 +41,8 @@ function reducer(state, action) {
     case 'SET_VIEW':        return { ...state, view: action.payload, sidebarOpen: false, selectedTaskId: null }
     case 'SET_VIEW_MODE':   return { ...state, viewMode: action.payload }
     case 'SELECT_TASK':     return { ...state, selectedTaskId: action.payload }
-    case 'SET_SIDEBAR':     return { ...state, sidebarOpen: action.payload }
+    case 'SET_SIDEBAR':              return { ...state, sidebarOpen: action.payload }
+    case 'TOGGLE_SIDEBAR_COLLAPSED': return { ...state, sidebarCollapsed: !state.sidebarCollapsed }
     case 'SET_FAB':         return { ...state, fabOpen: action.payload.open, fabTargetStatus: action.payload.status || state.fabTargetStatus }
     case 'SET_TOAST':       return { ...state, toast: action.payload }
     case 'SET_CONFIRM':     return { ...state, confirm: action.payload }
@@ -53,6 +55,7 @@ function reducer(state, action) {
 
 export function AppProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, initialState)
+  const toastTimer = useRef(null)
 
   // PWA app icon badge — overdue + today incomplete
   useEffect(() => {
@@ -63,8 +66,12 @@ export function AppProvider({ children }) {
   }, [state.tasks])
 
   const toast = useCallback((msg) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current)
     dispatch({ type: 'SET_TOAST', payload: msg })
-    setTimeout(() => dispatch({ type: 'SET_TOAST', payload: null }), 3000)
+    toastTimer.current = setTimeout(() => {
+      dispatch({ type: 'SET_TOAST', payload: null })
+      toastTimer.current = null
+    }, 3000)
   }, [])
 
   const confirm = useCallback((message, onOk) => {
