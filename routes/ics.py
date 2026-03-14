@@ -109,12 +109,21 @@ def get_ics_events(cid):
     conn = get_db()
     try:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        cur.execute("SELECT content FROM ics_calendars WHERE id=%s", (cid,)); row = cur.fetchone()
+        cur.execute("SELECT content, url FROM ics_calendars WHERE id=%s", (cid,))
+        row = cur.fetchone()
     finally:
         release_db(conn)
     if not row: return jsonify({'error': 'Not found'}), 404
+    content = row['content']
+    if row['url']:
+        try:
+            import urllib.request
+            with urllib.request.urlopen(row['url'], timeout=10) as r:
+                content = r.read().decode('utf-8', errors='replace')
+        except Exception:
+            pass  # fall back to stored content if fetch fails
     try:
-        events = _parse_ics(row['content'], year, month)
+        events = _parse_ics(content, year, month)
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
     return jsonify(events)
