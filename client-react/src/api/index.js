@@ -69,6 +69,6 @@ export const api = {
   },
   deleteIcs: (id) => req(`/ics/${id}`, 'DELETE'),
   getIcsEvents: (id, year, month) => req(`/ics/${id}/events?year=${year}&month=${month}`),
-  getSettings: () => fetch('/auth/status', { credentials: 'include' }).then(r => r.ok ? r.json() : null),
+  getTags: () => req('/tags'),
   updateSettings: (data) => req('/settings', 'PATCH', data),
 }

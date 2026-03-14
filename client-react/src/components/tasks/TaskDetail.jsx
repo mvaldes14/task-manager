@@ -164,6 +164,8 @@ export function TaskDetail() {
   const [projectId, setProjectId] = useState('')
   const [tags, setTags] = useState([])
   const [tagInput, setTagInput] = useState('')
+  const [allTags, setAllTags] = useState([])
+  const [tagDropdownOpen, setTagDropdownOpen] = useState(false)
   const [subtaskInput, setSubtaskInput] = useState('')
   const [saving, setSaving] = useState(false)
   const [dirty, setDirty] = useState(false)
@@ -181,6 +183,11 @@ export function TaskDetail() {
     setTags(task.tags || [])
     setDirty(false)
   }, [task?.id])
+
+  // Fetch all existing tags once
+  useEffect(() => {
+    api.getTags().then(t => setAllTags(t || [])).catch(() => {})
+  }, [])
 
   if (!task) return null
 
@@ -331,17 +338,47 @@ export function TaskDetail() {
                 ))}
               </div>
             )}
-            <div className="flex gap-2">
-              <input
-                type="text" value={tagInput}
-                onChange={e => setTagInput(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') addTag() }}
-                placeholder="Add tag…"
-                className="flex-1 bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-xs rounded-lg px-2.5 py-2 outline-none border border-td-border/50 dark:border-tn-border/50 placeholder-td-muted/40 dark:placeholder-tn-muted/40"
-              />
-              <button onClick={addTag} className="px-3 py-2 bg-td-surface dark:bg-tn-surface text-td-muted dark:text-tn-muted hover:text-td-blue dark:text-tn-blue rounded-lg text-xs border border-td-border/50 dark:border-tn-border/50">
-                <Plus size={12} />
-              </button>
+            <div className="relative">
+              <div className="flex gap-2">
+                <input
+                  type="text" value={tagInput}
+                  onChange={e => { setTagInput(e.target.value); setTagDropdownOpen(true) }}
+                  onFocus={() => setTagDropdownOpen(true)}
+                  onBlur={() => setTimeout(() => setTagDropdownOpen(false), 150)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') { addTag(); setTagDropdownOpen(false) }
+                    if (e.key === 'Escape') setTagDropdownOpen(false)
+                  }}
+                  placeholder="Add tag…"
+                  className="flex-1 bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-xs rounded-lg px-2.5 py-2 outline-none border border-td-border/50 dark:border-tn-border/50 placeholder-td-muted/40 dark:placeholder-tn-muted/40"
+                />
+                <button onClick={() => { addTag(); setTagDropdownOpen(false) }} className="px-3 py-2 bg-td-surface dark:bg-tn-surface text-td-muted dark:text-tn-muted hover:text-td-blue dark:text-tn-blue rounded-lg text-xs border border-td-border/50 dark:border-tn-border/50">
+                  <Plus size={12} />
+                </button>
+              </div>
+              {tagDropdownOpen && (() => {
+                const filtered = allTags.filter(t =>
+                  !tags.includes(t) &&
+                  t.toLowerCase().includes(tagInput.toLowerCase())
+                )
+                if (!filtered.length) return null
+                return (
+                  <div className="absolute z-10 top-full mt-1 left-0 right-8 bg-td-bg2 dark:bg-tn-bg2 border border-td-border dark:border-tn-border rounded-lg shadow-lg overflow-hidden">
+                    {filtered.map(t => (
+                      <button
+                        key={t}
+                        onMouseDown={() => {
+                          const next = [...tags, t]
+                          setTags(next); setTagInput(''); setTagDropdownOpen(false); markDirty()
+                        }}
+                        className="w-full text-left px-3 py-1.5 text-xs text-td-fg dark:text-tn-fg hover:bg-td-surface dark:hover:bg-tn-surface transition-colors"
+                      >
+                        @{t}
+                      </button>
+                    ))}
+                  </div>
+                )
+              })()}
             </div>
           </div>
 
