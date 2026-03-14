@@ -14,7 +14,7 @@ export function LoginScreen({ onLogin }) {
     setLoading(true); setError('')
     try {
       const result = await api.login(username, password, remember)
-      if (result?.success) {
+      if (result?.ok) {
         onLogin()
       } else {
         setError('Invalid username or password')

@@ -21,7 +21,7 @@ function AppShell() {
   useEffect(() => {
     api.getSettings()
       .then(data => {
-        if (data !== null) { setAuthed(true); loadAll() }
+        if (data?.authenticated) { setAuthed(true); loadAll() }
         else setAuthed(false)
       })
       .catch(() => setAuthed(false))
