@@ -21,11 +21,16 @@ function AppShell() {
   useEffect(() => {
     api.getSettings()
       .then(data => {
-        if (data?.authenticated) { setAuthed(true); loadAll() }
-        else setAuthed(false)
+        if (data?.authenticated || !data?.password_set) {
+          dispatch({ type: 'SET_SETTINGS', payload: data })
+          setAuthed(true)
+          loadAll()
+        } else {
+          setAuthed(false)
+        }
       })
       .catch(() => setAuthed(false))
-  }, [loadAll])
+  }, [loadAll, dispatch])
 
   useEffect(() => {
     const dark = state.theme === 'dark'

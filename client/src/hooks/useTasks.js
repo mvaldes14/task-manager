@@ -6,14 +6,12 @@ export function useTasks() {
   const { state, dispatch, toast } = useApp()
 
   const loadAll = useCallback(async () => {
-    const [projects, tasks, settings] = await Promise.all([
+    const [projects, tasks] = await Promise.all([
       api.getProjects(),
       api.getTasks(),
-      api.getSettings().catch(() => null),
     ])
     if (projects) dispatch({ type: 'SET_PROJECTS', payload: projects })
     if (tasks)    dispatch({ type: 'SET_TASKS',    payload: tasks })
-    if (settings) dispatch({ type: 'SET_SETTINGS', payload: settings })
   }, [dispatch])
 
   const loadSettings = useCallback(async () => {
