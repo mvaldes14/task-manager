@@ -52,8 +52,14 @@ def _create_session(remember):
         release_db(conn)
     return sid, expires
 
+_session_cache: dict = {}
+
 def _valid_session(sid):
     if not sid: return False
+    now = datetime.now(timezone.utc)
+    if sid in _session_cache:
+        if now < _session_cache[sid]: return True
+        else: del _session_cache[sid]
     conn = None
     try:
         conn = get_db()
@@ -63,13 +69,17 @@ def _valid_session(sid):
         if not row: return False
         exp = row['expires']
         exp = exp.replace(tzinfo=timezone.utc) if exp.tzinfo is None else exp
-        return datetime.now(timezone.utc) < exp
+        if now < exp:
+            _session_cache[sid] = exp
+            return True
+        return False
     except:
         return False
     finally:
         if conn: release_db(conn)
 
 def _delete_session(sid):
+    _session_cache.pop(sid, None)
     conn = None
     try:
         conn = get_db(); cur = conn.cursor()
