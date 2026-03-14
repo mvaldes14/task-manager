@@ -13,9 +13,34 @@ from routes.tasks    import bp as tasks_bp
 from routes.gcal     import bp as gcal_bp
 from routes.ics      import bp as ics_bp
 
+# ── OpenTelemetry ─────────────────────────────────────────────────────────────
+
+OTEL_ENDPOINT = os.environ.get('OTEL_EXPORTER_OTLP_ENDPOINT', '').strip()
+
+if OTEL_ENDPOINT:
+    from opentelemetry import trace
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import BatchSpanProcessor
+    from opentelemetry.sdk.resources import Resource
+    from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+    from opentelemetry.instrumentation.flask import FlaskInstrumentor
+    from opentelemetry.instrumentation.psycopg2 import Psycopg2Instrumentor
+
+    resource = Resource.create({'service.name': os.environ.get('OTEL_SERVICE_NAME', 'doit')})
+    provider = TracerProvider(resource=resource)
+    provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=OTEL_ENDPOINT)))
+    trace.set_tracer_provider(provider)
+    Psycopg2Instrumentor().instrument()
+    print(f'[otel] tracing enabled -> {OTEL_ENDPOINT}', flush=True)
+else:
+    print('[otel] OTEL_EXPORTER_OTLP_ENDPOINT not set, tracing disabled', flush=True)
+
 # ── App setup ─────────────────────────────────────────────────────────────────
 
 app = Flask(__name__, static_folder='client/dist')
+
+if OTEL_ENDPOINT:
+    FlaskInstrumentor().instrument_app(app)
 
 app.register_blueprint(auth_bp)
 app.register_blueprint(projects_bp)

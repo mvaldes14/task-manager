@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
+import './otel.js'
 import App from './App.jsx'
 
 // Apply saved theme before render to avoid flash

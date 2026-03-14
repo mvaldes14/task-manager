@@ -11,6 +11,8 @@ FROM python:3.12-slim
 WORKDIR /app
 RUN pip install flask gunicorn psycopg2-binary icalendar \
     google-api-python-client google-auth-httplib2 google-auth-oauthlib \
+    opentelemetry-sdk opentelemetry-exporter-otlp-proto-grpc \
+    opentelemetry-instrumentation-flask opentelemetry-instrumentation-psycopg2 \
     --no-cache-dir
 COPY server.py .
 COPY lib/ ./lib/
