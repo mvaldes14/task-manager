@@ -67,7 +67,7 @@ export const api = {
     fd.append('color', color)
     return fetch(base + '/ics', { method: 'POST', body: fd, credentials: 'include' })
       .then(async r => {
-        if (r.status === 401) { window.location.reload(); return null }
+        if (r.status === 401) { window.location.href = '/login'; return null }
         if (!r.ok) {
           const err = await r.json().catch(() => ({ error: r.statusText }))
           throw new Error(err.error || r.statusText)
@@ -77,6 +77,7 @@ export const api = {
   },
   deleteIcs: (id) => req(`/ics/${id}`, 'DELETE'),
   getIcsEvents: (id, year, month) => req(`/ics/${id}/events?year=${year}&month=${month}`),
+  getTags: () => req('/tags'),
   getSettings: () => fetch('/auth/status', { credentials: 'include' }).then(r => r.ok ? r.json() : null),
   updateSettings: (data) => req('/settings', 'PATCH', data),
 }

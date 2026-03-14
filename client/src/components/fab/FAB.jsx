@@ -2,7 +2,28 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { Plus } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { useTasks } from '../../hooks/useTasks'
+import { useInlineAutocomplete } from '../../hooks/useInlineAutocomplete'
 import { api } from '../../api'
+
+const SUGGESTION_COLORS = {
+  tag:     { color: '#bb9af7' },
+  project: { color: '#7aa2f7' },
+}
+
+function SuggestionDropdown({ suggestions, onSelect }) {
+  if (!suggestions.length) return null
+  return (
+    <div className="absolute left-0 right-0 bottom-full mb-1 z-[99] rounded-xl border border-td-border dark:border-tn-border bg-white dark:bg-tn-bg2 shadow-xl overflow-hidden max-h-48 overflow-y-auto">
+      {suggestions.map((s, i) => (
+        <button key={i} onMouseDown={e => { e.preventDefault(); onSelect(s) }}
+          className="w-full text-left text-xs px-3 py-2.5 hover:bg-td-surface dark:hover:bg-tn-surface transition-colors flex items-center gap-2"
+          style={{ color: SUGGESTION_COLORS[s.type]?.color }}>
+          {s.label}
+        </button>
+      ))}
+    </div>
+  )
+}
 
 // Hardcoded chip colors for dark — light mode uses same values (readable on both)
 const CHIP_COLORS = {
@@ -26,14 +47,21 @@ export function FAB() {
   const [text, setText] = useState('')
   const [chips, setChips] = useState([])
   const [loading, setLoading] = useState(false)
+  const [allTags, setAllTags] = useState([])
   const inputRef = useRef(null)
   const timerRef = useRef(null)
   const open = state.fabOpen
   const taskOpen = !!state.selectedTaskId
 
+  const { suggestions, onInput: acOnInput, onSelect: acOnSelect, closeSuggestions } = useInlineAutocomplete({
+    text, setText, inputRef, allTags, projects: state.projects,
+  })
+
   useEffect(() => {
-    if (open) setTimeout(() => inputRef.current?.focus(), 80)
-    else { setText(''); setChips([]) }
+    if (open) {
+      setTimeout(() => inputRef.current?.focus(), 80)
+      api.getTags().then(t => { if (t) setAllTags(t) }).catch(() => {})
+    } else { setText(''); setChips([]) }
   }, [open])
 
   // Global keyboard shortcut: Q or Cmd+K opens FAB (desktop only)
@@ -86,6 +114,7 @@ export function FAB() {
   const handleChange = (e) => {
     const val = e.target.value
     setText(val)
+    acOnInput(val)
     clearTimeout(timerRef.current)
     timerRef.current = setTimeout(() => parseNlp(val), 400)
   }
@@ -99,7 +128,8 @@ export function FAB() {
   }
 
   const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit() }
+    if (suggestions.length > 0 && e.key === 'Escape') { e.stopPropagation(); closeSuggestions(); return }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (suggestions.length > 0) { acOnSelect(suggestions[0]); return } submit() }
     if (e.key === 'Escape') dispatch({ type: 'SET_FAB', payload: { open: false } })
   }
 
@@ -154,7 +184,8 @@ export function FAB() {
           </div>
 
           {/* Task name + submit inline */}
-          <div className="flex items-center gap-3 px-4 pt-3 pb-3">
+          <div className="relative flex items-center gap-3 px-4 pt-3 pb-3">
+            <SuggestionDropdown suggestions={suggestions} onSelect={acOnSelect} />
             <input
               ref={inputRef}
               type="text"
@@ -197,7 +228,8 @@ export function FAB() {
               bg-white dark:bg-tn-bg2 border border-td-border dark:border-tn-border"
             onClick={e => e.stopPropagation()}
           >
-            <div className="px-5 pt-6 pb-3">
+            <div className="relative px-5 pt-6 pb-3">
+              <SuggestionDropdown suggestions={suggestions} onSelect={acOnSelect} />
               <input
                 ref={inputRef}
                 type="text"

@@ -52,7 +52,9 @@ def _clear_failures(ip: str):
 
 # ── Session helpers ────────────────────────────────────────────
 _PUBLIC_PATHS = {'/login', '/auth/login', '/auth/logout', '/auth/status',
-                 '/manifest.json', '/sw.js', '/favicon.ico'}
+                 '/manifest.json', '/manifest.webmanifest', '/sw.js', '/favicon.ico',
+                 '/favicon-16.png', '/favicon-32.png', '/apple-touch-icon.png',
+                 '/icon-192.png', '/icon-512.png'}
 
 def _create_session(remember: bool):
     sid = secrets.token_urlsafe(32)

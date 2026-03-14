@@ -245,6 +245,75 @@ function LinksSection({ task, onUpdate }) {
   )
 }
 
+function TagCombobox({ tags, onChange }) {
+  const [input, setInput] = useState('')
+  const [allTags, setAllTags] = useState([])
+  const [open, setOpen] = useState(false)
+  const inputRef = useRef(null)
+
+  useEffect(() => {
+    api.getTags().then(t => { if (t) setAllTags(t) }).catch(() => {})
+  }, [])
+
+  const suggestions = allTags.filter(t =>
+    !tags.includes(t) && t.toLowerCase().includes(input.toLowerCase())
+  )
+
+  const addTag = (raw) => {
+    const t = (raw || input).trim().replace(/^@/, '')
+    if (t && !tags.includes(t)) onChange([...tags, t])
+    setInput('')
+    setOpen(false)
+  }
+
+  const removeTag = (t) => onChange(tags.filter(x => x !== t))
+
+  return (
+    <div className="space-y-1.5">
+      {tags.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {tags.map(t => (
+            <span key={t} className="flex items-center gap-1 text-[11px] bg-td-purple/10 dark:bg-tn-purple/10 text-td-purple dark:text-tn-purple px-2 py-0.5 rounded-lg">
+              @{t}
+              <button onClick={() => removeTag(t)} className="hover:text-td-red dark:text-tn-red"><X size={10} /></button>
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="relative">
+        <div className="flex gap-2">
+          <input
+            ref={inputRef}
+            type="text" value={input}
+            onChange={e => { setInput(e.target.value); setOpen(true) }}
+            onKeyDown={e => {
+              if (e.key === 'Enter') { e.preventDefault(); addTag() }
+              if (e.key === 'Escape') { setOpen(false); setInput('') }
+            }}
+            onFocus={() => setOpen(true)}
+            onBlur={() => setTimeout(() => setOpen(false), 150)}
+            placeholder="Add tag…"
+            className="flex-1 bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-xs rounded-lg px-2.5 py-2 outline-none border border-td-border/50 dark:border-tn-border/50 placeholder-td-muted/40 dark:placeholder-tn-muted/40"
+          />
+          <button onClick={() => addTag()} className="px-3 py-2 bg-td-surface dark:bg-tn-surface text-td-muted dark:text-tn-muted hover:text-td-blue dark:text-tn-blue rounded-lg text-xs border border-td-border/50 dark:border-tn-border/50">
+            <Plus size={12} />
+          </button>
+        </div>
+        {open && suggestions.length > 0 && (
+          <div className="absolute left-0 right-10 top-full mt-1 z-20 rounded-xl border border-td-border dark:border-tn-border bg-white dark:bg-tn-bg2 shadow-xl overflow-hidden max-h-40 overflow-y-auto">
+            {suggestions.map(t => (
+              <button key={t} onMouseDown={() => addTag(t)}
+                className="w-full text-left text-xs px-3 py-2 hover:bg-td-surface dark:hover:bg-tn-surface text-td-purple dark:text-tn-purple transition-colors">
+                @{t}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export function TaskDetail() {
   const { state, dispatch, confirm, toast } = useApp()
   const { updateTask, deleteTask } = useTasks()
@@ -257,7 +326,6 @@ export function TaskDetail() {
   const [dueTime, setDueTime] = useState('')
   const [projectId, setProjectId] = useState('')
   const [tags, setTags] = useState([])
-  const [tagInput, setTagInput] = useState('')
   const [recurrence, setRecurrence] = useState(null)
   const [recurrenceEnd, setRecurrenceEnd] = useState('')
   const [subtaskInput, setSubtaskInput] = useState('')
@@ -321,16 +389,6 @@ export function TaskDetail() {
       setSubtaskInput('')
     } catch { toast('Failed to add subtask') }
   }
-
-  const addTag = () => {
-    const t = tagInput.trim().replace(/^@/, '')
-    if (t && !tags.includes(t)) {
-      const next = [...tags, t]
-      setTags(next); setTagInput(''); markDirty()
-    }
-  }
-
-  const removeTag = (t) => { setTags(tags.filter(x => x !== t)); markDirty() }
 
   return (
     <>
@@ -432,28 +490,10 @@ export function TaskDetail() {
           {/* Tags */}
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-td-muted dark:text-tn-muted">Tags</label>
-            {tags.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {tags.map(t => (
-                  <span key={t} className="flex items-center gap-1 text-[11px] bg-td-purple/10 dark:bg-tn-purple/10 text-td-purple dark:text-tn-purple px-2 py-0.5 rounded-lg">
-                    @{t}
-                    <button onClick={() => removeTag(t)} className="hover:text-td-red dark:text-tn-red"><X size={10} /></button>
-                  </span>
-                ))}
-              </div>
-            )}
-            <div className="flex gap-2">
-              <input
-                type="text" value={tagInput}
-                onChange={e => setTagInput(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') addTag() }}
-                placeholder="Add tag…"
-                className="flex-1 bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-xs rounded-lg px-2.5 py-2 outline-none border border-td-border/50 dark:border-tn-border/50 placeholder-td-muted/40 dark:placeholder-tn-muted/40"
-              />
-              <button onClick={addTag} className="px-3 py-2 bg-td-surface dark:bg-tn-surface text-td-muted dark:text-tn-muted hover:text-td-blue dark:text-tn-blue rounded-lg text-xs border border-td-border/50 dark:border-tn-border/50">
-                <Plus size={12} />
-              </button>
-            </div>
+            <TagCombobox
+              tags={tags}
+              onChange={next => { setTags(next); markDirty() }}
+            />
           </div>
 
           {/* Links */}

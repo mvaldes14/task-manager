@@ -318,3 +318,14 @@ def get_upcoming():
 def get_overdue():
     return jsonify(_fetch_tasks(
         "SELECT * FROM tasks WHERE due_date<CURRENT_DATE AND status!='done' ORDER BY due_date,due_time"))
+
+
+@bp.route('/api/tags', methods=['GET'])
+def get_all_tags():
+    conn = get_db()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT DISTINCT jsonb_array_elements_text(tags::jsonb) AS tag FROM tasks WHERE tags IS NOT NULL AND tags != '[]' ORDER BY tag")
+        return jsonify([row[0] for row in cur.fetchall()])
+    finally:
+        release_db(conn)
