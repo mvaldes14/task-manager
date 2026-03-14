@@ -1,18 +1,21 @@
 import { useEffect, useState } from 'react'
 import { AppProvider, useApp } from './context/AppContext'
 import { useTasks } from './hooks/useTasks'
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { Sidebar } from './components/layout/Sidebar'
 import { TabBar } from './components/layout/TabBar'
 import { MainContent } from './components/layout/MainContent'
 import { TaskDetail } from './components/tasks/TaskDetail'
 import { FAB } from './components/fab/FAB'
 import { Toast, ConfirmSheet } from './components/shared/Overlays'
+import { KeyboardShortcutsModal } from './components/shared/KeyboardShortcutsModal'
 import { LoginScreen } from './components/LoginScreen'
 import { api } from './api'
 
 function AppShell() {
   const { state, dispatch } = useApp()
   const { loadAll, loadSettings } = useTasks()
+  useKeyboardShortcuts()
   const [authed, setAuthed] = useState(null)
 
   useEffect(() => {
@@ -25,7 +28,10 @@ function AppShell() {
   }, [loadAll])
 
   useEffect(() => {
-    document.documentElement.classList.toggle('dark', state.theme === 'dark')
+    const dark = state.theme === 'dark'
+    document.documentElement.classList.toggle('dark', dark)
+    const meta = document.querySelector('meta[name="theme-color"]')
+    if (meta) meta.setAttribute('content', dark ? '#1a1b26' : '#e1e2e7')
   }, [state.theme])
 
   const closeSidebar = () => dispatch({ type: 'SET_SIDEBAR', payload: false })
@@ -52,6 +58,9 @@ function AppShell() {
       <FAB />
       <Toast />
       <ConfirmSheet />
+      {state.showShortcuts && (
+        <KeyboardShortcutsModal onClose={() => dispatch({ type: 'TOGGLE_SHORTCUTS' })} />
+      )}
     </div>
   )
 }

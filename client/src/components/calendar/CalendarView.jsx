@@ -30,13 +30,18 @@ function TaskPill({ task, onDragStart, onTouchStart }) {
 }
 
 function IcsPill({ event, color }) {
-  const bg = color + '25'
+  const bg = color + '30'
+  const border = color + '80'
   const timeStr = event.due_time ? event.due_time.slice(0,5) + ' ' : ''
   return (
     <div
       title={event.title}
-      className="w-full text-[10px] px-1.5 py-0.5 rounded truncate font-medium select-none"
-      style={{ background: bg, color }}
+      className="w-full text-[10px] px-1.5 py-0.5 rounded truncate font-semibold select-none brightness-75 dark:brightness-110"
+      style={{
+        background: bg,
+        color,
+        border: `1px solid ${border}`,
+      }}
     >
       {timeStr}{event.title}
     </div>

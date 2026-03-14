@@ -3,6 +3,22 @@ import { TaskCard } from './TaskCard'
 const STATUS_LABELS = { todo: 'TO DO', doing: 'IN PROGRESS', done: 'DONE' }
 const STATUS_ORDER = ['todo', 'doing', 'done']
 
+function GroupSection({ label, count, children }) {
+  return (
+    <section>
+      <div className="flex items-center gap-2 px-4 py-2 sticky top-0 bg-td-bg dark:bg-tn-bg z-10">
+        <span className="text-xs md:text-[10px] font-semibold tracking-widest text-td-muted dark:text-tn-muted uppercase">
+          {label}
+        </span>
+        <span className="text-[10px] text-td-muted/60 dark:text-tn-muted/60 bg-td-surface dark:bg-tn-surface px-1.5 rounded-full">
+          {count}
+        </span>
+      </div>
+      <div>{children}</div>
+    </section>
+  )
+}
+
 export function TaskList({ tasks, groupBy = 'status', emptyMessage = 'No tasks here' }) {
   if (!tasks.length) {
     return (
@@ -21,30 +37,46 @@ export function TaskList({ tasks, groupBy = 'status', emptyMessage = 'No tasks h
     return (
       <div className="divide-y divide-td-border/30 dark:divide-tn-border/30">
         {groups.map(({ status, items }) => (
-          <section key={status}>
-            <div className="flex items-center gap-2 px-4 py-2 sticky top-0 bg-td-bg dark:bg-tn-bg z-10">
-              <span className="text-[10px] font-semibold tracking-widest text-td-muted dark:text-tn-muted uppercase">
-                {STATUS_LABELS[status]}
-              </span>
-              <span className="text-[10px] text-td-muted/60 dark:text-tn-muted/60 bg-td-surface dark:bg-tn-surface px-1.5 rounded-full">
-                {items.length}
-              </span>
-            </div>
-            <div>
-              {items.map(task => <TaskCard key={task.id} task={task} />)}
-            </div>
-          </section>
+          <GroupSection key={status} label={STATUS_LABELS[status]} count={items.length}>
+            {items.map(task => <TaskCard key={task.id} task={task} />)}
+          </GroupSection>
         ))}
       </div>
     )
   }
 
-  // flat list (non-status sort or overdue)
-  if (groupBy !== 'status') {
+  if (groupBy === 'tags') {
+    // Build tag → tasks map; tasks with multiple tags appear in each group
+    const tagMap = new Map()
+    tasks.forEach(task => {
+      const tags = task.tags?.length ? task.tags : ['(no tag)']
+      tags.forEach(tag => {
+        if (!tagMap.has(tag)) tagMap.set(tag, [])
+        tagMap.get(tag).push(task)
+      })
+    })
+    // Sort: named tags alphabetically, (no tag) always last
+    const sorted = [...tagMap.entries()].sort(([a], [b]) => {
+      if (a === '(no tag)') return 1
+      if (b === '(no tag)') return -1
+      return a.localeCompare(b)
+    })
+
     return (
-      <div>
-        {tasks.map(task => <TaskCard key={task.id} task={task} />)}
+      <div className="divide-y divide-td-border/30 dark:divide-tn-border/30">
+        {sorted.map(([tag, items]) => (
+          <GroupSection key={tag} label={tag} count={items.length}>
+            {items.map(task => <TaskCard key={task.id} task={task} />)}
+          </GroupSection>
+        ))}
       </div>
     )
   }
+
+  // flat list
+  return (
+    <div>
+      {tasks.map(task => <TaskCard key={task.id} task={task} />)}
+    </div>
+  )
 }

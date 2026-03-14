@@ -9,8 +9,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['apple-touch-icon.png', 'icon-192.png', 'icon-512.png'],
       manifest: {
-        name: 'TD',
-        short_name: 'TD',
+        name: 'Doit',
+        short_name: 'Doit',
         description: 'Smart task manager with natural language input',
         start_url: '/',
         display: 'standalone',
@@ -28,6 +28,7 @@ export default defineConfig({
         share_target: {
           action: '/share-target',
           method: 'GET',
+          enctype: 'application/x-www-form-urlencoded',
           params: { title: 'title', text: 'text', url: 'url' }
         }
       },
@@ -50,5 +51,13 @@ export default defineConfig({
   build: {
     outDir: '../client/dist',
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom'],
+          'vendor-ui': ['lucide-react'],
+        }
+      }
+    }
   }
 })

@@ -13,6 +13,7 @@ RUN pip install flask gunicorn psycopg2-binary icalendar bcrypt \
     google-api-python-client google-auth-httplib2 google-auth-oauthlib \
     opentelemetry-sdk opentelemetry-exporter-otlp-proto-grpc \
     opentelemetry-instrumentation-flask opentelemetry-instrumentation-psycopg2 \
+    python-dateutil dateparser \
     --no-cache-dir
 COPY server/main.py .
 COPY server/lib/ ./lib/

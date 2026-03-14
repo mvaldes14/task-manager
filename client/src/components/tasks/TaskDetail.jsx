@@ -3,9 +3,122 @@ import { useApp } from '../../context/AppContext'
 import { useTasks } from '../../hooks/useTasks'
 import { api } from '../../api'
 import { formatDate, fmtTime, recurrenceLabel, getLinkLabel, getLinkStyle } from '../../utils'
-import { X, Trash2, Plus, Check, ChevronRight, Paperclip, GitBranch, Link2 } from 'lucide-react'
+import { X, Trash2, Plus, Check, ChevronRight, Paperclip, GitBranch, Link2, Repeat2 } from 'lucide-react'
 
 const STATUSES = ['todo', 'doing', 'done']
+
+const RECUR_PRESETS = [
+  { label: 'None',               value: null },
+  { label: 'Daily',              value: 'RRULE:FREQ=DAILY' },
+  { label: 'Weekdays (Mon–Fri)', value: 'RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR' },
+  { label: 'Weekly (same day)',  value: 'RRULE:FREQ=WEEKLY' },
+  { label: 'Monthly (pick day)', value: '__monthly_dom__' },
+  { label: 'Yearly',             value: 'RRULE:FREQ=YEARLY' },
+]
+
+function _rruleProps(str) {
+  if (!str || !str.includes('FREQ=')) return {}
+  const src = str.startsWith('RRULE:') ? str.slice(6) : str
+  return Object.fromEntries(src.split(';').map(p => p.split('=')))
+}
+
+function RecurrenceEditor({ recurrence, recurrenceEnd, onChange }) {
+  const [open, setOpen] = useState(false)
+  const [domInput, setDomInput] = useState('')
+
+  const label        = recurrenceLabel(recurrence)
+  const props        = _rruleProps(recurrence)
+  const isMonthlyDom = props.FREQ === 'MONTHLY' && props.BYMONTHDAY && !props.BYDAY
+  const currentDom   = isMonthlyDom ? parseInt(props.BYMONTHDAY, 10) : null
+
+  const selectPreset = (value) => {
+    if (!value) {
+      onChange({ recurrence: null, recurrence_end: null })
+      setOpen(false)
+    } else if (value === '__monthly_dom__') {
+      // stay open so user can pick the day
+    } else {
+      onChange({ recurrence: value })
+      setOpen(false)
+    }
+  }
+
+  const applyDom = () => {
+    const dom = Math.max(1, Math.min(31, parseInt(domInput) || currentDom || 1))
+    onChange({ recurrence: `RRULE:FREQ=MONTHLY;BYMONTHDAY=${dom}` })
+    setOpen(false)
+  }
+
+  return (
+    <div className="space-y-1.5">
+      <label className="text-xs font-bold text-td-muted dark:text-tn-muted">Recurrence</label>
+      <div className="relative">
+        <button
+          onClick={() => setOpen(o => !o)}
+          className="flex items-center gap-2 w-full text-xs px-3 py-2 rounded-lg transition-colors text-left
+            bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg
+            hover:bg-td-border/30 dark:hover:bg-tn-border/30 border border-td-border/50 dark:border-tn-border/50"
+        >
+          <Repeat2 size={13} />
+          <span>{label || 'None'}</span>
+          {recurrenceEnd && <span className="ml-auto opacity-60 text-[10px]">until {recurrenceEnd}</span>}
+        </button>
+
+        {open && (
+          <div className="absolute left-0 right-0 top-full mt-1 z-20 rounded-xl border border-td-border dark:border-tn-border bg-white dark:bg-tn-bg2 shadow-xl overflow-hidden">
+            {RECUR_PRESETS.map(opt => (
+              <button
+                key={opt.label}
+                onClick={() => selectPreset(opt.value)}
+                className={`w-full text-left text-xs px-3 py-2.5 transition-colors
+                  hover:bg-td-surface dark:hover:bg-tn-surface
+                  ${(!recurrence && !opt.value) || (opt.value && opt.value !== '__monthly_dom__' && recurrence === opt.value)
+                    ? 'text-td-teal dark:text-tn-teal font-semibold bg-td-teal/5 dark:bg-tn-teal/5'
+                    : 'text-td-fg dark:text-tn-fg'}`}
+              >
+                {opt.label}
+              </button>
+            ))}
+            {/* Monthly day-of-month picker */}
+            <div className="border-t border-td-border dark:border-tn-border px-3 py-2.5 space-y-1.5">
+              <label className="block text-[10px] text-td-muted dark:text-tn-muted">Monthly on day</label>
+              <div className="flex gap-2">
+                <input
+                  type="number" min="1" max="31"
+                  value={domInput || (currentDom && currentDom > 0 ? currentDom : '')}
+                  onChange={e => setDomInput(e.target.value)}
+                  placeholder={currentDom && currentDom > 0 ? String(currentDom) : '1–31'}
+                  className="flex-1 bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-xs rounded-lg px-2 py-1.5 outline-none border border-td-border/50 dark:border-tn-border/50"
+                />
+                <button
+                  onClick={applyDom}
+                  className="px-3 py-1.5 bg-td-teal/10 dark:bg-tn-teal/10 text-td-teal dark:text-tn-teal text-xs rounded-lg hover:bg-td-teal/20 dark:hover:bg-tn-teal/20 font-medium"
+                >
+                  Set
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* End date — shown when recurrence is active */}
+      {recurrence && (
+        <div className="space-y-1">
+          <label className="text-[10px] font-semibold tracking-wider text-td-muted/60 dark:text-tn-muted/60 uppercase">Stop repeating on</label>
+          <input
+            type="date"
+            value={recurrenceEnd || ''}
+            onChange={e => onChange({ recurrence_end: e.target.value || null })}
+            className="w-full bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-xs rounded-lg px-2.5 py-2 outline-none border border-td-border/50 dark:border-tn-border/50"
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
+
 
 function SubtaskRow({ sub, taskId }) {
   const { dispatch } = useApp()
@@ -145,6 +258,8 @@ export function TaskDetail() {
   const [projectId, setProjectId] = useState('')
   const [tags, setTags] = useState([])
   const [tagInput, setTagInput] = useState('')
+  const [recurrence, setRecurrence] = useState(null)
+  const [recurrenceEnd, setRecurrenceEnd] = useState('')
   const [subtaskInput, setSubtaskInput] = useState('')
   const [saving, setSaving] = useState(false)
   const [dirty, setDirty] = useState(false)
@@ -160,6 +275,8 @@ export function TaskDetail() {
     setDueTime(task.due_time || '')
     setProjectId(task.project_id || '')
     setTags(task.tags || [])
+    setRecurrence(task.recurrence || null)
+    setRecurrenceEnd(task.recurrence_end || '')
     setDirty(false)
   }, [task?.id])
 
@@ -179,6 +296,8 @@ export function TaskDetail() {
       due_time: dueTime || null,
       project_id: projectId || null,
       tags,
+      recurrence: recurrence || null,
+      recurrence_end: recurrenceEnd || null,
       ...overrides,
     })
     setSaving(false)
@@ -285,6 +404,16 @@ export function TaskDetail() {
             </div>
           </div>
 
+          {/* Recurrence */}
+          <RecurrenceEditor
+            recurrence={recurrence}
+            recurrenceEnd={recurrenceEnd}
+            onChange={({ recurrence: r, recurrence_end: re }) => {
+              if (r !== undefined) { setRecurrence(r); markDirty() }
+              if (re !== undefined) { setRecurrenceEnd(re || ''); markDirty() }
+            }}
+          />
+
           {/* Project */}
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-td-muted dark:text-tn-muted">Project</label>
@@ -327,7 +456,10 @@ export function TaskDetail() {
             </div>
           </div>
 
-          {/* Description */}
+          {/* Links */}
+          <LinksSection task={task} onUpdate={updated => dispatch({ type: 'UPDATE_TASK', payload: updated })} />
+
+          {/* Notes */}
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-td-muted dark:text-tn-muted">Notes</label>
             <textarea
@@ -339,9 +471,6 @@ export function TaskDetail() {
               className="w-full bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-sm rounded-lg px-3 py-2.5 outline-none border border-td-border/50 dark:border-tn-border/50 resize-none placeholder-td-muted/40 dark:placeholder-tn-muted/40 font-mono text-xs leading-relaxed"
             />
           </div>
-
-          {/* Links */}
-          <LinksSection task={task} onUpdate={updated => dispatch({ type: 'UPDATE_TASK', payload: updated })} />
 
           {/* Subtasks */}
           <div className="space-y-1.5">
@@ -366,14 +495,6 @@ export function TaskDetail() {
               </button>
             </div>
           </div>
-
-          {/* Recurrence */}
-          {recurrenceLabel(task.recurrence) && (
-            <div className="text-xs text-td-teal dark:text-tn-teal bg-td-teal/10 dark:bg-tn-teal/10 px-3 py-2 rounded-lg">
-              {recurrenceLabel(task.recurrence)}
-              {task.recurrence_end && ` · until ${task.recurrence_end}`}
-            </div>
-          )}
 
           {/* Meta */}
           <div className="text-[10px] text-td-muted/40 dark:text-tn-muted/40 pt-2">

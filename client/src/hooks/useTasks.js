@@ -27,6 +27,7 @@ export function useTasks() {
       if (task) {
         dispatch({ type: 'ADD_TASK', payload: task })
         toast('Task added')
+        if (task.obsidian_new_url) window.open(task.obsidian_new_url, '_blank')
       }
       return task
     } catch (e) {
@@ -62,7 +63,11 @@ export function useTasks() {
     if (!task) return
     dispatch({ type: 'UPDATE_TASK', payload: { ...task, status: newStatus } })
     try {
-      await api.updateTask(id, { status: newStatus })
+      const updated = await api.updateTask(id, { status: newStatus })
+      dispatch({ type: 'UPDATE_TASK', payload: updated })
+      if (updated.recurrence_next) {
+        dispatch({ type: 'ADD_TASK', payload: updated.recurrence_next })
+      }
     } catch (e) {
       dispatch({ type: 'UPDATE_TASK', payload: task })
       toast('Failed to update task')

@@ -64,6 +64,15 @@ def _clone_recurring_task(task: dict, next_date) -> dict:
     return new_task
 
 
+# ── NLP parse endpoint ─────────────────────────────────────────
+@bp.route('/api/nlp/parse', methods=['POST', 'OPTIONS'])
+def nlp_parse():
+    if request.method == 'OPTIONS': return '', 204
+    data = request.get_json() or {}
+    result = parse_natural_language(data.get('text', ''))
+    return jsonify(result)
+
+
 # ── Task routes ────────────────────────────────────────────────
 @bp.route('/api/tasks', methods=['GET'])
 def get_tasks():
@@ -189,14 +198,17 @@ def update_task(tid):
         release_db(conn)
     # Recurrence clone on complete
     if data.get('status') == 'done' and result.get('recurrence'):
-        from_date = date.fromisoformat(result['due_date']) if result.get('due_date') else date.today()
-        rec_end   = date.fromisoformat(result['recurrence_end']) if result.get('recurrence_end') else None
+        _dd = result.get('due_date');       from_date = (_dd if isinstance(_dd, date) else date.fromisoformat(str(_dd))) if _dd else date.today()
+        _re = result.get('recurrence_end'); rec_end   = (_re if isinstance(_re, date) else date.fromisoformat(str(_re))) if _re else None
         next_d    = next_due_date(result['recurrence'], from_date)
         if next_d and (rec_end is None or next_d <= rec_end):
             new_task = _clone_recurring_task(result, next_d)
-            if new_task.get('due_date'):
-                eid = gcal_upsert(new_task)
-                if eid: gcal_save(new_task['id'], eid)
+            try:
+                if new_task.get('due_date'):
+                    eid = gcal_upsert(new_task)
+                    if eid: gcal_save(new_task['id'], eid)
+            except Exception:
+                pass  # gcal failure must not block recurrence
             result['recurrence_next'] = new_task
     if any(f in data for f in ('due_date', 'due_time', 'title', 'status')):
         if result.get('due_date'):

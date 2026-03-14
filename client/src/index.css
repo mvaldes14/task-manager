@@ -6,6 +6,13 @@
 @layer base {
   html { -webkit-tap-highlight-color: transparent; }
   body { -webkit-font-smoothing: antialiased; }
+
+  /* PWA safe areas — covers notch, Dynamic Island, status bar */
+  body {
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
   * { scrollbar-width: thin; scrollbar-color: #292e42 transparent; }
   *::-webkit-scrollbar { width: 4px; height: 4px; }
   *::-webkit-scrollbar-thumb { background: #292e42; border-radius: 9999px; }

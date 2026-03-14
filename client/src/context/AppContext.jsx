@@ -14,7 +14,9 @@ const initialState = {
   selectedTaskId: null,
   // UI
   sidebarOpen: false,
-  sidebarCollapsed: false,
+  sidebarCollapsed: localStorage.getItem('td-sidebar-collapsed') === 'true',
+  showShortcuts: false,
+  searchOpen: false,
   fabOpen: false,
   fabTargetStatus: 'todo',
   toast: null,
@@ -41,8 +43,15 @@ function reducer(state, action) {
     case 'SET_VIEW':        return { ...state, view: action.payload, sidebarOpen: false, selectedTaskId: null }
     case 'SET_VIEW_MODE':   return { ...state, viewMode: action.payload }
     case 'SELECT_TASK':     return { ...state, selectedTaskId: action.payload }
-    case 'SET_SIDEBAR':              return { ...state, sidebarOpen: action.payload }
-    case 'TOGGLE_SIDEBAR_COLLAPSED': return { ...state, sidebarCollapsed: !state.sidebarCollapsed }
+    case 'SET_SIDEBAR':     return { ...state, sidebarOpen: action.payload }
+    case 'TOGGLE_SHORTCUTS': return { ...state, showShortcuts: !state.showShortcuts }
+    case 'TOGGLE_SEARCH': return { ...state, searchOpen: !state.searchOpen }
+    case 'SET_SEARCH_OPEN': return { ...state, searchOpen: action.payload }
+    case 'TOGGLE_SIDEBAR_COLLAPSED': {
+      const next = !state.sidebarCollapsed
+      localStorage.setItem('td-sidebar-collapsed', String(next))
+      return { ...state, sidebarCollapsed: next }
+    }
     case 'SET_FAB':         return { ...state, fabOpen: action.payload.open, fabTargetStatus: action.payload.status || state.fabTargetStatus }
     case 'SET_TOAST':       return { ...state, toast: action.payload }
     case 'SET_CONFIRM':     return { ...state, confirm: action.payload }
@@ -59,10 +68,19 @@ export function AppProvider({ children }) {
 
   // PWA app icon badge — overdue + today incomplete
   useEffect(() => {
-    if (!('setAppBadge' in navigator)) return
-    const count = state.tasks.filter(t => isOverdue(t) || isToday(t)).filter(t => t.status !== 'done').length
-    if (count > 0) navigator.setAppBadge(count)
-    else navigator.clearAppBadge()
+    const count = state.tasks
+      .filter(t => isOverdue(t) || isToday(t))
+      .filter(t => t.status !== 'done').length
+
+    // Request notification permission if needed — required to show badges on macOS
+    if ('setAppBadge' in navigator && 'Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission()
+    }
+
+    if ('setAppBadge' in navigator) {
+      if (count > 0) navigator.setAppBadge(count).catch(() => {})
+      else navigator.clearAppBadge().catch(() => {})
+    }
   }, [state.tasks])
 
   const toast = useCallback((msg) => {
