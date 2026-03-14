@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
+  <title>TD — Sign In</title>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{--bg:#000;--bg2:#1c1c1e;--accent:#0a84ff;--text:#fff;--text2:rgba(255,255,255,.7);--text3:rgba(255,255,255,.4);--red:#ff453a;--radius:12px;--font:-apple-system,'SF Pro Text','Inter',sans-serif}
+    html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);-webkit-font-smoothing:antialiased}
+    body{display:flex;align-items:center;justify-content:center;padding:24px}
+    .card{width:100%;max-width:360px}
+    .logo{text-align:center;margin-bottom:40px}
+    .logo-mark{width:72px;height:72px;background:var(--accent);border-radius:18px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:36px;box-shadow:0 8px 32px rgba(10,132,255,.35)}
+    .logo h1{font-size:28px;font-weight:700}
+    .logo p{font-size:14px;color:var(--text3);margin-top:4px}
+    .fields{background:var(--bg2);border-radius:var(--radius);overflow:hidden;border:1px solid rgba(255,255,255,.07);margin-bottom:12px}
+    .field+.field::before{content:'';display:block;height:1px;background:rgba(255,255,255,.07);margin:0 15px}
+    .field label{display:block;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;padding:10px 15px 0}
+    .field input{display:block;width:100%;background:none;border:none;padding:4px 15px 11px;font-family:var(--font);font-size:16px;color:var(--text);outline:none}
+    .row{display:flex;align-items:center;gap:8px;margin:14px 0}
+    .row input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
+    .row label{font-size:14px;color:var(--text2);cursor:pointer}
+    .btn{width:100%;padding:14px;background:var(--accent);border:none;border-radius:var(--radius);font-family:var(--font);font-size:17px;font-weight:600;color:#fff;cursor:pointer;transition:opacity .15s}
+    .err{color:var(--red);font-size:14px;text-align:center;margin-top:12px;min-height:20px}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">
+      <div class="logo-mark">✓</div>
+      <h1>TD</h1>
+      <p>Sign in to continue</p>
+    </div>
+    <form id="form" onsubmit="login(event)" autocomplete="on">
+      <div class="fields">
+        <div class="field">
+          <label for="un">Username</label>
+          <input type="text" id="un" name="username" autocomplete="username" autofocus placeholder="Enter username" spellcheck="false" autocapitalize="none">
+        </div>
+        <div class="field">
+          <label for="pw">Password</label>
+          <input type="password" id="pw" name="password" autocomplete="current-password" placeholder="Enter password">
+        </div>
+      </div>
+      <div class="row">
+        <input type="checkbox" id="rem">
+        <label for="rem">Keep me signed in for 30 days</label>
+      </div>
+      <button class="btn" type="submit" id="btn">Sign In</button>
+      <div class="err" id="err"></div>
+    </form>
+  </div>
+  <script>
+    async function login(e) {
+      e.preventDefault();
+      const un  = document.getElementById('un').value.trim();
+      const pw  = document.getElementById('pw').value;
+      const rem = document.getElementById('rem').checked;
+      const btn = document.getElementById('btn');
+      const err = document.getElementById('err');
+      err.textContent = '';
+      if (!un || !pw) { err.textContent = 'Please fill in both fields.'; return; }
+      btn.disabled = true; btn.textContent = 'Signing in…';
+      try {
+        const r = await fetch('/auth/login', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({username: un, password: pw, remember: rem})
+        });
+        if (r.ok) {
+          location.href = new URLSearchParams(location.search).get('next') || '/';
+        } else {
+          const d = await r.json();
+          err.textContent = d.error || 'Incorrect username or password';
+          document.getElementById('pw').value = '';
+          document.getElementById('pw').focus();
+        }
+      } catch (e) {
+        err.textContent = 'Network error';
+      } finally {
+        btn.disabled = false; btn.textContent = 'Sign In';
+      }
+    }
+  </script>
+</body>
+</html>

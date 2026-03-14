@@ -104,8 +104,12 @@ def delete_ics(cid):
 @bp.route('/api/ics/<cid>/events', methods=['GET'])
 def get_ics_events(cid):
     from datetime import date
-    year  = int(request.args.get('year',  date.today().year))
-    month = int(request.args.get('month', date.today().month))
+    try:
+        year  = int(request.args.get('year',  date.today().year))
+        month = int(request.args.get('month', date.today().month))
+    except ValueError:
+        return jsonify({'error': 'year and month must be integers'}), 400
+
     conn = get_db()
     try:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)

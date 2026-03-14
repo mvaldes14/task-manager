@@ -33,15 +33,19 @@ def create_project():
         release_db(conn)
     return jsonify(row), 201
 
+_ALLOWED_PROJECT_FIELDS = {'name', 'color', 'icon'}
+
 @bp.route('/api/projects/<pid>', methods=['PUT', 'PATCH'])
 def update_project(pid):
-    data = request.get_json()
+    data = request.get_json() or {}
+    fields = {k: v for k, v in data.items() if k in _ALLOWED_PROJECT_FIELDS}
     conn = get_db()
     try:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        for field in ('name', 'color', 'icon'):
-            if field in data:
-                cur.execute(f"UPDATE projects SET {field}=%s,updated_at=NOW() WHERE id=%s", (data[field], pid))
+        if fields:
+            set_clause = ', '.join(f"{f}=%s" for f in fields) + ', updated_at=NOW()'
+            values = list(fields.values()) + [pid]
+            cur.execute(f"UPDATE projects SET {set_clause} WHERE id=%s", values)
         cur.execute("SELECT * FROM projects WHERE id=%s", (pid,))
         row = row_to_dict(cur.fetchone())
         conn.commit()

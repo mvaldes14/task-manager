@@ -1,17 +1,24 @@
 """Database connection pool and helpers."""
 
-import json
-import os
+import json, os, threading, logging
+
+import psycopg2, psycopg2.extras
 from psycopg2 import pool as psycopg2_pool
+
+logger = logging.getLogger(__name__)
 
 DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://td:td@localhost:5432/td')
 
 _pool = None
+_pool_lock = threading.Lock()
 
 def get_pool():
     global _pool
-    if _pool is None:
-        _pool = psycopg2_pool.ThreadedConnectionPool(2, 10, DATABASE_URL)
+    if _pool is not None:
+        return _pool
+    with _pool_lock:
+        if _pool is None:
+            _pool = psycopg2_pool.ThreadedConnectionPool(2, 10, DATABASE_URL)
     return _pool
 
 def get_db():
@@ -33,13 +40,15 @@ def row_to_dict(row):
         if field in d:
             if isinstance(d[field], str):
                 try: d[field] = json.loads(d[field])
-                except: d[field] = []
+                except Exception:
+                    logger.warning("Failed to parse JSON for field %s", field)
+                    d[field] = []
             elif d[field] is None: d[field] = []
     if 'completed' in d: d['completed'] = bool(d['completed'])
     return d
 
 def init_db():
-    print("[init_db] creating tables...", flush=True)
+    logger.info("creating tables...")
     conn = get_db()
     try:
         cur = conn.cursor()
@@ -78,12 +87,15 @@ def init_db():
             )""")
         cur.execute("INSERT INTO projects (id,name,color,icon) VALUES ('inbox','Inbox','#6366f1','📥') ON CONFLICT (id) DO NOTHING")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_tasks_project_id ON tasks(project_id)")
+        cur.execute("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS links JSONB DEFAULT '[]'")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_tasks_due_date ON tasks(due_date)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_subtasks_task_id ON subtasks(task_id)")
         conn.commit()
-        print("[init_db] done.", flush=True)
+        logger.info("tables ready.")
     except Exception as e:
-        conn.rollback(); print(f"[init_db] error: {e}", flush=True); raise
+        conn.rollback()
+        logger.exception("init_db failed: %s", e)
+        raise
     finally:
         release_db(conn)

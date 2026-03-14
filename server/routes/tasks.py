@@ -1,7 +1,6 @@
 """Task, subtask, and reorder routes."""
 
-import json
-import uuid
+import json, logging, uuid
 from datetime import datetime, date, timezone
 
 import psycopg2.extras
@@ -9,7 +8,9 @@ from flask import Blueprint, request, jsonify
 
 from lib.db import get_db, release_db, row_to_dict
 from lib.nlp import parse_natural_language, next_due_date
-from lib.gcal import gcal_upsert, gcal_delete, gcal_save
+from lib.gcal import gcal_upsert, gcal_delete, gcal_save, GCAL_CALENDAR_ID, is_enabled as gcal_is_enabled
+
+logger = logging.getLogger(__name__)
 
 bp = Blueprint('tasks', __name__)
 
@@ -84,18 +85,29 @@ def create_task():
     if not title: return jsonify({'error': 'Title required'}), 400
     nlp = {}
     if data.get('nlp'): nlp = parse_natural_language(title); title = nlp.get('title', title)
-    tags = data.get('tags', nlp.get('labels', []))
-    due_date = data.get('due_date', nlp.get('due_date'))
-    due_time = data.get('due_time', nlp.get('due_time'))
-    status = data.get('status', 'todo')
-    project_id = data.get('project_id', 'inbox')
-    recurrence = data.get('recurrence', nlp.get('recurrence'))
+    tags           = data.get('tags', nlp.get('labels', []))
+    due_date       = data.get('due_date', nlp.get('due_date'))
+    due_time       = data.get('due_time', nlp.get('due_time'))
+    status         = data.get('status', 'todo')
+    project_id     = data.get('project_id', 'inbox')
+    recurrence     = data.get('recurrence', nlp.get('recurrence'))
     recurrence_end = data.get('recurrence_end')
-    pname = nlp.get('project_name')
-    if pname:
-        conn = get_db()
-        try:
-            cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    obsidian_url   = nlp.get('obsidian_url') or data.get('obsidian_url')
+    links          = data.get('links', [])
+    if not links and obsidian_url:
+        note_name = nlp.get('obsidian_note') or 'Obsidian'
+        links = [{'url': obsidian_url, 'label': note_name}]
+    # Use obsidian_url as description if none provided (set within the same transaction below)
+    description = data.get('description', '')
+    if obsidian_url and not description.strip():
+        description = obsidian_url
+
+    # Single transaction: project lookup/creation + task insert
+    conn = get_db()
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        pname = nlp.get('project_name')
+        if pname:
             cur.execute("SELECT id FROM projects WHERE LOWER(name)=LOWER(%s)", (pname,))
             row = cur.fetchone()
             if row:
@@ -106,40 +118,22 @@ def create_task():
                 cur.execute("INSERT INTO projects (id,name,color,icon) VALUES (%s,%s,%s,'📁')",
                             (new_pid, pname.capitalize(), PALETTE[hash(pname) % len(PALETTE)]))
                 project_id = new_pid
-            conn.commit()
-        finally:
-            release_db(conn)
-    conn = get_db()
-    try:
-        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cur.execute("SELECT COALESCE(MAX(position),0) FROM tasks WHERE project_id=%s AND status=%s",
                     (project_id, status))
         max_pos = cur.fetchone()['coalesce']
-        obsidian_url = nlp.get('obsidian_url') or data.get('obsidian_url')
-        links = data.get('links', [])
-        if not links and obsidian_url:
-            note_name = nlp.get('obsidian_note') or 'Obsidian'
-            links = [{'url': obsidian_url, 'label': note_name}]
         cur.execute("""INSERT INTO tasks (id,title,description,project_id,status,due_date,due_time,tags,position,recurrence,recurrence_end,links)
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
-            (tid, title, data.get('description', ''), project_id, status, due_date, due_time,
+            (tid, title, description, project_id, status, due_date, due_time,
              json.dumps(tags), max_pos + 1, recurrence, recurrence_end, json.dumps(links)))
         cur.execute("SELECT * FROM tasks WHERE id=%s", (tid,))
         task = row_to_dict(cur.fetchone())
-        task['subtasks'] = []; conn.commit()
+        task['subtasks'] = []
+        conn.commit()
     finally:
         release_db(conn)
+
     if nlp.get('nlp_summary'): task['nlp_summary'] = nlp['nlp_summary']
     if nlp.get('obsidian_new_url'): task['obsidian_new_url'] = nlp['obsidian_new_url']
-    if obsidian_url and not data.get('description', '').strip():
-        conn = get_db()
-        try:
-            cur = conn.cursor()
-            cur.execute("UPDATE tasks SET description=%s WHERE id=%s", (obsidian_url, tid))
-            conn.commit()
-        finally:
-            release_db(conn)
-        task['description'] = obsidian_url
     if due_date:
         task['timezone'] = data.get('timezone') or 'UTC'
         eid = gcal_upsert(task)
@@ -220,8 +214,10 @@ def delete_task(tid):
     conn = get_db()
     try:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        cur.execute("SELECT gcal_event_id FROM tasks WHERE id=%s", (tid,)); row = cur.fetchone()
-        if row and row['gcal_event_id']: gcal_delete(row['gcal_event_id'])
+        cur.execute("SELECT gcal_event_id FROM tasks WHERE id=%s", (tid,))
+        row = cur.fetchone()
+        if not row: return jsonify({'error': 'Not found'}), 404
+        if row['gcal_event_id']: gcal_delete(row['gcal_event_id'])
         cur.execute("DELETE FROM subtasks WHERE task_id=%s", (tid,))
         cur.execute("DELETE FROM tasks WHERE id=%s", (tid,)); conn.commit()
     finally:
@@ -255,7 +251,8 @@ def update_subtask(tid, sid):
     data = request.get_json(); conn = get_db()
     try:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        for f in ('title', 'due_date', 'due_time'):
+        _ALLOWED_SUBTASK_FIELDS = ('title', 'due_date', 'due_time')
+        for f in _ALLOWED_SUBTASK_FIELDS:
             if f in data: cur.execute(f"UPDATE subtasks SET {f}=%s WHERE id=%s", (data[f], sid))
         if 'completed' in data:
             cur.execute("UPDATE subtasks SET completed=%s WHERE id=%s", (bool(data['completed']), sid))
@@ -271,7 +268,9 @@ def update_subtask(tid, sid):
 def delete_subtask(tid, sid):
     conn = get_db()
     try:
-        cur = conn.cursor()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT id FROM subtasks WHERE id=%s", (sid,))
+        if not cur.fetchone(): return jsonify({'error': 'Not found'}), 404
         cur.execute("DELETE FROM subtasks WHERE id=%s", (sid,)); conn.commit()
     finally:
         release_db(conn)

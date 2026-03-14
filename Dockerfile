@@ -9,7 +9,7 @@ RUN npm run build
 # ── Stage 2: Python backend ───────────────────────────────────────────────────
 FROM python:3.12-slim
 WORKDIR /app
-RUN pip install flask gunicorn psycopg2-binary icalendar \
+RUN pip install flask gunicorn psycopg2-binary icalendar bcrypt \
     google-api-python-client google-auth-httplib2 google-auth-oauthlib \
     opentelemetry-sdk opentelemetry-exporter-otlp-proto-grpc \
     opentelemetry-instrumentation-flask opentelemetry-instrumentation-psycopg2 \
@@ -19,4 +19,4 @@ COPY server/lib/ ./lib/
 COPY server/routes/ ./routes/
 COPY --from=frontend /app/client/dist ./client/dist
 EXPOSE 5000
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--timeout", "120", "--preload", "server:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--timeout", "120", "--preload", "main:app"]

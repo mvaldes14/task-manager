@@ -1,7 +1,10 @@
 """Natural language processing — date/time/recurrence parsing."""
 
-import json, re, os
+import calendar, json, logging, re, os
 from datetime import date, timedelta
+from urllib.parse import quote, unquote
+
+logger = logging.getLogger(__name__)
 
 OBSIDIAN_VAULT = os.environ.get('OBSIDIAN_VAULT', '').strip()
 OBSIDIAN_INBOX = os.environ.get('OBSIDIAN_INBOX', '').strip().strip('/')
@@ -56,7 +59,6 @@ def parse_recurrence(text):
 
 
 def _nth_weekday_of_month(year, month, dow, n):
-    import calendar
     if n == -1:
         last_day = calendar.monthrange(year, month)[1]
         d = date(year, month, last_day)
@@ -72,7 +74,9 @@ def _nth_weekday_of_month(year, month, dow, n):
 def next_due_date(rule_str, from_date):
     if not rule_str: return None
     try: rule = json.loads(rule_str)
-    except: return None
+    except Exception:
+        logger.warning("Failed to parse recurrence rule: %s", rule_str)
+        return None
     rtype = rule.get("type")
     if rtype == "daily": return from_date + timedelta(days=1)
     if rtype == "weekly":
@@ -82,7 +86,6 @@ def next_due_date(rule_str, from_date):
         return from_date + timedelta(days=7)
     if rtype == "interval": return from_date + timedelta(days=rule.get("days", 7))
     if rtype == "monthly_dom":
-        import calendar
         dom = rule.get("dom"); month = from_date.month % 12 + 1
         year = from_date.year + (1 if from_date.month == 12 else 0)
         if dom is None: dom = from_date.day
@@ -108,7 +111,6 @@ def parse_natural_language(text):
     if wiki_match:
         note_name = wiki_match.group(1).strip()
         vault = OBSIDIAN_VAULT or 'vault'
-        from urllib.parse import quote
         inbox_prefix = (OBSIDIAN_INBOX + '/') if OBSIDIAN_INBOX else ''
         result['obsidian_url']     = f"obsidian://open?vault={quote(vault)}&file={quote(inbox_prefix + note_name)}"
         result['obsidian_new_url'] = f"obsidian://new?vault={quote(vault)}&file={quote(inbox_prefix + note_name)}"
@@ -121,7 +123,6 @@ def parse_natural_language(text):
             result['obsidian_url'] = obs_match.group(0)
             fn_match = re.search(r'[?&]file=([^&]+)', obs_match.group(0))
             if fn_match:
-                from urllib.parse import unquote
                 result['obsidian_note'] = unquote(fn_match.group(1))
             text = text[:obs_match.start()] + text[obs_match.end():].strip()
 
@@ -142,7 +143,8 @@ def parse_natural_language(text):
                 elif mer == 'am' and h == 12: h = 0
                 found_time = f"{h:02d}:{mi:02d}"; text = text[:m.start()] + text[m.end():]
                 text = re.sub(r'\bat\s*$', '', text).strip(); break
-            except: pass
+            except Exception:
+                logger.debug("Failed to parse time from: %s", m.group(0))
 
     text = re.sub(r'\bby\s+(?=(monday|tuesday|wednesday|thursday|friday|saturday|sunday|tomorrow|today|tonight|next|this|\d))', '', text, flags=re.IGNORECASE).strip()
     tlc = text.lower()
@@ -191,7 +193,8 @@ def parse_natural_language(text):
                 c = date(today.year, mn, dn)
                 found_date = c if c >= today else date(today.year + 1, mn, dn)
                 text = text[:m.start()] + text[m.end():]
-            except: pass
+            except Exception:
+                logger.debug("Failed to parse month/day from: %s", m.group(0))
 
     if not found_date:
         m = re.search(r'\b(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?\b', text)
@@ -200,7 +203,8 @@ def parse_natural_language(text):
                 mo, dy = int(m.group(1)), int(m.group(2)); yr = int(m.group(3)) if m.group(3) else today.year
                 if yr < 100: yr += 2000
                 found_date = date(yr, mo, dy); text = text[:m.start()] + text[m.end():]
-            except: pass
+            except Exception:
+                logger.debug("Failed to parse date from: %s", m.group(0))
 
     if not found_date and re.search(r'\b(end of week|eow|weekend)\b', tlc):
         found_date = today + timedelta(days=(5 - today.weekday()) % 7 or 7)

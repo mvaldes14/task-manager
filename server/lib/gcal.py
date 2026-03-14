@@ -1,8 +1,10 @@
 """Google Calendar integration."""
 
-import json, os
-from datetime import datetime, timedelta
+import json, os, logging
+from datetime import datetime, timedelta, date as date_type
 from lib.db import get_db, release_db
+
+logger = logging.getLogger(__name__)
 
 GCAL_ENABLED     = False
 GCAL_CREDENTIALS = os.environ.get('GCAL_CREDENTIALS_JSON')
@@ -22,10 +24,11 @@ def _get_gcal_service():
             scopes=['https://www.googleapis.com/auth/calendar'])
         _gcal_service = build('calendar', 'v3', credentials=creds)
         GCAL_ENABLED = True
-        print("[gcal] Google Calendar connected.", flush=True)
+        logger.info("Google Calendar connected.")
         return _gcal_service
     except Exception as e:
-        print(f"[gcal] init failed: {e}", flush=True); return None
+        logger.error("GCal init failed: %s", e)
+        return None
 
 
 def is_enabled():
@@ -36,9 +39,11 @@ def gcal_upsert(task):
     svc = _get_gcal_service()
     tid = task.get('id', '?'); ttitle = task.get('title', '?')
     if not svc:
-        print(f"[gcal] skip — not enabled (task {tid} '{ttitle}')", flush=True); return None
+        logger.debug("skip — not enabled (task %s '%s')", tid, ttitle)
+        return None
     if not task.get('due_date'):
-        print(f"[gcal] skip — no due_date (task {tid} '{ttitle}')", flush=True); return None
+        logger.debug("skip — no due_date (task %s '%s')", tid, ttitle)
+        return None
     try:
         tz = task.get('timezone') or 'UTC'
         if task.get('due_time'):
@@ -48,8 +53,10 @@ def gcal_upsert(task):
             end   = {'dateTime': end_dt, 'timeZone': tz}
             time_str = f"{task['due_date']} {task['due_time']} ({tz})"
         else:
+            # Google Calendar requires all-day event end = start + 1 day
+            end_date = (date_type.fromisoformat(task['due_date']) + timedelta(days=1)).isoformat()
             start = {'date': task['due_date']}
-            end   = {'date': task['due_date']}
+            end   = {'date': end_date}
             time_str = f"{task['due_date']} (all-day)"
         done  = task.get('status') == 'done'
         title = f"\u2713 {task['title']}" if done else task['title']
@@ -64,13 +71,14 @@ def gcal_upsert(task):
         eid = task.get('gcal_event_id')
         if eid:
             ev = svc.events().update(calendarId=GCAL_CALENDAR_ID, eventId=eid, body=body).execute()
-            print(f"[gcal] updated  {eid} — '{ttitle}' @ {time_str} status={task.get('status')}", flush=True)
+            logger.info("updated  %s — '%s' @ %s status=%s", eid, ttitle, time_str, task.get('status'))
         else:
             ev = svc.events().insert(calendarId=GCAL_CALENDAR_ID, body=body).execute()
-            print(f"[gcal] created  {ev.get('id')} — '{ttitle}' @ {time_str} status={task.get('status')}", flush=True)
+            logger.info("created  %s — '%s' @ %s status=%s", ev.get('id'), ttitle, time_str, task.get('status'))
         return ev.get('id')
     except Exception as e:
-        print(f"[gcal] upsert error task {tid} '{ttitle}': {e}", flush=True); return None
+        logger.error("upsert error task %s '%s': %s", tid, ttitle, e)
+        return None
 
 
 def gcal_delete(event_id):
@@ -78,9 +86,9 @@ def gcal_delete(event_id):
     if not svc or not event_id: return
     try:
         svc.events().delete(calendarId=GCAL_CALENDAR_ID, eventId=event_id).execute()
-        print(f"[gcal] deleted  {event_id}", flush=True)
+        logger.info("deleted  %s", event_id)
     except Exception as e:
-        print(f"[gcal] delete error {event_id}: {e}", flush=True)
+        logger.error("delete error %s: %s", event_id, e)
 
 
 def gcal_save(task_id, event_id):

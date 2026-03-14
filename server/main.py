@@ -1,17 +1,25 @@
 #!/usr/bin/env python3
 """Doit Server — slim entry point, delegates to route blueprints."""
 
-import os
-import time as _time
+import logging, os, time as _time
 from flask import Flask, request, jsonify, redirect, send_from_directory
 
-from .lib.db   import init_db, DATABASE_URL
+from lib.db   import init_db, DATABASE_URL
 
-from .routes.auth     import bp as auth_bp,     is_authenticated, TD_PASSWORD, _PUBLIC_PATHS, _purge_expired_sessions
-from .routes.projects import bp as projects_bp
-from .routes.tasks    import bp as tasks_bp
-from .routes.gcal     import bp as gcal_bp
-from .routes.ics      import bp as ics_bp
+from routes.auth     import bp as auth_bp,     is_authenticated, TD_PASSWORD, _PUBLIC_PATHS, _purge_expired_sessions
+from routes.projects import bp as projects_bp
+from routes.tasks    import bp as tasks_bp
+from routes.gcal     import bp as gcal_bp
+from routes.ics      import bp as ics_bp
+
+# ── Logging ───────────────────────────────────────────────────────────────────
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s %(levelname)s %(name)s — %(message)s',
+    datefmt='%H:%M:%S',
+)
+logger = logging.getLogger(__name__)
 
 # ── OpenTelemetry ─────────────────────────────────────────────────────────────
 
@@ -31,9 +39,9 @@ if OTEL_ENDPOINT:
     provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=OTEL_ENDPOINT)))
     trace.set_tracer_provider(provider)
     Psycopg2Instrumentor().instrument()
-    print(f'[otel] tracing enabled -> {OTEL_ENDPOINT}', flush=True)
+    logger.info('[otel] tracing enabled -> %s', OTEL_ENDPOINT)
 else:
-    print('[otel] OTEL_EXPORTER_OTLP_ENDPOINT not set, tracing disabled', flush=True)
+    logger.info('[otel] OTEL_EXPORTER_OTLP_ENDPOINT not set, tracing disabled')
 
 # ── App setup ─────────────────────────────────────────────────────────────────
 
@@ -73,9 +81,14 @@ def require_auth():
 
 # ── Static / SPA fallback ────────────────────────────────────────────────────
 
+# CORS_ORIGIN controls the Access-Control-Allow-Origin header.
+# Defaults to '*', which works for API key auth. If you need cookie-based
+# cross-origin auth, set this to the specific frontend origin instead.
+CORS_ORIGIN = os.environ.get('CORS_ORIGIN', '*').strip()
+
 @app.after_request
 def add_cors(response):
-    response.headers['Access-Control-Allow-Origin']  = '*'
+    response.headers['Access-Control-Allow-Origin']  = CORS_ORIGIN
     response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-API-Key'
     response.headers['Access-Control-Allow-Methods'] = 'GET,POST,PUT,PATCH,DELETE,OPTIONS'
     return response
@@ -98,10 +111,10 @@ def serve_spa(path):
 OBSIDIAN_VAULT = os.environ.get('OBSIDIAN_VAULT', '').strip()
 OBSIDIAN_INBOX = os.environ.get('OBSIDIAN_INBOX', '').strip().strip('/')
 
-print(f"[startup] DATABASE_URL = {DATABASE_URL}", flush=True)
+logger.info('[startup] DATABASE_URL = %s', DATABASE_URL)
 if OBSIDIAN_VAULT:
-    print(f"[startup] Obsidian vault: {OBSIDIAN_VAULT}" +
-          (f" inbox: {OBSIDIAN_INBOX}" if OBSIDIAN_INBOX else ""), flush=True)
+    logger.info('[startup] Obsidian vault: %s%s', OBSIDIAN_VAULT,
+                f' inbox: {OBSIDIAN_INBOX}' if OBSIDIAN_INBOX else '')
 
 init_db()
 
@@ -109,5 +122,6 @@ if __name__ == '__main__':
     import socket
     try:    ip = socket.gethostbyname(socket.gethostname())
     except: ip = '127.0.0.1'
-    print(f"\n{'='*50}\n  Doit backend running!\n  Local:   http://localhost:5000\n  Network: http://{ip}:5000\n{'='*50}\n")
+    logger.info('\n%s\n  TD running!\n  Local:   http://localhost:5000\n  Network: http://%s:5000\n%s',
+                '='*50, ip, '='*50)
     app.run(host='0.0.0.0', port=5000, debug=False)
