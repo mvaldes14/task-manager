@@ -1,7 +1,7 @@
 """Database connection pool and helpers."""
 
-import json, os
-import psycopg2, psycopg2.extras
+import json
+import os
 from psycopg2 import pool as psycopg2_pool
 
 DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://td:td@localhost:5432/td')
@@ -78,7 +78,6 @@ def init_db():
             )""")
         cur.execute("INSERT INTO projects (id,name,color,icon) VALUES ('inbox','Inbox','#6366f1','📥') ON CONFLICT (id) DO NOTHING")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_tasks_project_id ON tasks(project_id)")
-        cur.execute("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS links JSONB DEFAULT '[]'")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_tasks_due_date ON tasks(due_date)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_subtasks_task_id ON subtasks(task_id)")

@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
-"""TD Server — slim entry point, delegates to route blueprints."""
+"""Doit Server — slim entry point, delegates to route blueprints."""
 
-import os, time as _time
+import os
+import time as _time
 from flask import Flask, request, jsonify, redirect, send_from_directory
 
-from lib.db   import init_db, DATABASE_URL
-from lib.gcal import _get_gcal_service  # triggers init at startup
+from .lib.db   import init_db, DATABASE_URL
 
-from routes.auth     import bp as auth_bp,     is_authenticated, TD_PASSWORD, _PUBLIC_PATHS, _purge_expired_sessions
-from routes.projects import bp as projects_bp
-from routes.tasks    import bp as tasks_bp
-from routes.gcal     import bp as gcal_bp
-from routes.ics      import bp as ics_bp
+from .routes.auth     import bp as auth_bp,     is_authenticated, TD_PASSWORD, _PUBLIC_PATHS, _purge_expired_sessions
+from .routes.projects import bp as projects_bp
+from .routes.tasks    import bp as tasks_bp
+from .routes.gcal     import bp as gcal_bp
+from .routes.ics      import bp as ics_bp
 
 # ── OpenTelemetry ─────────────────────────────────────────────────────────────
 
@@ -109,5 +109,5 @@ if __name__ == '__main__':
     import socket
     try:    ip = socket.gethostbyname(socket.gethostname())
     except: ip = '127.0.0.1'
-    print(f"\n{'='*50}\n  TD running!\n  Local:   http://localhost:5000\n  Network: http://{ip}:5000\n{'='*50}\n")
+    print(f"\n{'='*50}\n  Doit backend running!\n  Local:   http://localhost:5000\n  Network: http://{ip}:5000\n{'='*50}\n")
     app.run(host='0.0.0.0', port=5000, debug=False)

@@ -1,14 +1,15 @@
 """Auth routes: login, logout, status, middleware."""
 
-import hashlib, secrets, time as _time
+import hashlib
+import secrets
+import time as _time
 from datetime import datetime, timedelta, timezone
-from urllib.parse import quote
 
 import psycopg2.extras
 from flask import Blueprint, request, jsonify, redirect, make_response
 
-from lib.db import get_db, release_db
-from lib.gcal import is_enabled as gcal_is_enabled
+from ..lib.db import get_db, release_db
+from ..lib.gcal import is_enabled as gcal_is_enabled
 
 import os
 
@@ -23,7 +24,7 @@ bp = Blueprint('auth', __name__)
 # ── Rate limiting ──────────────────────────────────────────────
 _LOCKOUT_ATTEMPTS = 5
 _LOCKOUT_SECONDS  = 900
-_failed: dict = {}
+_failed = {}
 
 def _check_rate_limit(ip):
     now = _time.time()

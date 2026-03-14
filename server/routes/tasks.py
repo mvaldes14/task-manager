@@ -1,6 +1,7 @@
 """Task, subtask, and reorder routes."""
 
-import json, uuid
+import json
+import uuid
 from datetime import datetime, date, timezone
 
 import psycopg2.extras
@@ -8,7 +9,7 @@ from flask import Blueprint, request, jsonify
 
 from lib.db import get_db, release_db, row_to_dict
 from lib.nlp import parse_natural_language, next_due_date
-from lib.gcal import gcal_upsert, gcal_delete, gcal_save, GCAL_CALENDAR_ID, is_enabled as gcal_is_enabled
+from lib.gcal import gcal_upsert, gcal_delete, gcal_save
 
 bp = Blueprint('tasks', __name__)
 

@@ -1,9 +1,9 @@
 # ── Stage 1: Build React frontend ────────────────────────────────────────────
 FROM node:22-alpine AS frontend
-WORKDIR /app/client-react
-COPY client-react/package*.json ./
+WORKDIR /app/client
+COPY client/package*.json ./
 RUN npm ci
-COPY client-react/ .
+COPY client/ .
 RUN npm run build
 
 # ── Stage 2: Python backend ───────────────────────────────────────────────────
@@ -14,9 +14,9 @@ RUN pip install flask gunicorn psycopg2-binary icalendar \
     opentelemetry-sdk opentelemetry-exporter-otlp-proto-grpc \
     opentelemetry-instrumentation-flask opentelemetry-instrumentation-psycopg2 \
     --no-cache-dir
-COPY server.py .
-COPY lib/ ./lib/
-COPY routes/ ./routes/
+COPY server/main.py .
+COPY server/lib/ ./lib/
+COPY server/routes/ ./routes/
 COPY --from=frontend /app/client/dist ./client/dist
 EXPOSE 5000
 CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--timeout", "120", "--preload", "server:app"]
