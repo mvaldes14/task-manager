@@ -33,7 +33,8 @@ def require_auth():
     if (request.method == 'OPTIONS'
             or path in _PUBLIC_PATHS
             or path.startswith('/assets/')
-            or path.startswith('/icons/')):
+            or path.startswith('/icons/')
+            or path.endswith(('.js', '.css', '.png', '.ico', '.svg', '.webmanifest', '.json'))):
         return None
     if not TD_PASSWORD:
         return None
