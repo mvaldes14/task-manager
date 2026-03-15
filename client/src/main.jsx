@@ -1,7 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
-import './otel.js'
+import { initOtel } from './otel.js'
 import App from './App.jsx'
 
 // Apply saved theme before render to avoid flash
@@ -13,3 +13,6 @@ createRoot(document.getElementById('root')).render(
     <App />
   </StrictMode>,
 )
+
+// Init OTel after render — fetches endpoint from /api/settings at runtime
+initOtel()

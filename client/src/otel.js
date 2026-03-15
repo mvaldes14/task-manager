@@ -1,28 +1,43 @@
 /**
  * OpenTelemetry browser instrumentation.
- * Only active when VITE_OTEL_ENDPOINT is set at build time.
+ * Endpoint is fetched at runtime from /api/settings so no build-time baking needed.
  */
-const endpoint = import.meta.env.VITE_OTEL_ENDPOINT
+let _initialized = false
 
-if (endpoint) {
-  Promise.all([
-    import('@opentelemetry/sdk-trace-web'),
-    import('@opentelemetry/instrumentation-fetch'),
-    import('@opentelemetry/instrumentation-document-load'),
-    import('@opentelemetry/exporter-trace-otlp-http'),
-    import('@opentelemetry/resources'),
-    import('@opentelemetry/semantic-conventions'),
-  ]).then(([
-    { WebTracerProvider, BatchSpanProcessor },
-    { FetchInstrumentation },
-    { DocumentLoadInstrumentation },
-    { OTLPTraceExporter },
-    { Resource },
-    { SEMRESATTRS_SERVICE_NAME },
-  ]) => {
+export async function initOtel() {
+  if (_initialized) return
+  _initialized = true
+  let endpoint
+  try {
+    const r = await fetch('/api/settings', { credentials: 'include' })
+    if (r.ok) {
+      const s = await r.json()
+      endpoint = s.otel_frontend_endpoint
+    }
+  } catch { /* settings fetch failed, skip otel */ }
+
+  if (!endpoint) return
+
+  try {
+    const [
+      { WebTracerProvider, BatchSpanProcessor },
+      { FetchInstrumentation },
+      { DocumentLoadInstrumentation },
+      { OTLPTraceExporter },
+      { Resource },
+      { SEMRESATTRS_SERVICE_NAME },
+    ] = await Promise.all([
+      import('@opentelemetry/sdk-trace-web'),
+      import('@opentelemetry/instrumentation-fetch'),
+      import('@opentelemetry/instrumentation-document-load'),
+      import('@opentelemetry/exporter-trace-otlp-http'),
+      import('@opentelemetry/resources'),
+      import('@opentelemetry/semantic-conventions'),
+    ])
+
     const provider = new WebTracerProvider({
       resource: new Resource({
-        [SEMRESATTRS_SERVICE_NAME]: import.meta.env.VITE_OTEL_SERVICE_NAME || 'doit-web',
+        [SEMRESATTRS_SERVICE_NAME]: 'doit-web',
       }),
     })
 
@@ -36,5 +51,7 @@ if (endpoint) {
     new DocumentLoadInstrumentation().enable()
 
     console.log('[otel] tracing enabled ->', endpoint)
-  }).catch(e => console.warn('[otel] failed to init:', e))
+  } catch (e) {
+    console.warn('[otel] failed to init:', e)
+  }
 }

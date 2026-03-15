@@ -86,6 +86,14 @@ def init_db():
                 id TEXT PRIMARY KEY, name TEXT NOT NULL, color TEXT DEFAULT '#bb9af7',
                 url TEXT, content TEXT, created_at TIMESTAMPTZ DEFAULT NOW()
             )""")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS settings (
+                id INTEGER PRIMARY KEY DEFAULT 1,
+                data JSONB NOT NULL DEFAULT '{}',
+                updated_at TIMESTAMPTZ DEFAULT NOW(),
+                CONSTRAINT single_row CHECK (id = 1)
+            )""")
+        cur.execute("INSERT INTO settings (id, data) VALUES (1, '{}') ON CONFLICT (id) DO NOTHING")
         cur.execute("INSERT INTO projects (id,name,color,icon) VALUES ('inbox','Inbox','#6366f1','📥') ON CONFLICT (id) DO NOTHING")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_tasks_project_id ON tasks(project_id)")
         cur.execute("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS links JSONB DEFAULT '[]'")
@@ -98,5 +106,32 @@ def init_db():
         conn.rollback()
         logger.exception("init_db failed: %s", e)
         raise
+    finally:
+        release_db(conn)
+
+def get_settings() -> dict:
+    """Return the single settings row as a dict, creating it if missing."""
+    conn = get_db()
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT data FROM settings LIMIT 1")
+        row = cur.fetchone()
+        return dict(row['data']) if row else {}
+    finally:
+        release_db(conn)
+
+def save_settings(data: dict) -> dict:
+    """Upsert the settings row and return the saved data."""
+    conn = get_db()
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("""
+            INSERT INTO settings (data) VALUES (%s)
+            ON CONFLICT (id) DO UPDATE SET data = settings.data || %s, updated_at = NOW()
+            RETURNING data
+        """, (json.dumps(data), json.dumps(data)))
+        row = cur.fetchone()
+        conn.commit()
+        return dict(row['data'])
     finally:
         release_db(conn)
