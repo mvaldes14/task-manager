@@ -34,14 +34,24 @@ if OTEL_ENDPOINT:
     from opentelemetry.instrumentation.flask import FlaskInstrumentor
     from opentelemetry.instrumentation.psycopg2 import Psycopg2Instrumentor
 
-    resource = Resource.create({'service.name': os.environ.get('OTEL_SERVICE_NAME', 'doit')})
+    service_name = os.environ.get('OTEL_SERVICE_NAME', 'doit')
+    resource = Resource.create({'service.name': service_name})
     provider = TracerProvider(resource=resource)
-    provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=OTEL_ENDPOINT)))
+
+    # Default to insecure (no TLS) unless OTEL_EXPORTER_OTLP_INSECURE=false
+    use_insecure = os.environ.get('OTEL_EXPORTER_OTLP_INSECURE', 'true').lower() != 'false'
+    exporter = OTLPSpanExporter(endpoint=OTEL_ENDPOINT, insecure=use_insecure)
+    provider.add_span_processor(BatchSpanProcessor(exporter))
+
     trace.set_tracer_provider(provider)
     Psycopg2Instrumentor().instrument()
-    logger.info('[otel] tracing enabled -> %s', OTEL_ENDPOINT)
+    logger.info('[otel] ✓ OpenTelemetry enabled')
+    logger.info('[otel]   - Service: %s', service_name)
+    logger.info('[otel]   - Endpoint: %s', OTEL_ENDPOINT)
+    logger.info('[otel]   - TLS: %s', 'disabled' if use_insecure else 'enabled')
+    logger.info('[otel]   - Instrumented: psycopg2')
 else:
-    logger.info('[otel] OTEL_EXPORTER_OTLP_ENDPOINT not set, tracing disabled')
+    logger.info('[otel] OpenTelemetry disabled (OTEL_EXPORTER_OTLP_ENDPOINT not set)')
 
 # ── App setup ─────────────────────────────────────────────────────────────────
 
@@ -49,6 +59,7 @@ app = Flask(__name__, static_folder='client/dist')
 
 if OTEL_ENDPOINT:
     FlaskInstrumentor().instrument_app(app)
+    logger.info('[otel]   - Instrumented: Flask')
 
 app.register_blueprint(auth_bp)
 app.register_blueprint(projects_bp)
