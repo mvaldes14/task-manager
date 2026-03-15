@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react'
 import { useApp } from '../../context/AppContext'
 import { isOverdue, isToday } from '../../utils'
-import { Plus, LogOut, Sun, Moon, Settings, Trash2, CheckCircle2, RefreshCw, Calendar, Inbox, Layers, AlertCircle, CalendarDays, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { Plus, LogOut, Sun, Moon, Settings, Trash2, CheckCircle2, RefreshCw, Calendar, Inbox, Layers, AlertCircle, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { api } from '../../api'
 import { ProjectIcon, PROJECT_ICON_OPTIONS } from '../shared/ProjectIcon'
-import { IcsManager } from '../calendar/IcsManager'
+import { SettingsModal } from '../settings/SettingsModal'
 
 const PROJECT_COLORS = ['#f7768e','#ff9e64','#e0af68','#9ece6a','#73daca','#7dcfff','#7aa2f7','#bb9af7','#c0caf5']
 
@@ -136,7 +136,7 @@ export function Sidebar() {
   const { state, dispatch } = useApp()
   const [showNewProject, setShowNewProject] = useState(false)
   const [editingProject, setEditingProject] = useState(null)
-  const [showIcsManager, setShowIcsManager] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
 
   const collapsed = state.sidebarCollapsed
   const toggle = () => dispatch({ type: 'TOGGLE_SIDEBAR_COLLAPSED' })
@@ -300,10 +300,10 @@ export function Sidebar() {
             >
               <LogOut size={16} /> Sign out
             </button>
-            <button onClick={() => setShowIcsManager(true)} title="Import ICS calendar"
+            <button onClick={() => setShowSettings(true)} title="Settings"
               className="flex items-center justify-center p-2 rounded-lg text-td-muted dark:text-tn-nav
                 hover:text-td-fg dark:hover:text-tn-fg hover:bg-td-surface/50 dark:hover:bg-tn-surface/50 transition-colors">
-              <CalendarDays size={15} />
+              <Settings size={15} />
             </button>
             <div title={state.gcalEnabled ? 'Synced to Google Calendar' : 'Google Calendar not connected'}
               className="flex items-center gap-1 px-2 py-2 rounded-lg text-xs">
@@ -321,7 +321,7 @@ export function Sidebar() {
 
       {showNewProject && <ProjectFormModal onClose={() => setShowNewProject(false)} />}
       {editingProject && <ProjectFormModal project={editingProject} onClose={() => setEditingProject(null)} />}
-      {showIcsManager && <IcsManager onClose={() => setShowIcsManager(false)} />}
+      {showIcsManager && <SettingsModal onClose={() => setShowSettings(false)} />}
     </aside>
   )
 }
