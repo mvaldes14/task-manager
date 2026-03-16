@@ -24,8 +24,8 @@ export async function initOtel() {
       { FetchInstrumentation },
       { DocumentLoadInstrumentation },
       { OTLPTraceExporter },
-      { Resource },
-      { SEMRESATTRS_SERVICE_NAME },
+      { resourceFromAttributes },
+      { ATTR_SERVICE_NAME },
     ] = await Promise.all([
       import('@opentelemetry/sdk-trace-web'),
       import('@opentelemetry/instrumentation-fetch'),
@@ -36,8 +36,8 @@ export async function initOtel() {
     ])
 
     const provider = new WebTracerProvider({
-      resource: new Resource({
-        [SEMRESATTRS_SERVICE_NAME]: 'doit-web',
+      resource: resourceFromAttributes({
+        [ATTR_SERVICE_NAME]: 'doit-web',
       }),
     })
 
