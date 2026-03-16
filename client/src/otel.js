@@ -42,7 +42,7 @@ export async function initOtel() {
         [ATTR_SERVICE_NAME]: 'doit-web',
       }),
       spanProcessors: [new BatchSpanProcessor(new OTLPTraceExporter({
-        url: `${endpoint}/v1/traces`,
+        url: '/api/otlp/v1/traces',
       }))],
     })
 

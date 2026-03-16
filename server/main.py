@@ -12,6 +12,7 @@ from routes.tasks    import bp as tasks_bp
 from routes.gcal     import bp as gcal_bp
 from routes.ics      import bp as ics_bp
 from routes.settings import bp as settings_bp
+from routes.otlp     import bp as otlp_bp
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 
@@ -68,6 +69,7 @@ app.register_blueprint(tasks_bp)
 app.register_blueprint(gcal_bp)
 app.register_blueprint(ics_bp)
 app.register_blueprint(settings_bp)
+app.register_blueprint(otlp_bp)
 
 # ── Auth middleware ────────────────────────────────────────────────────────────
 
