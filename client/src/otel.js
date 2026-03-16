@@ -21,6 +21,7 @@ export async function initOtel() {
   try {
     const [
       { WebTracerProvider, BatchSpanProcessor },
+      { registerInstrumentations },
       { FetchInstrumentation },
       { DocumentLoadInstrumentation },
       { OTLPTraceExporter },
@@ -28,6 +29,7 @@ export async function initOtel() {
       { ATTR_SERVICE_NAME },
     ] = await Promise.all([
       import('@opentelemetry/sdk-trace-web'),
+      import('@opentelemetry/instrumentation'),
       import('@opentelemetry/instrumentation-fetch'),
       import('@opentelemetry/instrumentation-document-load'),
       import('@opentelemetry/exporter-trace-otlp-http'),
@@ -39,16 +41,20 @@ export async function initOtel() {
       resource: resourceFromAttributes({
         [ATTR_SERVICE_NAME]: 'doit-web',
       }),
+      spanProcessors: [new BatchSpanProcessor(new OTLPTraceExporter({
+        url: `${endpoint}/v1/traces`,
+      }))],
     })
-
-    provider.addSpanProcessor(new BatchSpanProcessor(new OTLPTraceExporter({
-      url: `${endpoint}/v1/traces`,
-    })))
 
     provider.register()
 
-    new FetchInstrumentation({ propagateTraceHeaderCorsUrls: [/.*/] }).enable()
-    new DocumentLoadInstrumentation().enable()
+    registerInstrumentations({
+      instrumentations: [
+        new FetchInstrumentation({ propagateTraceHeaderCorsUrls: [/.*/] }),
+        new DocumentLoadInstrumentation(),
+      ],
+      tracerProvider: provider,
+    })
 
     console.log('[otel] tracing enabled ->', endpoint)
   } catch (e) {
