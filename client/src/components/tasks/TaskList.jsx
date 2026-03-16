@@ -1,7 +1,7 @@
 import { TaskCard } from './TaskCard'
 
-const STATUS_LABELS = { todo: 'TO DO', doing: 'IN PROGRESS', done: 'DONE' }
-const STATUS_ORDER = ['todo', 'doing', 'done']
+const STATUS_LABELS = { todo: 'TO DO', doing: 'IN PROGRESS', blocked: 'BLOCKED', done: 'DONE' }
+const STATUS_ORDER = ['todo', 'doing', 'blocked', 'done']
 
 function GroupSection({ label, count, children }) {
   return (

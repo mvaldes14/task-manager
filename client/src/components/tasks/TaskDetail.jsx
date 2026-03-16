@@ -5,7 +5,7 @@ import { api } from '../../api'
 import { formatDate, fmtTime, recurrenceLabel, getLinkLabel, getLinkStyle } from '../../utils'
 import { X, Trash2, Plus, Check, ChevronRight, Paperclip, GitBranch, Link2, Repeat2 } from 'lucide-react'
 
-const STATUSES = ['todo', 'doing', 'done']
+const STATUSES = ['todo', 'doing', 'blocked', 'done']
 
 const RECUR_PRESETS = [
   { label: 'None',               value: null },

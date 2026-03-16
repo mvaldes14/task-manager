@@ -1,11 +1,14 @@
 """ICS calendar import and event routes."""
 
 import uuid
-from datetime import datetime as dt, date as date_type
+from datetime import datetime as dt, date as date_type, timezone
+from zoneinfo import ZoneInfo
 
 import psycopg2.extras
 from flask import Blueprint, request, jsonify
 from lib.db import get_db, release_db
+
+_CST = ZoneInfo('America/Chicago')
 
 bp = Blueprint('ics', __name__)
 
@@ -23,7 +26,13 @@ def _parse_ics(content: str, year: int, month: int) -> list:
             dtstart = component.get('DTSTART')
             if not dtstart: continue
             val = dtstart.dt
-            event_date = val.date() if isinstance(val, dt) else val
+            if isinstance(val, dt):
+                # Convert timezone-aware datetimes (typically UTC) to CST/CDT
+                if val.tzinfo is not None:
+                    val = val.astimezone(_CST)
+                event_date = val.date()
+            else:
+                event_date = val
             if event_date.year != year or event_date.month != month: continue
             summary  = str(component.get('SUMMARY', 'Untitled'))
             due_time = val.strftime('%H:%M') if isinstance(val, dt) else None

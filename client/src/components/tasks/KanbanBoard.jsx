@@ -5,9 +5,10 @@ import { TaskCard } from './TaskCard'
 import { Plus } from 'lucide-react'
 
 const COLUMNS = [
-  { status: 'todo',  label: 'To Do',      color: '#565f89' },
-  { status: 'doing', label: 'In Progress', color: '#7aa2f7' },
-  { status: 'done',  label: 'Done',        color: '#9ece6a' },
+  { status: 'todo',    label: 'To Do',      color: '#565f89' },
+  { status: 'doing',  label: 'In Progress', color: '#7aa2f7' },
+  { status: 'blocked', label: 'Blocked',    color: '#f7768e' },
+  { status: 'done',   label: 'Done',        color: '#9ece6a' },
 ]
 
 export function KanbanBoard({ tasks }) {
