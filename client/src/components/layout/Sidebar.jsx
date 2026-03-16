@@ -321,7 +321,7 @@ export function Sidebar() {
 
       {showNewProject && <ProjectFormModal onClose={() => setShowNewProject(false)} />}
       {editingProject && <ProjectFormModal project={editingProject} onClose={() => setEditingProject(null)} />}
-      {showIcsManager && <SettingsModal onClose={() => setShowSettings(false)} />}
+      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
     </aside>
   )
 }

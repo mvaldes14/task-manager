@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { X, CalendarDays, Puzzle, Bell, Link, Upload, Trash2, Plus, CheckCircle2, RefreshCw } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { api } from '../../api'
-import { useRef } from 'react'
 
 const TABS = [
   { id: 'calendars',     label: 'Calendars',     icon: CalendarDays },
@@ -272,11 +272,21 @@ export function SettingsModal({ onClose }) {
   const { state } = useApp()
   const [tab, setTab] = useState('calendars')
 
-  return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative w-full max-w-lg bg-td-bg2 dark:bg-tn-bg2 rounded-2xl
-        border border-td-border dark:border-tn-border shadow-2xl flex flex-col max-h-[85vh]">
+  return createPortal(
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm animate-fade-in"
+        onClick={onClose}
+      />
+
+      {/* Modal */}
+      <div className="fixed inset-0 z-[201] flex items-center justify-center p-4 pointer-events-none">
+        <div
+          className="pointer-events-auto w-full max-w-sm bg-td-bg2 dark:bg-tn-bg2 rounded-2xl
+            border border-td-border dark:border-tn-border shadow-2xl flex flex-col max-h-[85vh] overflow-hidden"
+          style={{ animation: 'slideUp 0.18s ease-out' }}
+        >
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-td-border/50 dark:border-tn-border/50 shrink-0">
@@ -308,5 +318,14 @@ export function SettingsModal({ onClose }) {
         </div>
       </div>
     </div>
+
+    <style>{`
+      @keyframes slideUp {
+        from { opacity: 0; transform: translateY(12px) scale(0.97); }
+        to   { opacity: 1; transform: translateY(0)    scale(1); }
+      }
+    `}</style>
+  </>,
+  document.body
   )
 }
