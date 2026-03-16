@@ -450,12 +450,11 @@ export function TaskDetail() {
             <label className="text-xs font-bold text-td-muted dark:text-tn-muted">Due Date</label>
             <div className="flex gap-2">
               <input type="date" value={dueDate}
-                onChange={e => { setDueDate(e.target.value); markDirty() }}
-                onBlur={save}
+                onChange={e => { const v = e.target.value; setDueDate(v); markDirty(); save({ due_date: v || null }) }}
                 className="flex-1 bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-xs rounded-lg px-2.5 py-2 outline-none border border-td-border/50 dark:border-tn-border/50"
               />
               <input type="time" value={dueTime}
-                onChange={e => { setDueTime(e.target.value); markDirty() }}
+                onChange={e => { const v = e.target.value; setDueTime(v); markDirty(); save({ due_time: v || null }) }}
                 onBlur={save}
                 className="w-28 bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-xs rounded-lg px-2.5 py-2 outline-none border border-td-border/50 dark:border-tn-border/50"
               />
@@ -467,8 +466,11 @@ export function TaskDetail() {
             recurrence={recurrence}
             recurrenceEnd={recurrenceEnd}
             onChange={({ recurrence: r, recurrence_end: re }) => {
-              if (r !== undefined) { setRecurrence(r); markDirty() }
-              if (re !== undefined) { setRecurrenceEnd(re || ''); markDirty() }
+              const overrides = {}
+              if (r !== undefined) { setRecurrence(r); overrides.recurrence = r || null }
+              if (re !== undefined) { setRecurrenceEnd(re || ''); overrides.recurrence_end = re || null }
+              markDirty()
+              save(overrides)
             }}
           />
 
@@ -492,7 +494,7 @@ export function TaskDetail() {
             <label className="text-xs font-bold text-td-muted dark:text-tn-muted">Tags</label>
             <TagCombobox
               tags={tags}
-              onChange={next => { setTags(next); markDirty() }}
+              onChange={next => { setTags(next); markDirty(); save({ tags: next }) }}
             />
           </div>
 
