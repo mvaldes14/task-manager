@@ -43,8 +43,12 @@ Copy `.env.example` to `.env` and set:
 | `TD_API_KEY` | API key for Bearer token auth (automations) |
 | `GCAL_CREDENTIALS_JSON` | Google service account JSON (single line) |
 | `GCAL_CALENDAR_ID` | Calendar to sync to (default: `primary`) |
-| `OBSIDIAN_VAULT` | Obsidian vault name |
-| `OBSIDIAN_INBOX` | Folder for new notes (e.g. `00-Inbox`) |
+| `OBSIDIAN_VAULT` | Obsidian vault name (can also be set in Settings UI) |
+| `OBSIDIAN_INBOX` | Folder for new notes (e.g. `00-Inbox`) (can also be set in Settings UI) |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | Backend gRPC OTLP endpoint (e.g. `http://signoz:4317`) |
+| `OTEL_SERVICE_NAME` | Backend service name (default: `doit`) |
+| `VITE_OTEL_ENDPOINT` | Frontend HTTP OTLP endpoint (e.g. `http://signoz:4318`); can also be set in Settings UI |
+| `VITE_OTEL_SERVICE_NAME` | Frontend service name (default: `doit-web`) |
 
 ---
 
@@ -103,7 +107,11 @@ meeting every monday and friday at 10am
 - **Links** — attach URLs per task (Obsidian, GitHub, or any URL), auto-labeled
 - **Overdue view** — past-due tasks grouped by date
 - **Google Calendar sync** — tasks with due dates sync automatically; done tasks shown in linked calendar
+- **ICS calendar import** — import external calendars via URL or `.ics` file upload (managed in Settings)
 - **Obsidian integration** — `!notename` creates a note; detail panel links existing notes
+- **Push notifications** — ntfy or Gotify support for due-date reminders (configured in Settings)
+- **Settings modal** — in-app UI to configure Calendars, Integrations (Obsidian, OTel), and Notifications without editing env vars
+- **OpenTelemetry** — backend (Flask + psycopg2) and frontend (fetch + document-load) tracing; opt-in via env vars or Settings UI
 - **PWA** — installable on iOS, Android, and macOS
 - **Collapsible sidebar** — full sidebar or slim icon rail (desktop); persisted preference
 - **Keyboard shortcuts** — full shortcut set on desktop (press `?` to see them)
@@ -218,7 +226,6 @@ curl -X POST http://baseurl/api/nlp/parse \
 | `GET` | `/api/tasks?search=<query>` | Full-text search title + description |
 | `GET` | `/api/tasks/today` | Tasks due today |
 | `GET` | `/api/tasks/overdue` | Past-due tasks |
-| `GET` | `/api/tasks/upcoming` | Tasks due in the next 7 days |
 | `GET` | `/api/tasks/<id>` | Get single task |
 | `POST` | `/api/tasks` | Create task |
 | `PATCH` | `/api/tasks/<id>` | Update task fields |
@@ -309,7 +316,8 @@ Available icons: `folder`, `home`, `briefcase`, `target`, `flask`, `book`, `pale
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/api/settings` | Returns `gcal_enabled`, `obsidian_vault`, `username` |
+| `GET` | `/api/settings` | Returns current settings (`gcal_enabled`, `obsidian_vault`, `obsidian_inbox`, `otel_frontend_endpoint`, `notification_type`, `notification_url`, `username`) |
+| `PATCH` | `/api/settings` | Update settings fields |
 
 ---
 
@@ -362,6 +370,7 @@ curl -s http://baseurl/api/tasks/overdue \
 - **Backend** — Python 3.12 + Flask + PostgreSQL
 - **Frontend** — React 19 + Vite + Tailwind CSS
 - **NLP** — `dateparser` + `python-dateutil` (RRULE) — no external AI API
+- **Observability** — OpenTelemetry SDK (backend: Flask + psycopg2; frontend: fetch + document-load); opt-in via env vars or Settings UI
 - **Theme** — TailwindCSS dark/light
 - **Auth** — Session-based with PostgreSQL storage; optional Bearer API key
 - **Deployment** — Docker Compose; data persisted in `./data/postgres/`

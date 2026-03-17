@@ -1,11 +1,18 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useApp } from '../../context/AppContext'
 import { useTasks } from '../../hooks/useTasks'
 import { api } from '../../api'
 import { formatDate, fmtTime, recurrenceLabel, getLinkLabel, getLinkStyle } from '../../utils'
-import { X, Trash2, Plus, Check, ChevronRight, Paperclip, GitBranch, Link2, Repeat2 } from 'lucide-react'
+import { X, Trash2, Plus, Check, ChevronRight, Paperclip, GitBranch, Link2, Repeat2, ExternalLink } from 'lucide-react'
 
 const STATUSES = ['todo', 'doing', 'blocked', 'done']
+
+const STATUS_DOT = {
+  todo:    'bg-td-muted/40 dark:bg-tn-muted/40',
+  doing:   'bg-td-blue dark:bg-tn-blue',
+  done:    'bg-td-green dark:bg-tn-green',
+  blocked: 'bg-td-red dark:bg-tn-red',
+}
 
 const RECUR_PRESETS = [
   { label: 'None',               value: null },
@@ -79,7 +86,6 @@ function RecurrenceEditor({ recurrence, recurrenceEnd, onChange }) {
                 {opt.label}
               </button>
             ))}
-            {/* Monthly day-of-month picker */}
             <div className="border-t border-td-border dark:border-tn-border px-3 py-2.5 space-y-1.5">
               <label className="block text-[10px] text-td-muted dark:text-tn-muted">Monthly on day</label>
               <div className="flex gap-2">
@@ -102,7 +108,6 @@ function RecurrenceEditor({ recurrence, recurrenceEnd, onChange }) {
         )}
       </div>
 
-      {/* End date — shown when recurrence is active */}
       {recurrence && (
         <div className="space-y-1">
           <label className="text-[10px] font-semibold tracking-wider text-td-muted/60 dark:text-tn-muted/60 uppercase">Stop repeating on</label>
@@ -119,10 +124,8 @@ function RecurrenceEditor({ recurrence, recurrenceEnd, onChange }) {
 }
 
 
-
 function SubtaskRow({ sub, taskId }) {
-  const { dispatch } = useApp()
-  const { toast } = useApp()
+  const { dispatch, toast } = useApp()
 
   const toggle = async () => {
     try {
@@ -147,9 +150,24 @@ function SubtaskRow({ sub, taskId }) {
           ${sub.completed ? 'bg-td-green/20 dark:bg-tn-green/20 border-td-green dark:border-tn-green' : 'border-td-muted/40 dark:border-tn-muted/40 hover:border-td-blue dark:border-tn-blue'}`}>
         {sub.completed && <Check size={8} color="#9ece6a" strokeWidth={3} />}
       </button>
-      <span className={`flex-1 text-sm ${sub.completed ? 'line-through text-td-muted dark:text-tn-muted' : 'text-td-fg dark:text-tn-fg'}`}>
-        {sub.title}
-      </span>
+
+      {sub.linked_task_id ? (
+        <button
+          onClick={() => dispatch({ type: 'SELECT_TASK', payload: sub.linked_task_id })}
+          className="flex-1 flex items-center gap-1.5 text-left hover:text-td-blue dark:hover:text-tn-blue transition-colors min-w-0"
+        >
+          <span className={`w-2 h-2 rounded-full shrink-0 ${STATUS_DOT[sub.linked_task_status || 'todo']}`} />
+          <span className={`text-sm truncate ${sub.completed ? 'line-through text-td-muted dark:text-tn-muted' : 'text-td-fg dark:text-tn-fg'}`}>
+            {sub.linked_task_title || sub.title}
+          </span>
+          <ExternalLink size={10} className="shrink-0 opacity-40" />
+        </button>
+      ) : (
+        <span className={`flex-1 text-sm ${sub.completed ? 'line-through text-td-muted dark:text-tn-muted' : 'text-td-fg dark:text-tn-fg'}`}>
+          {sub.title}
+        </span>
+      )}
+
       <button onClick={del} className="opacity-0 group-hover:opacity-100 text-td-muted/50 dark:text-tn-muted/50 hover:text-td-red dark:text-tn-red p-0.5">
         <X size={12} />
       </button>
@@ -175,7 +193,7 @@ function LinksSection({ task, onUpdate }) {
     if (!urlInput.trim()) return
     const url = urlInput.trim()
     const newLink = { url, label: getLinkLabel(url) }
-    const updated = await api.updateTask(task.id, { links: [...links, newLink] })
+    const updated = await api.autoSave(task.id, { links: [...links, newLink] })
     if (updated) onUpdate(updated)
     setAdding(false)
     setUrlInput('')
@@ -183,7 +201,7 @@ function LinksSection({ task, onUpdate }) {
 
   const removeLink = async (i) => {
     const next = links.filter((_, idx) => idx !== i)
-    const updated = await api.updateTask(task.id, { links: next })
+    const updated = await api.autoSave(task.id, { links: next })
     if (updated) onUpdate(updated)
   }
 
@@ -315,25 +333,42 @@ function TagCombobox({ tags, onChange }) {
 }
 
 export function TaskDetail() {
-  const { state, dispatch, confirm, toast } = useApp()
+  const { state, dispatch, toast } = useApp()
   const { updateTask, deleteTask } = useTasks()
   const task = state.tasks.find(t => t.id === state.selectedTaskId)
 
-  const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
-  const [status, setStatus] = useState('todo')
-  const [dueDate, setDueDate] = useState('')
-  const [dueTime, setDueTime] = useState('')
-  const [projectId, setProjectId] = useState('')
-  const [tags, setTags] = useState([])
-  const [recurrence, setRecurrence] = useState(null)
+  const [title, setTitle]               = useState('')
+  const [description, setDescription]   = useState('')
+  const [status, setStatus]             = useState('todo')
+  const [dueDate, setDueDate]           = useState('')
+  const [dueTime, setDueTime]           = useState('')
+  const [projectId, setProjectId]       = useState('')
+  const [tags, setTags]                 = useState([])
+  const [recurrence, setRecurrence]     = useState(null)
   const [recurrenceEnd, setRecurrenceEnd] = useState('')
   const [subtaskInput, setSubtaskInput] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [dirty, setDirty] = useState(false)
-  const titleRef = useRef(null)
+  const [subtaskResults, setSubtaskResults] = useState([])
+  const [saveIndicator, setSaveIndicator] = useState('idle') // 'idle' | 'saving' | 'saved'
+  const subtaskDebounce = useRef(null)
+  const inFlight = useRef(0)
+  const saveTimer = useRef(null)
 
-  // Load task into local state
+  const autoSave = useCallback(async (id, data) => {
+    inFlight.current++
+    setSaveIndicator('saving')
+    clearTimeout(saveTimer.current)
+    try {
+      await updateTask(id, data)
+    } finally {
+      inFlight.current--
+      if (inFlight.current === 0) {
+        setSaveIndicator('saved')
+        saveTimer.current = setTimeout(() => setSaveIndicator('idle'), 2000)
+      }
+    }
+  }, [updateTask])
+
+  // Load task into local state when selected task changes
   useEffect(() => {
     if (!task) return
     setTitle(task.title || '')
@@ -345,34 +380,11 @@ export function TaskDetail() {
     setTags(task.tags || [])
     setRecurrence(task.recurrence || null)
     setRecurrenceEnd(task.recurrence_end || '')
-    setDirty(false)
   }, [task?.id])
 
   if (!task) return null
 
-  const close = async () => {
-    if (dirty) await save()
-    dispatch({ type: 'SELECT_TASK', payload: null })
-  }
-
-  const save = async (overrides = {}) => {
-    if (!dirty && !Object.keys(overrides).length) return
-    setSaving(true)
-    await updateTask(task.id, {
-      title, description, status,
-      due_date: dueDate || null,
-      due_time: dueTime || null,
-      project_id: projectId || null,
-      tags,
-      recurrence: recurrence || null,
-      recurrence_end: recurrenceEnd || null,
-      ...overrides,
-    })
-    setSaving(false)
-    setDirty(false)
-  }
-
-  const markDirty = () => setDirty(true)
+  const close = () => dispatch({ type: 'SELECT_TASK', payload: null })
 
   const handleDelete = () => {
     confirm('Delete this task?', () => {
@@ -381,13 +393,38 @@ export function TaskDetail() {
     })
   }
 
+  // ── Subtasks ────────────────────────────────────────────────
+  const handleSubtaskInput = (e) => {
+    const val = e.target.value
+    setSubtaskInput(val)
+    clearTimeout(subtaskDebounce.current)
+    if (val.length >= 3) {
+      subtaskDebounce.current = setTimeout(async () => {
+        const results = await api.searchTasks(val, task.id).catch(() => [])
+        setSubtaskResults(results || [])
+      }, 300)
+    } else {
+      setSubtaskResults([])
+    }
+  }
+
   const addSubtask = async () => {
     if (!subtaskInput.trim()) return
     try {
       const updated = await api.createSubtask(task.id, { title: subtaskInput.trim(), nlp: true })
       if (updated) dispatch({ type: 'UPDATE_TASK', payload: updated })
       setSubtaskInput('')
+      setSubtaskResults([])
     } catch { toast('Failed to add subtask') }
+  }
+
+  const linkSubtask = async (linkedTaskId) => {
+    try {
+      const updated = await api.createSubtask(task.id, { linked_task_id: linkedTaskId })
+      if (updated) dispatch({ type: 'UPDATE_TASK', payload: updated })
+      setSubtaskInput('')
+      setSubtaskResults([])
+    } catch { toast('Failed to link task') }
   }
 
   return (
@@ -400,22 +437,21 @@ export function TaskDetail() {
         md:relative md:inset-auto md:w-80 md:z-auto md:border-l md:border-td-border dark:border-tn-border
         bg-td-bg2 dark:bg-tn-bg2 flex flex-col overflow-hidden
         `} style={{ top: 'env(safe-area-inset-top, 0px)' }}>
+
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3.5 border-b border-td-border/50 dark:border-tn-border/50 shrink-0">
           <button onClick={close} className="text-td-muted dark:text-tn-muted hover:text-td-fg dark:text-tn-fg transition-colors">
             <X size={18} />
           </button>
-          <div className="flex items-center gap-2">
-            {dirty && (
-              <button onClick={async () => { await save(); dispatch({ type: 'SELECT_TASK', payload: null }) }} disabled={saving}
-                className="text-xs text-td-blue dark:text-tn-blue font-medium px-2.5 py-1 rounded-lg bg-td-blue/10 dark:bg-tn-blue/10 hover:bg-td-blue/20 dark:bg-tn-blue/20 transition-colors">
-                {saving ? 'Saving…' : 'Save'}
-              </button>
-            )}
-            <button onClick={handleDelete} className="text-td-muted/50 dark:text-tn-muted/50 hover:text-td-red dark:text-tn-red transition-colors p-1">
-              <Trash2 size={16} />
-            </button>
-          </div>
+          <span className="text-[11px] transition-opacity duration-300"
+            style={{ opacity: saveIndicator === 'idle' ? 0 : 1 }}>
+            {saveIndicator === 'saving'
+              ? <span className="text-td-muted dark:text-tn-muted">Saving…</span>
+              : <span className="text-td-green dark:text-tn-green">Saved ✓</span>}
+          </span>
+          <button onClick={handleDelete} className="text-td-muted/50 dark:text-tn-muted/50 hover:text-td-red dark:text-tn-red transition-colors p-1">
+            <Trash2 size={16} />
+          </button>
         </div>
 
         {/* Scrollable content */}
@@ -424,10 +460,9 @@ export function TaskDetail() {
 
           {/* Title */}
           <textarea
-            ref={titleRef}
             value={title}
-            onChange={e => { setTitle(e.target.value); markDirty() }}
-            onBlur={save}
+            onChange={e => setTitle(e.target.value)}
+            onBlur={() => { if (title !== task.title) autoSave(task.id, { title }) }}
             rows={2}
             className="w-full bg-transparent text-td-fg dark:text-tn-fg text-base font-medium resize-none outline-none leading-snug"
             placeholder="Task title"
@@ -438,7 +473,7 @@ export function TaskDetail() {
             <label className="text-xs font-bold text-td-muted dark:text-tn-muted">Status</label>
             <select
               value={status}
-              onChange={e => { const v = e.target.value; setStatus(v); markDirty(); save({ status: v }) }}
+              onChange={e => { const v = e.target.value; setStatus(v); autoSave(task.id, { status: v }) }}
               className="w-full bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-xs rounded-lg px-2.5 py-2 outline-none border border-td-border/50 dark:border-tn-border/50 appearance-none cursor-pointer"
             >
               {STATUSES.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
@@ -450,12 +485,12 @@ export function TaskDetail() {
             <label className="text-xs font-bold text-td-muted dark:text-tn-muted">Due Date</label>
             <div className="flex gap-2">
               <input type="date" value={dueDate}
-                onChange={e => { const v = e.target.value; setDueDate(v); markDirty(); save({ due_date: v || null }) }}
+                onChange={e => { const v = e.target.value; setDueDate(v); autoSave(task.id, { due_date: v || null }) }}
                 className="flex-1 bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-xs rounded-lg px-2.5 py-2 outline-none border border-td-border/50 dark:border-tn-border/50"
               />
               <input type="time" value={dueTime}
-                onChange={e => { const v = e.target.value; setDueTime(v); markDirty(); save({ due_time: v || null }) }}
-                onBlur={save}
+                onChange={e => setDueTime(e.target.value)}
+                onBlur={e => { const v = e.target.value; if (v !== (task.due_time || '')) autoSave(task.id, { due_time: v || null }) }}
                 className="w-28 bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-xs rounded-lg px-2.5 py-2 outline-none border border-td-border/50 dark:border-tn-border/50"
               />
             </div>
@@ -469,8 +504,7 @@ export function TaskDetail() {
               const overrides = {}
               if (r !== undefined) { setRecurrence(r); overrides.recurrence = r || null }
               if (re !== undefined) { setRecurrenceEnd(re || ''); overrides.recurrence_end = re || null }
-              markDirty()
-              save(overrides)
+              if (Object.keys(overrides).length) autoSave(task.id, overrides)
             }}
           />
 
@@ -479,7 +513,7 @@ export function TaskDetail() {
             <label className="text-xs font-bold text-td-muted dark:text-tn-muted">Project</label>
             <select
               value={projectId}
-              onChange={e => { const v = e.target.value; setProjectId(v); markDirty(); save({ project_id: v || null }) }}
+              onChange={e => { const v = e.target.value; setProjectId(v); autoSave(task.id, { project_id: v || null }) }}
               className="w-full bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-xs rounded-lg px-2.5 py-2 outline-none border border-td-border/50 dark:border-tn-border/50"
             >
               <option value="">No project</option>
@@ -494,7 +528,7 @@ export function TaskDetail() {
             <label className="text-xs font-bold text-td-muted dark:text-tn-muted">Tags</label>
             <TagCombobox
               tags={tags}
-              onChange={next => { setTags(next); markDirty(); save({ tags: next }) }}
+              onChange={next => { setTags(next); autoSave(task.id, { tags: next }) }}
             />
           </div>
 
@@ -506,8 +540,8 @@ export function TaskDetail() {
             <label className="text-xs font-bold text-td-muted dark:text-tn-muted">Notes</label>
             <textarea
               value={description}
-              onChange={e => { setDescription(e.target.value); markDirty() }}
-              onBlur={save}
+              onChange={e => setDescription(e.target.value)}
+              onBlur={() => { if (description !== (task.description || '')) autoSave(task.id, { description }) }}
               rows={4}
               placeholder="Add notes…"
               className="w-full bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-sm rounded-lg px-3 py-2.5 outline-none border border-td-border/50 dark:border-tn-border/50 resize-none placeholder-td-muted/40 dark:placeholder-tn-muted/40 font-mono text-xs leading-relaxed"
@@ -517,24 +551,41 @@ export function TaskDetail() {
           {/* Subtasks */}
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-td-muted dark:text-tn-muted">
-              Subtasks {task.subtasks?.length > 0 && `(${task.subtasks.filter(s=>s.completed).length}/${task.subtasks.length})`}
+              Subtasks {task.subtasks?.length > 0 && `(${task.subtasks.filter(s => s.completed).length}/${task.subtasks.length})`}
             </label>
             <div className="divide-y divide-td-border/30 dark:divide-tn-border/30">
               {(task.subtasks || []).map(s => (
                 <SubtaskRow key={s.id} sub={s} taskId={task.id} />
               ))}
             </div>
-            <div className="flex gap-2">
-              <input
-                type="text" value={subtaskInput}
-                onChange={e => setSubtaskInput(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') addSubtask() }}
-                placeholder="Add subtask…"
-                className="flex-1 bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-xs rounded-lg px-2.5 py-2 outline-none border border-td-border/50 dark:border-tn-border/50 placeholder-td-muted/40 dark:placeholder-tn-muted/40"
-              />
-              <button onClick={addSubtask} className="px-3 py-2 bg-td-surface dark:bg-tn-surface text-td-muted dark:text-tn-muted hover:text-td-blue dark:text-tn-blue rounded-lg text-xs border border-td-border/50 dark:border-tn-border/50">
-                <Plus size={12} />
-              </button>
+            <div className="relative">
+              {subtaskResults.length > 0 && (
+                <div className="absolute bottom-full left-0 right-0 mb-1 z-20 rounded-xl border border-td-border dark:border-tn-border bg-white dark:bg-tn-bg2 shadow-xl overflow-hidden max-h-40 overflow-y-auto">
+                  {subtaskResults.map(t => (
+                    <button key={t.id} onMouseDown={() => linkSubtask(t.id)}
+                      className="w-full text-left text-xs px-3 py-2 hover:bg-td-surface dark:hover:bg-tn-surface flex items-center gap-2 transition-colors">
+                      <span className={`w-2 h-2 rounded-full shrink-0 ${STATUS_DOT[t.status] || STATUS_DOT.todo}`} />
+                      <span className="text-td-fg dark:text-tn-fg truncate">{t.title}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <input
+                  type="text" value={subtaskInput}
+                  onChange={handleSubtaskInput}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') addSubtask()
+                    if (e.key === 'Escape') setSubtaskResults([])
+                  }}
+                  onBlur={() => setTimeout(() => setSubtaskResults([]), 150)}
+                  placeholder="Add subtask or search tasks…"
+                  className="flex-1 bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-xs rounded-lg px-2.5 py-2 outline-none border border-td-border/50 dark:border-tn-border/50 placeholder-td-muted/40 dark:placeholder-tn-muted/40"
+                />
+                <button onClick={addSubtask} className="px-3 py-2 bg-td-surface dark:bg-tn-surface text-td-muted dark:text-tn-muted hover:text-td-blue dark:text-tn-blue rounded-lg text-xs border border-td-border/50 dark:border-tn-border/50">
+                  <Plus size={12} />
+                </button>
+              </div>
             </div>
           </div>
 

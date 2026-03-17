@@ -40,6 +40,7 @@ export const api = {
   },
   getToday: () => req('/tasks/today'),
   getOverdue: () => req('/tasks/overdue'),
+  searchTasks: (q, exclude) => req('/tasks/search?q=' + encodeURIComponent(q) + (exclude ? '&exclude=' + exclude : '')),
   createTask: (data) => req('/tasks', 'POST', { ...data, timezone: TZ }),
   updateTask: (id, data) => req(`/tasks/${id}`, 'PATCH', { ...data, timezone: TZ }),
   deleteTask: (id) => req(`/tasks/${id}`, 'DELETE'),

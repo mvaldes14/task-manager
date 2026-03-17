@@ -100,6 +100,7 @@ def init_db():
         cur.execute("CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_tasks_due_date ON tasks(due_date)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_subtasks_task_id ON subtasks(task_id)")
+        cur.execute("ALTER TABLE subtasks ADD COLUMN IF NOT EXISTS linked_task_id TEXT REFERENCES tasks(id) ON DELETE SET NULL")
         conn.commit()
         logger.info("tables ready.")
     except Exception as e:

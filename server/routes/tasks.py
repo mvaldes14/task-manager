@@ -24,9 +24,12 @@ def _fetch_tasks(query, params=()):
         if not tasks:
             return tasks
         task_ids = [t['id'] for t in tasks]
-        cur.execute(
-            "SELECT * FROM subtasks WHERE task_id = ANY(%s) ORDER BY task_id, position",
-            (task_ids,))
+        cur.execute("""
+            SELECT s.*, lt.title AS linked_task_title, lt.status AS linked_task_status
+            FROM subtasks s
+            LEFT JOIN tasks lt ON lt.id = s.linked_task_id
+            WHERE s.task_id = ANY(%s) ORDER BY s.task_id, s.position
+        """, (task_ids,))
         subtasks_by_task = {}
         for s in cur.fetchall():
             s = row_to_dict(s)
@@ -158,7 +161,12 @@ def get_task(tid):
         cur.execute("SELECT * FROM tasks WHERE id=%s", (tid,)); row = cur.fetchone()
         if not row: return jsonify({'error': 'Not found'}), 404
         task = row_to_dict(row)
-        cur.execute("SELECT * FROM subtasks WHERE task_id=%s ORDER BY position", (tid,))
+        cur.execute("""
+            SELECT s.*, lt.title AS linked_task_title, lt.status AS linked_task_status
+            FROM subtasks s
+            LEFT JOIN tasks lt ON lt.id = s.linked_task_id
+            WHERE s.task_id=%s ORDER BY s.position
+        """, (tid,))
         task['subtasks'] = [row_to_dict(s) for s in cur.fetchall()]
     finally:
         release_db(conn)
@@ -191,7 +199,12 @@ def update_task(tid):
              t.get('recurrence'), t.get('recurrence_end'), links_val, tid))
         cur.execute("SELECT * FROM tasks WHERE id=%s", (tid,))
         result = row_to_dict(cur.fetchone())
-        cur.execute("SELECT * FROM subtasks WHERE task_id=%s ORDER BY position", (tid,))
+        cur.execute("""
+            SELECT s.*, lt.title AS linked_task_title, lt.status AS linked_task_status
+            FROM subtasks s
+            LEFT JOIN tasks lt ON lt.id = s.linked_task_id
+            WHERE s.task_id=%s ORDER BY s.position
+        """, (tid,))
         result['subtasks'] = [row_to_dict(s) for s in cur.fetchall()]
         conn.commit()
     finally:
@@ -241,21 +254,40 @@ def delete_task(tid):
 @bp.route('/api/tasks/<tid>/subtasks', methods=['POST'])
 def add_subtask(tid):
     data = request.get_json(); sid = str(uuid.uuid4())
-    nlp = parse_natural_language(data.get('title', '').strip()); conn = get_db()
+    linked_task_id = data.get('linked_task_id')
+    conn = get_db()
     try:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        if linked_task_id:
+            cur.execute("SELECT title FROM tasks WHERE id=%s", (linked_task_id,))
+            linked = cur.fetchone()
+            if not linked: return jsonify({'error': 'Linked task not found'}), 404
+            title = linked['title']
+            nlp = {}
+        else:
+            nlp = parse_natural_language(data.get('title', '').strip())
+            title = nlp.get('title') or data.get('title', '')
         cur.execute("SELECT COALESCE(MAX(position),0) FROM subtasks WHERE task_id=%s", (tid,))
         max_pos = cur.fetchone()['coalesce']
-        cur.execute("""INSERT INTO subtasks (id,task_id,title,position,due_date,due_time,labels)
-            VALUES (%s,%s,%s,%s,%s,%s,%s)""",
-            (sid, tid, nlp.get('title') or data.get('title', ''), max_pos + 1,
-             nlp.get('due_date'), nlp.get('due_time'), json.dumps(nlp.get('labels', []))))
-        cur.execute("SELECT * FROM subtasks WHERE id=%s", (sid,))
-        row = row_to_dict(cur.fetchone()); conn.commit()
+        cur.execute("""INSERT INTO subtasks (id, task_id, title, position, due_date, due_time, labels, linked_task_id)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s)""",
+            (sid, tid, title, max_pos + 1,
+             nlp.get('due_date'), nlp.get('due_time'), json.dumps(nlp.get('labels', [])),
+             linked_task_id))
+        # Return the full parent task so frontend can update in one dispatch
+        cur.execute("SELECT * FROM tasks WHERE id=%s", (tid,))
+        task = row_to_dict(cur.fetchone())
+        cur.execute("""
+            SELECT s.*, lt.title AS linked_task_title, lt.status AS linked_task_status
+            FROM subtasks s
+            LEFT JOIN tasks lt ON lt.id = s.linked_task_id
+            WHERE s.task_id=%s ORDER BY s.position
+        """, (tid,))
+        task['subtasks'] = [row_to_dict(s) for s in cur.fetchall()]
+        conn.commit()
     finally:
         release_db(conn)
-    if nlp.get('nlp_summary'): row['nlp_summary'] = nlp['nlp_summary']
-    return jsonify(row), 201
+    return jsonify(task), 201
 
 
 @bp.route('/api/tasks/<tid>/subtasks/<sid>', methods=['PATCH'])
@@ -268,6 +300,12 @@ def update_subtask(tid, sid):
             if f in data: cur.execute(f"UPDATE subtasks SET {f}=%s WHERE id=%s", (data[f], sid))
         if 'completed' in data:
             cur.execute("UPDATE subtasks SET completed=%s WHERE id=%s", (bool(data['completed']), sid))
+            if bool(data['completed']):
+                cur.execute("SELECT linked_task_id FROM subtasks WHERE id=%s", (sid,))
+                sub_row = cur.fetchone()
+                if sub_row and sub_row['linked_task_id']:
+                    cur.execute("UPDATE tasks SET status='done', completed_at=NOW(), updated_at=NOW() WHERE id=%s",
+                                (sub_row['linked_task_id'],))
         if 'labels' in data:
             cur.execute("UPDATE subtasks SET labels=%s WHERE id=%s", (json.dumps(data['labels']), sid))
         cur.execute("SELECT * FROM subtasks WHERE id=%s", (sid,)); row = cur.fetchone(); conn.commit()
@@ -302,6 +340,27 @@ def reorder_tasks():
     finally:
         release_db(conn)
     return jsonify({'ok': True})
+
+
+@bp.route('/api/tasks/search', methods=['GET'])
+def search_tasks():
+    q = request.args.get('q', '').strip()
+    exclude = request.args.get('exclude', '')
+    if len(q) < 2:
+        return jsonify([])
+    conn = get_db()
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        params = [f'%{q}%']
+        sql = "SELECT id, title, status, project_id FROM tasks WHERE title ILIKE %s AND status != 'done'"
+        if exclude:
+            sql += " AND id != %s"
+            params.append(exclude)
+        sql += " ORDER BY updated_at DESC LIMIT 8"
+        cur.execute(sql, params)
+        return jsonify([dict(r) for r in cur.fetchall()])
+    finally:
+        release_db(conn)
 
 
 @bp.route('/api/tasks/today', methods=['GET'])
