@@ -181,11 +181,12 @@ def update_task(tid):
         cur.execute("SELECT * FROM tasks WHERE id=%s", (tid,)); row = cur.fetchone()
         if not row: return jsonify({'error': 'Not found'}), 404
         t = dict(row)
+        old_status = t.get('status')
         for f in ['title','description','project_id','status','due_date','due_time','position','recurrence','recurrence_end']:
             if f in data: t[f] = data[f]
         if 'tags'  in data: t['tags']  = json.dumps(data['tags'])
         if 'links' in data: t['links'] = json.dumps(data['links'])
-        if data.get('status') == 'done' and t.get('status') != 'done':
+        if data.get('status') == 'done' and old_status != 'done':
             t['completed_at'] = datetime.now(timezone.utc)
         elif data.get('status') and data['status'] != 'done':
             t['completed_at'] = None
@@ -334,8 +335,19 @@ def reorder_tasks():
     try:
         cur = conn.cursor()
         for item in data:
-            cur.execute("UPDATE tasks SET position=%s,status=%s,updated_at=NOW() WHERE id=%s",
-                        (item['position'], item['status'], item['id']))
+            cur.execute("SELECT status FROM tasks WHERE id=%s", (item['id'],))
+            row = cur.fetchone()
+            old_status = row['status'] if row else None
+            new_status = item['status']
+            if new_status == 'done' and old_status != 'done':
+                cur.execute("UPDATE tasks SET position=%s,status=%s,completed_at=NOW(),updated_at=NOW() WHERE id=%s",
+                            (item['position'], new_status, item['id']))
+            elif new_status != 'done' and old_status == 'done':
+                cur.execute("UPDATE tasks SET position=%s,status=%s,completed_at=NULL,updated_at=NOW() WHERE id=%s",
+                            (item['position'], new_status, item['id']))
+            else:
+                cur.execute("UPDATE tasks SET position=%s,status=%s,updated_at=NOW() WHERE id=%s",
+                            (item['position'], new_status, item['id']))
         conn.commit()
     finally:
         release_db(conn)

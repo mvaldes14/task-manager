@@ -333,7 +333,7 @@ function TagCombobox({ tags, onChange }) {
 }
 
 export function TaskDetail() {
-  const { state, dispatch, toast } = useApp()
+  const { state, dispatch, confirm, toast } = useApp()
   const { updateTask, deleteTask } = useTasks()
   const task = state.tasks.find(t => t.id === state.selectedTaskId)
 
@@ -459,14 +459,30 @@ export function TaskDetail() {
           style={{ paddingBottom: 'calc(32px + env(safe-area-inset-bottom, 0px))' }}>
 
           {/* Title */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-td-muted dark:text-tn-muted">Task Name</label>
           <textarea
             value={title}
             onChange={e => setTitle(e.target.value)}
             onBlur={() => { if (title !== task.title) autoSave(task.id, { title }) }}
             rows={2}
-            className="w-full bg-transparent text-td-fg dark:text-tn-fg text-base font-medium resize-none outline-none leading-snug"
+            className="w-full bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-base font-medium resize-none outline-none leading-snug rounded-lg px-3 py-2.5 border border-td-border/50 dark:border-tn-border/50 placeholder-td-muted/40 dark:placeholder-tn-muted/40"
             placeholder="Task title"
           />
+          </div>
+
+          {/* Description */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-td-muted dark:text-tn-muted">Description</label>
+            <textarea
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              onBlur={() => { if (description !== (task.description || '')) autoSave(task.id, { description }) }}
+              rows={2}
+              placeholder="Add description…"
+              className="w-full bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-sm rounded-lg px-2.5 py-2 outline-none border border-td-border/50 dark:border-tn-border/50 resize-none placeholder-td-muted/40 dark:placeholder-tn-muted/40 font-mono text-xs leading-relaxed"
+            />
+          </div>
 
           {/* Status */}
           <div className="space-y-1.5">
@@ -534,19 +550,6 @@ export function TaskDetail() {
 
           {/* Links */}
           <LinksSection task={task} onUpdate={updated => dispatch({ type: 'UPDATE_TASK', payload: updated })} />
-
-          {/* Notes */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-td-muted dark:text-tn-muted">Notes</label>
-            <textarea
-              value={description}
-              onChange={e => setDescription(e.target.value)}
-              onBlur={() => { if (description !== (task.description || '')) autoSave(task.id, { description }) }}
-              rows={4}
-              placeholder="Add notes…"
-              className="w-full bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-sm rounded-lg px-3 py-2.5 outline-none border border-td-border/50 dark:border-tn-border/50 resize-none placeholder-td-muted/40 dark:placeholder-tn-muted/40 font-mono text-xs leading-relaxed"
-            />
-          </div>
 
           {/* Subtasks */}
           <div className="space-y-1.5">
