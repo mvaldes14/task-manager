@@ -83,5 +83,8 @@ export const api = {
   updateSettings: (data) => req('/settings', 'PATCH', data),
 
   // Dashboard
-  getDashboardStats: (days = 30) => req(`/dashboard/stats?days=${days}`),
+  getDashboardStats: (days = 30) => {
+    const today = new Date().toISOString().split('T')[0] // YYYY-MM-DD in local timezone
+    return req(`/dashboard/stats?days=${days}&today=${today}`)
+  },
 }

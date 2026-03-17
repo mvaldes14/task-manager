@@ -20,17 +20,27 @@ def get_dashboard_stats():
     Compute dashboard statistics.
     Query params:
       - days: 7, 30, or 90 (default: 30)
+      - today: YYYY-MM-DD (optional, defaults to server's today in UTC)
     """
     days = int(request.args.get('days', 30))
     if days not in [7, 30, 90]:
         days = 30
+
+    # Accept client's "today" to avoid timezone issues
+    today_str = request.args.get('today')
+    if today_str:
+        try:
+            today = datetime.strptime(today_str, '%Y-%m-%d').date()
+        except ValueError:
+            today = date.today()
+    else:
+        today = date.today()
 
     conn = get_db()
     try:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
         # Calculate date range
-        today = date.today()
         start_date = today - timedelta(days=days - 1)
 
         # ── Counts ─────────────────────────────────────────────────
