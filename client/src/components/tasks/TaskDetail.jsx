@@ -193,7 +193,7 @@ function LinksSection({ task, onUpdate }) {
     if (!urlInput.trim()) return
     const url = urlInput.trim()
     const newLink = { url, label: getLinkLabel(url) }
-    const updated = await api.autoSave(task.id, { links: [...links, newLink] })
+    const updated = await api.updateTask(task.id, { links: [...links, newLink] })
     if (updated) onUpdate(updated)
     setAdding(false)
     setUrlInput('')
@@ -201,7 +201,7 @@ function LinksSection({ task, onUpdate }) {
 
   const removeLink = async (i) => {
     const next = links.filter((_, idx) => idx !== i)
-    const updated = await api.autoSave(task.id, { links: next })
+    const updated = await api.updateTask(task.id, { links: next })
     if (updated) onUpdate(updated)
   }
 
