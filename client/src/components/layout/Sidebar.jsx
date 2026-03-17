@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useApp } from '../../context/AppContext'
 import { isOverdue, isToday } from '../../utils'
-import { Plus, LogOut, Sun, Moon, Settings, Trash2, CheckCircle2, RefreshCw, Calendar, Inbox, Layers, AlertCircle, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { Plus, LogOut, Sun, Moon, Settings, Trash2, CheckCircle2, RefreshCw, Calendar, Inbox, Layers, AlertCircle, PanelLeftClose, PanelLeftOpen, LayoutDashboard } from 'lucide-react'
 import { api } from '../../api'
 import { ProjectIcon, PROJECT_ICON_OPTIONS } from '../shared/ProjectIcon'
 import { SettingsModal } from '../settings/SettingsModal'
@@ -190,6 +190,7 @@ export function Sidebar() {
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
+        <NavItem icon={LayoutDashboard} label="Dashboard" viewKey="dashboard" collapsed={collapsed} />
         <NavItem icon={Inbox}       label="Inbox"     viewKey="inbox"    badge={inboxCount} collapsed={collapsed} />
         <NavItem icon={Sun}         label="Today"     viewKey="today"    badge={todayCount} collapsed={collapsed} />
         <NavItem icon={Layers}      label="All"       viewKey="all"      collapsed={collapsed} />

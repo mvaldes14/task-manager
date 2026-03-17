@@ -81,4 +81,7 @@ export const api = {
   getTags: () => req('/tags'),
   getSettings: () => req('/settings'),
   updateSettings: (data) => req('/settings', 'PATCH', data),
+
+  // Dashboard
+  getDashboardStats: (days = 30) => req(`/dashboard/stats?days=${days}`),
 }

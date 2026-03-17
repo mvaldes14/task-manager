@@ -6,6 +6,7 @@ import { isOverdue, isToday } from '../../utils'
 import { TaskList } from '../tasks/TaskList'
 import { KanbanBoard } from '../tasks/KanbanBoard'
 import { CalendarView } from '../calendar/CalendarView'
+import { DashboardView } from '../dashboard/DashboardView'
 import { LayoutList, Columns, Menu, Search, X, ChevronDown } from 'lucide-react'
 import { ProjectIcon } from '../shared/ProjectIcon'
 
@@ -368,24 +369,27 @@ export function MainContent() {
   const activeCount = useMemo(() =>
     baseTasks.filter(t => t.status !== 'done').length, [baseTasks])
 
-  const showToolbar = viewMode === 'list' && view !== 'overdue' && view !== 'calendar'
+  const showToolbar = viewMode === 'list' && view !== 'overdue' && view !== 'calendar' && view !== 'dashboard'
   const isCalendar = view === 'calendar'
+  const isDashboard = view === 'dashboard'
 
   return (
     <div className="flex-1 flex flex-col min-h-0 min-w-0">
-      <ViewHeader
-        title={title}
-        count={activeCount > 0 ? activeCount : null}
-        onSearch={setSearchQuery}
-        searchOpen={searchOpen}
-        searchScope={searchScope}
-        setSearchScope={setSearchScope}
-        setSearchOpen={(v) => {
-          setSearchOpen(v)
-          dispatch({ type: 'SET_SEARCH_OPEN', payload: v })
-          if (!v) { setSearchQuery(''); setSearchScope('view') }
-        }}
-      />
+      {!isDashboard && (
+        <ViewHeader
+          title={title}
+          count={activeCount > 0 ? activeCount : null}
+          onSearch={setSearchQuery}
+          searchOpen={searchOpen}
+          searchScope={searchScope}
+          setSearchScope={setSearchScope}
+          setSearchOpen={(v) => {
+            setSearchOpen(v)
+            dispatch({ type: 'SET_SEARCH_OPEN', payload: v })
+            if (!v) { setSearchQuery(''); setSearchScope('view') }
+          }}
+        />
+      )}
 
       {showToolbar && (
         <ListToolbar
@@ -399,14 +403,14 @@ export function MainContent() {
       )}
 
       <div
-        className={`flex-1 min-h-0 ${isCalendar ? 'overflow-hidden flex flex-col' : 'overflow-y-auto'}`}
-        style={!isCalendar ? { paddingBottom: 'calc(80px + env(safe-area-inset-bottom, 0px))' } : undefined}
-        onTouchStart={!isCalendar ? onTouchStart : undefined}
-        onTouchMove={!isCalendar ? onTouchMove : undefined}
-        onTouchEnd={!isCalendar ? onTouchEnd : undefined}
+        className={`flex-1 min-h-0 ${(isCalendar || isDashboard) ? 'overflow-hidden flex flex-col' : 'overflow-y-auto'}`}
+        style={!(isCalendar || isDashboard) ? { paddingBottom: 'calc(80px + env(safe-area-inset-bottom, 0px))' } : undefined}
+        onTouchStart={!(isCalendar || isDashboard) ? onTouchStart : undefined}
+        onTouchMove={!(isCalendar || isDashboard) ? onTouchMove : undefined}
+        onTouchEnd={!(isCalendar || isDashboard) ? onTouchEnd : undefined}
       >
         {/* Pull to refresh indicator */}
-        {!isCalendar && (
+        {!(isCalendar || isDashboard) && (
           <div ref={indicatorEl} className="flex items-center justify-center overflow-hidden transition-all duration-200" style={{ height: 0, opacity: 0 }}>
             <div className="flex flex-col items-center gap-1">
               <svg data-arrow width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-td-muted dark:text-tn-muted transition-transform duration-150">
@@ -418,7 +422,9 @@ export function MainContent() {
             </div>
           </div>
         )}
-        {isCalendar ? (
+        {isDashboard ? (
+          <DashboardView />
+        ) : isCalendar ? (
           <CalendarView tasks={tasks} />
         ) : view === 'overdue' ? (
           <OverdueView tasks={visibleTasks} />

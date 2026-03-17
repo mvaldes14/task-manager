@@ -6,13 +6,14 @@ from flask import Flask, request, jsonify, redirect, send_from_directory
 
 from lib.db   import init_db, DATABASE_URL
 
-from routes.auth     import bp as auth_bp,     is_authenticated, TD_PASSWORD, _PUBLIC_PATHS, _purge_expired_sessions
-from routes.projects import bp as projects_bp
-from routes.tasks    import bp as tasks_bp
-from routes.gcal     import bp as gcal_bp
-from routes.ics      import bp as ics_bp
-from routes.settings import bp as settings_bp
-from routes.otlp     import bp as otlp_bp
+from routes.auth      import bp as auth_bp,      is_authenticated, TD_PASSWORD, _PUBLIC_PATHS, _purge_expired_sessions
+from routes.projects  import bp as projects_bp
+from routes.tasks     import bp as tasks_bp
+from routes.gcal      import bp as gcal_bp
+from routes.ics       import bp as ics_bp
+from routes.settings  import bp as settings_bp
+from routes.otlp      import bp as otlp_bp
+from routes.dashboard import bp as dashboard_bp
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 
@@ -70,6 +71,7 @@ app.register_blueprint(gcal_bp)
 app.register_blueprint(ics_bp)
 app.register_blueprint(settings_bp)
 app.register_blueprint(otlp_bp)
+app.register_blueprint(dashboard_bp)
 
 # ── Auth middleware ────────────────────────────────────────────────────────────
 

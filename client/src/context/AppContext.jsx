@@ -8,7 +8,7 @@ const initialState = {
   tasks: [],
   projects: [],
   // Navigation
-  view: 'inbox',            // inbox | today | overdue | all | calendar | project:<id>
+  view: localStorage.getItem('td-view') || 'inbox',  // inbox | today | overdue | all | calendar | dashboard | project:<id>
   viewMode: 'list',         // list | board | calendar
   // Detail panel
   selectedTaskId: null,
@@ -41,7 +41,10 @@ function reducer(state, action) {
     case 'ADD_PROJECT':     return { ...state, projects: [...state.projects, action.payload] }
     case 'UPDATE_PROJECT':  return { ...state, projects: state.projects.map(p => p.id === action.payload.id ? { ...p, ...action.payload } : p) }
     case 'DELETE_PROJECT':  return { ...state, projects: state.projects.filter(p => p.id !== action.payload) }
-    case 'SET_VIEW':        return { ...state, view: action.payload, sidebarOpen: false, selectedTaskId: null }
+    case 'SET_VIEW': {
+      localStorage.setItem('td-view', action.payload)
+      return { ...state, view: action.payload, sidebarOpen: false, selectedTaskId: null }
+    }
     case 'SET_VIEW_MODE':   return { ...state, viewMode: action.payload }
     case 'SELECT_TASK':     return { ...state, selectedTaskId: action.payload }
     case 'SET_SIDEBAR':     return { ...state, sidebarOpen: action.payload }
