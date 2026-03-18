@@ -19,18 +19,15 @@ function AppShell() {
   const [authed, setAuthed] = useState(null)
 
   useEffect(() => {
-    api.getSettings()
-      .then(data => {
-        if (data?.authenticated || !data?.password_set) {
-          dispatch({ type: 'SET_SETTINGS', payload: data })
+    api.authStatus()
+      .then(status => {
+        if (status?.authenticated || !status?.password_set) {
+          if (status?.current_user) {
+            dispatch({ type: 'SET_CURRENT_USER', payload: status.current_user })
+          }
           setAuthed(true)
           loadAll()
-          // Load user identity and user list
-          api.authStatus().then(status => {
-            if (status?.current_user) {
-              dispatch({ type: 'SET_CURRENT_USER', payload: status.current_user })
-            }
-          }).catch(() => {})
+          loadSettings()
           api.getUsers().then(users => {
             if (users) dispatch({ type: 'SET_USERS', payload: users })
           }).catch(() => {})
@@ -39,7 +36,7 @@ function AppShell() {
         }
       })
       .catch(() => setAuthed(false))
-  }, [loadAll, dispatch])
+  }, [loadAll, loadSettings, dispatch])
 
   useEffect(() => {
     const dark = state.theme === 'dark'

@@ -5,13 +5,24 @@ from datetime import datetime, timedelta, date
 from collections import defaultdict
 
 import psycopg2.extras
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 
 from lib.db import get_db, release_db, row_to_dict
 
 logger = logging.getLogger(__name__)
 
 bp = Blueprint('dashboard', __name__, url_prefix='/api/dashboard')
+
+
+def _vis():
+    """Return (sql, params) to filter tasks visible to the current user."""
+    uid = getattr(g, 'user_id', None)
+    if not uid:
+        return '', []
+    return (
+        " AND (owner_id=%s OR assigned_to=%s OR project_id IN (SELECT id FROM projects WHERE shared=TRUE))",
+        [uid, uid]
+    )
 
 
 @bp.route('/stats', methods=['GET'])
@@ -44,57 +55,48 @@ def get_dashboard_stats():
         start_date = today - timedelta(days=days - 1)
 
         # ── Counts ─────────────────────────────────────────────────
+        v, vp = _vis()
+
         # Total active tasks (not done)
-        cur.execute("SELECT COUNT(*) FROM tasks WHERE status != 'done'")
+        cur.execute("SELECT COUNT(*) FROM tasks WHERE status != 'done'" + v, vp)
         total_active = cur.fetchone()['count']
 
         # Completed in last N days
-        cur.execute("""
-            SELECT COUNT(*) FROM tasks
-            WHERE status = 'done'
-            AND updated_at >= %s
-        """, (start_date,))
+        cur.execute(
+            "SELECT COUNT(*) FROM tasks WHERE status = 'done' AND updated_at >= %s" + v,
+            [start_date] + vp)
         completed_period = cur.fetchone()['count']
 
         # Due today
-        cur.execute("""
-            SELECT COUNT(*) FROM tasks
-            WHERE due_date = %s
-            AND status != 'done'
-        """, (today,))
+        cur.execute(
+            "SELECT COUNT(*) FROM tasks WHERE due_date = %s AND status != 'done'" + v,
+            [today] + vp)
         due_today = cur.fetchone()['count']
 
         # Overdue
-        cur.execute("""
-            SELECT COUNT(*) FROM tasks
-            WHERE due_date < %s
-            AND status != 'done'
-        """, (today,))
+        cur.execute(
+            "SELECT COUNT(*) FROM tasks WHERE due_date < %s AND status != 'done'" + v,
+            [today] + vp)
         overdue = cur.fetchone()['count']
 
         # By status
-        cur.execute("SELECT status, COUNT(*) as count FROM tasks GROUP BY status")
+        cur.execute("SELECT status, COUNT(*) as count FROM tasks WHERE TRUE" + v + " GROUP BY status", vp)
         by_status = {row['status']: row['count'] for row in cur.fetchall()}
 
         # ── Completion Trend ───────────────────────────────────────
         # Tasks completed per day + created per day
-        cur.execute("""
-            SELECT DATE(updated_at) as date, COUNT(*) as count
-            FROM tasks
-            WHERE status = 'done'
-            AND updated_at >= %s
-            GROUP BY DATE(updated_at)
-            ORDER BY date
-        """, (start_date,))
+        cur.execute(
+            "SELECT DATE(updated_at) as date, COUNT(*) as count FROM tasks"
+            " WHERE status = 'done' AND updated_at >= %s" + v +
+            " GROUP BY DATE(updated_at) ORDER BY date",
+            [start_date] + vp)
         completed_by_date = {row['date'].isoformat(): row['count'] for row in cur.fetchall()}
 
-        cur.execute("""
-            SELECT DATE(created_at) as date, COUNT(*) as count
-            FROM tasks
-            WHERE created_at >= %s
-            GROUP BY DATE(created_at)
-            ORDER BY date
-        """, (start_date,))
+        cur.execute(
+            "SELECT DATE(created_at) as date, COUNT(*) as count FROM tasks"
+            " WHERE created_at >= %s" + v +
+            " GROUP BY DATE(created_at) ORDER BY date",
+            [start_date] + vp)
         created_by_date = {row['date'].isoformat(): row['count'] for row in cur.fetchall()}
 
         # Build full time series with all dates
@@ -111,30 +113,34 @@ def get_dashboard_stats():
 
         # ── Activity Heatmap ───────────────────────────────────────
         # For heatmap, get all completion dates in the period
-        cur.execute("""
-            SELECT DATE(updated_at) as date, COUNT(*) as count
-            FROM tasks
-            WHERE status = 'done'
-            AND updated_at >= %s
-            GROUP BY DATE(updated_at)
-        """, (start_date,))
+        cur.execute(
+            "SELECT DATE(updated_at) as date, COUNT(*) as count FROM tasks"
+            " WHERE status = 'done' AND updated_at >= %s" + v +
+            " GROUP BY DATE(updated_at)",
+            [start_date] + vp)
         activity_heatmap = [
             {'date': row['date'].isoformat(), 'count': row['count']}
             for row in cur.fetchall()
         ]
 
         # ── Projects ───────────────────────────────────────────────
-        cur.execute("""
-            SELECT
-                COALESCE(p.id, t.project_id) as id,
-                COALESCE(p.name, 'No Project') as name,
-                COUNT(*) as total,
-                SUM(CASE WHEN t.status = 'done' THEN 1 ELSE 0 END) as completed
-            FROM tasks t
-            LEFT JOIN projects p ON p.id = t.project_id
-            GROUP BY COALESCE(p.id, t.project_id), COALESCE(p.name, 'No Project')
-            ORDER BY total DESC
-        """)
+        # For the JOIN query, qualify visibility columns with t.
+        vj, vjp = '', []
+        uid = getattr(g, 'user_id', None)
+        if uid:
+            vj = (" AND (t.owner_id=%s OR t.assigned_to=%s OR t.project_id IN "
+                   "(SELECT id FROM projects WHERE shared=TRUE))")
+            vjp = [uid, uid]
+        cur.execute(
+            "SELECT COALESCE(p.id, t.project_id) as id,"
+            " COALESCE(p.name, 'No Project') as name,"
+            " COUNT(*) as total,"
+            " SUM(CASE WHEN t.status = 'done' THEN 1 ELSE 0 END) as completed"
+            " FROM tasks t LEFT JOIN projects p ON p.id = t.project_id"
+            " WHERE TRUE" + vj +
+            " GROUP BY COALESCE(p.id, t.project_id), COALESCE(p.name, 'No Project')"
+            " ORDER BY total DESC",
+            vjp)
         projects = [
             {
                 'id': row['id'] or 'none',
@@ -146,7 +152,7 @@ def get_dashboard_stats():
         ]
 
         # ── Tags ───────────────────────────────────────────────────
-        cur.execute("SELECT tags FROM tasks WHERE tags IS NOT NULL AND tags != '[]'")
+        cur.execute("SELECT tags FROM tasks WHERE tags IS NOT NULL AND tags != '[]'" + v, vp)
         tag_counts = defaultdict(int)
         for row in cur.fetchall():
             tags = row['tags']
@@ -163,13 +169,11 @@ def get_dashboard_stats():
 
         # ── Insights ───────────────────────────────────────────────
         # Current streak (consecutive days with completions)
-        cur.execute("""
-            SELECT DISTINCT DATE(updated_at) as date
-            FROM tasks
-            WHERE status = 'done'
-            AND updated_at >= %s
-            ORDER BY date DESC
-        """, (today - timedelta(days=365),))  # Look back up to 1 year for streak
+        cur.execute(
+            "SELECT DISTINCT DATE(updated_at) as date FROM tasks"
+            " WHERE status = 'done' AND updated_at >= %s" + v +
+            " ORDER BY date DESC",
+            [today - timedelta(days=365)] + vp)
         completion_dates = [row['date'] for row in cur.fetchall()]
 
         current_streak = 0
@@ -198,15 +202,11 @@ def get_dashboard_stats():
         avg_per_day = round(completed_period / days, 1) if days > 0 else 0
 
         # Best day of week (0=Mon, 6=Sun)
-        cur.execute("""
-            SELECT EXTRACT(DOW FROM updated_at) as dow, COUNT(*) as count
-            FROM tasks
-            WHERE status = 'done'
-            AND updated_at >= %s
-            GROUP BY dow
-            ORDER BY count DESC
-            LIMIT 1
-        """, (start_date,))
+        cur.execute(
+            "SELECT EXTRACT(DOW FROM updated_at) as dow, COUNT(*) as count FROM tasks"
+            " WHERE status = 'done' AND updated_at >= %s" + v +
+            " GROUP BY dow ORDER BY count DESC LIMIT 1",
+            [start_date] + vp)
         best_day_row = cur.fetchone()
         if best_day_row:
             dow_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']

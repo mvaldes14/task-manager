@@ -291,12 +291,10 @@ export function Sidebar() {
                 <ProjectIcon icon={p.icon} size={13} />
               </span>
               <span className="flex-1 text-left truncate">{p.name}</span>
-              {p.shared
-                ? <Users size={10} className="text-td-blue/60 dark:text-tn-blue/60 shrink-0 group-hover:hidden" title="Shared project" />
-                : count > 0
-                  ? <span className="text-[10px] text-td-muted/60 dark:text-tn-muted/60 group-hover:hidden">{count}</span>
-                  : null
-              }
+              <span className="flex items-center gap-1.5 shrink-0 group-hover:hidden">
+                {p.shared && <Users size={10} className="text-td-blue/60 dark:text-tn-blue/60" title="Shared project" />}
+                {count > 0 && <span className="text-[10px] text-td-muted/60 dark:text-tn-muted/60">{count}</span>}
+              </span>
               <button
                 onClick={e => { e.stopPropagation(); setEditingProject(p) }}
                 className="hidden group-hover:flex items-center justify-center w-5 h-5 rounded

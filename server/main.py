@@ -6,7 +6,7 @@ from flask import Flask, request, jsonify, redirect, send_from_directory, g
 
 from lib.db   import init_db, DATABASE_URL
 
-from routes.auth      import bp as auth_bp, get_authenticated_user_id, needs_auth, _PUBLIC_PATHS, _purge_expired_sessions
+from routes.auth      import bp as auth_bp, init_auth, is_authenticated, get_current_user_id, is_auth_required, _PUBLIC_PATHS, _purge_expired_sessions
 from routes.projects  import bp as projects_bp
 from routes.tasks     import bp as tasks_bp
 from routes.gcal      import bp as gcal_bp
@@ -91,10 +91,10 @@ def require_auth():
     # Avatar endpoint is public so <img> tags work without auth headers
     if path.startswith('/api/users/') and path.endswith('/avatar'):
         return None
-    if not needs_auth():
+    if not is_auth_required():
         g.user_id = None
         return None
-    uid = get_authenticated_user_id()
+    uid = get_current_user_id() if is_authenticated() else None
     if uid is None:
         if path.startswith('/api/'):
             return jsonify({'error': 'Unauthorized'}), 401
@@ -143,6 +143,8 @@ if OBSIDIAN_VAULT:
                 f' inbox: {OBSIDIAN_INBOX}' if OBSIDIAN_INBOX else '')
 
 init_db()
+init_auth()
+logger.info('[startup] auth required: %s', is_auth_required())
 
 if __name__ == '__main__':
     import socket
