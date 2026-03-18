@@ -19,10 +19,10 @@ API_KEY        = os.environ.get('TD_API_KEY', '').strip()
 OBSIDIAN_VAULT = os.environ.get('OBSIDIAN_VAULT', '').strip()
 OBSIDIAN_INBOX = os.environ.get('OBSIDIAN_INBOX', '').strip().strip('/')
 
-# Hash TD_PASSWORD once at startup using bcrypt (cost factor 12)
+# Fallback env-var password check (used during transition until users table is populated)
 _hashed_pw: bytes | None = bcrypt.hashpw(TD_PASSWORD.encode(), bcrypt.gensalt(12)) if TD_PASSWORD else None
 
-def _check_password(provided: str) -> bool:
+def _check_env_password(provided: str) -> bool:
     if not _hashed_pw or not provided:
         return False
     return bcrypt.checkpw(provided.encode(), _hashed_pw)
@@ -56,42 +56,47 @@ _PUBLIC_PATHS = {'/login', '/auth/login', '/auth/logout', '/auth/status',
                  '/favicon-16.png', '/favicon-32.png', '/apple-touch-icon.png',
                  '/icon-192.png', '/icon-512.png'}
 
-def _create_session(remember: bool):
+def _create_session(user_id: str | None, remember: bool):
     sid = secrets.token_urlsafe(32)
     expires = datetime.now(timezone.utc) + (timedelta(days=30) if remember else timedelta(hours=8))
     conn = get_db()
     try:
         cur = conn.cursor()
-        cur.execute("INSERT INTO sessions (id,expires,remember) VALUES (%s,%s,%s)", (sid, expires, remember))
+        cur.execute("INSERT INTO sessions (id,expires,remember,user_id) VALUES (%s,%s,%s,%s)",
+                    (sid, expires, remember, user_id))
         conn.commit()
     finally:
         release_db(conn)
     return sid, expires
 
+# cache: sid -> {'expires': datetime, 'user_id': str | None}
 _session_cache: dict = {}
 
-def _valid_session(sid: str) -> bool:
-    if not sid: return False
+def _valid_session(sid: str) -> str | None:
+    """Return user_id for a valid session, or None if invalid/expired."""
+    if not sid: return None
     now = datetime.now(timezone.utc)
     if sid in _session_cache:
-        if now < _session_cache[sid]: return True
-        else: del _session_cache[sid]
+        entry = _session_cache[sid]
+        if now < entry['expires']:
+            return entry['user_id']
+        del _session_cache[sid]
     conn = None
     try:
         conn = get_db()
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        cur.execute("SELECT expires FROM sessions WHERE id=%s", (sid,))
+        cur.execute("SELECT expires, user_id FROM sessions WHERE id=%s", (sid,))
         row = cur.fetchone()
-        if not row: return False
+        if not row: return None
         exp = row['expires']
         exp = exp.replace(tzinfo=timezone.utc) if exp.tzinfo is None else exp
         if now < exp:
-            _session_cache[sid] = exp
-            return True
-        return False
+            _session_cache[sid] = {'expires': exp, 'user_id': row['user_id']}
+            return row['user_id']
+        return None
     except Exception:
         logger.exception("Error validating session %s", sid[:8])
-        return False
+        return None
     finally:
         if conn: release_db(conn)
 
@@ -109,8 +114,7 @@ def _delete_session(sid: str):
 
 def _purge_expired_sessions():
     now = datetime.now(timezone.utc)
-    # Evict expired entries from the in-memory cache
-    expired = [sid for sid, exp in list(_session_cache.items()) if now >= exp]
+    expired = [sid for sid, e in list(_session_cache.items()) if now >= e['expires']]
     for sid in expired:
         _session_cache.pop(sid, None)
     # Purge DB
@@ -124,12 +128,50 @@ def _purge_expired_sessions():
     finally:
         if conn: release_db(conn)
 
-def is_authenticated() -> bool:
+def get_authenticated_user_id() -> str | None:
+    """Return the current user's ID, or None if not authenticated."""
     if API_KEY:
         auth = request.headers.get('Authorization', '')
-        if auth.startswith('Bearer ') and auth[7:] == API_KEY: return True
-        if request.headers.get('X-API-Key', '') == API_KEY: return True
+        if auth.startswith('Bearer ') and auth[7:] == API_KEY:
+            return _get_api_key_user_id()
+        if request.headers.get('X-API-Key', '') == API_KEY:
+            return _get_api_key_user_id()
     return _valid_session(request.cookies.get('td_session', ''))
+
+
+def _get_api_key_user_id() -> str | None:
+    """Return the first admin user's ID for API key auth."""
+    conn = None
+    try:
+        conn = get_db()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT id FROM users WHERE is_admin=TRUE ORDER BY created_at LIMIT 1")
+        row = cur.fetchone()
+        return row['id'] if row else None
+    except Exception:
+        return None
+    finally:
+        if conn: release_db(conn)
+
+
+def is_authenticated() -> bool:
+    return get_authenticated_user_id() is not None
+
+
+def needs_auth() -> bool:
+    """True if the app requires authentication (has users in DB or TD_PASSWORD set)."""
+    if TD_PASSWORD:
+        return True
+    conn = None
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute("SELECT 1 FROM users LIMIT 1")
+        return cur.fetchone() is not None
+    except Exception:
+        return False
+    finally:
+        if conn: release_db(conn)
 
 # ── Login page HTML (loaded from adjacent file) ────────────────
 _LOGIN_HTML = (Path(__file__).parent / 'login.html').read_text()
@@ -137,23 +179,57 @@ _LOGIN_HTML = (Path(__file__).parent / 'login.html').read_text()
 # ── Routes ─────────────────────────────────────────────────────
 @bp.route('/login')
 def login_page():
-    if not TD_PASSWORD: return redirect('/')
+    if not needs_auth(): return redirect('/')
     if is_authenticated(): return redirect(request.args.get('next', '/'))
     return _LOGIN_HTML, 200, {'Content-Type': 'text/html'}
 
 @bp.route('/auth/login', methods=['POST'])
 def do_login():
-    if not TD_PASSWORD: return jsonify({'ok': True})
+    if not needs_auth(): return jsonify({'ok': True})
     ip = request.remote_addr or '0.0.0.0'
     if _check_rate_limit(ip): return jsonify({'error': 'Too many attempts — try again in 15 minutes'}), 429
     data = request.get_json() or {}
-    uok = (not TD_USERNAME) or secrets.compare_digest(data.get('username', '').strip().lower(), TD_USERNAME)
-    pok = _check_password(data.get('password', '').strip())
-    if not (uok and pok):
+    provided_username = data.get('username', '').strip().lower()
+    provided_password = data.get('password', '').strip()
+
+    user_id = None
+    # Check users table first
+    conn = None
+    try:
+        conn = get_db()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT id, password_hash FROM users WHERE LOWER(username)=%s", (provided_username,))
+        row = cur.fetchone()
+        if row and bcrypt.checkpw(provided_password.encode(), row['password_hash'].encode()):
+            user_id = row['id']
+    except Exception:
+        logger.exception("Error checking users table during login")
+    finally:
+        if conn: release_db(conn)
+
+    # Fallback to env var credentials (transition period)
+    if user_id is None and TD_PASSWORD:
+        uok = (not TD_USERNAME) or secrets.compare_digest(provided_username, TD_USERNAME)
+        if uok and _check_env_password(provided_password):
+            # Find the migrated user by username
+            conn = None
+            try:
+                conn = get_db()
+                cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+                cur.execute("SELECT id FROM users WHERE LOWER(username)=%s", (TD_USERNAME or 'admin',))
+                row = cur.fetchone()
+                user_id = row['id'] if row else None
+            except Exception:
+                pass
+            finally:
+                if conn: release_db(conn)
+
+    if user_id is None:
         _record_failure(ip)
         return jsonify({'error': 'Incorrect username or password'}), 401
+
     _clear_failures(ip); _purge_expired_sessions()
-    sid, expires = _create_session(bool(data.get('remember')))
+    sid, expires = _create_session(user_id, bool(data.get('remember')))
     resp = make_response(jsonify({'ok': True}))
     resp.set_cookie('td_session', sid, httponly=True, samesite='Lax',
                     expires=expires if data.get('remember') else None,
@@ -169,10 +245,25 @@ def do_logout():
 
 @bp.route('/auth/status')
 def auth_status():
+    uid = get_authenticated_user_id()
+    current_user = None
+    if uid:
+        conn = None
+        try:
+            conn = get_db()
+            cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cur.execute("SELECT id, username, display_name, is_admin, (avatar IS NOT NULL) AS has_avatar FROM users WHERE id=%s", (uid,))
+            row = cur.fetchone()
+            if row:
+                current_user = dict(row)
+        except Exception:
+            pass
+        finally:
+            if conn: release_db(conn)
     return jsonify({
-        'password_set': bool(TD_PASSWORD),
-        'authenticated': is_authenticated(),
-        'username': TD_USERNAME or None,
+        'password_set': needs_auth(),
+        'authenticated': uid is not None,
+        'current_user': current_user,
         'gcal_enabled': gcal_is_enabled(),
         'obsidian_vault': OBSIDIAN_VAULT or None,
         'obsidian_inbox': OBSIDIAN_INBOX or None,

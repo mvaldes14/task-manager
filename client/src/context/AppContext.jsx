@@ -7,6 +7,8 @@ const initialState = {
   // Data
   tasks: [],
   projects: [],
+  currentUser: null,  // {id, username, display_name, is_admin, has_avatar}
+  users: [],          // [{id, username, display_name, is_admin, has_avatar}]
   // Navigation
   view: localStorage.getItem('td-view') || 'inbox',  // inbox | today | overdue | all | calendar | dashboard | project:<id>
   viewMode: 'list',         // list | board | calendar
@@ -33,8 +35,10 @@ const initialState = {
 
 function reducer(state, action) {
   switch (action.type) {
-    case 'SET_TASKS':       return { ...state, tasks: action.payload }
-    case 'SET_PROJECTS':    return { ...state, projects: action.payload }
+    case 'SET_TASKS':        return { ...state, tasks: action.payload }
+    case 'SET_PROJECTS':     return { ...state, projects: action.payload }
+    case 'SET_CURRENT_USER': return { ...state, currentUser: action.payload }
+    case 'SET_USERS':        return { ...state, users: action.payload }
     case 'ADD_TASK':        return { ...state, tasks: [action.payload, ...state.tasks] }
     case 'UPDATE_TASK':     return { ...state, tasks: state.tasks.map(t => t.id === action.payload.id ? { ...t, ...action.payload } : t) }
     case 'DELETE_TASK':     return { ...state, tasks: state.tasks.filter(t => t.id !== action.payload), selectedTaskId: state.selectedTaskId === action.payload ? null : state.selectedTaskId }

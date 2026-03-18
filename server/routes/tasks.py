@@ -4,7 +4,7 @@ import json, logging, uuid
 from datetime import datetime, date, timezone
 
 import psycopg2.extras
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 
 from lib.db import get_db, release_db, row_to_dict
 from lib.nlp import parse_natural_language, next_due_date
@@ -15,11 +15,36 @@ logger = logging.getLogger(__name__)
 bp = Blueprint('tasks', __name__)
 
 # ── Helper ─────────────────────────────────────────────────────
+def _visibility_clause(user_id):
+    """Return (sql_fragment, params) restricting tasks to those visible to user_id."""
+    if not user_id:
+        return '', []
+    return (
+        " AND (t.owner_id=%s OR t.assigned_to=%s OR t.project_id IN "
+        "(SELECT id FROM projects WHERE shared=TRUE))",
+        [user_id, user_id]
+    )
+
+
 def _fetch_tasks(query, params=()):
+    """Execute query, injecting user visibility filter before any ORDER BY."""
+    user_id = getattr(g, 'user_id', None)
+    vis_sql, vis_params = _visibility_clause(user_id)
+    if vis_sql:
+        # Insert visibility clause before ORDER BY (or at end if no ORDER BY)
+        q = query.replace('FROM tasks', 'FROM tasks t').replace('SELECT *', 'SELECT t.*')
+        order_idx = q.upper().rfind(' ORDER BY ')
+        if order_idx != -1:
+            q = q[:order_idx] + vis_sql + q[order_idx:]
+        else:
+            q += vis_sql
+    else:
+        q = query
+    all_params = list(params) + vis_params
     conn = get_db()
     try:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        cur.execute(query, params)
+        cur.execute(q, all_params)
         tasks = [row_to_dict(r) for r in cur.fetchall()]
         if not tasks:
             return tasks
@@ -51,13 +76,15 @@ def _clone_recurring_task(task: dict, next_date) -> dict:
         max_pos = cur.fetchone()['coalesce']
         cur.execute("""
             INSERT INTO tasks (id, title, description, project_id, status,
-                               due_date, due_time, tags, position, recurrence, recurrence_end, parent_task_id)
-            VALUES (%s,%s,%s,%s,'todo',%s,%s,%s,%s,%s,%s,%s)
+                               due_date, due_time, tags, position, recurrence, recurrence_end, parent_task_id,
+                               owner_id)
+            VALUES (%s,%s,%s,%s,'todo',%s,%s,%s,%s,%s,%s,%s,%s)
         """, (new_id, task['title'], task.get('description', ''), task['project_id'],
               next_date.isoformat(), task.get('due_time'),
               json.dumps(task.get('tags', [])), max_pos + 1,
               task.get('recurrence'), task.get('recurrence_end'),
-              task.get('parent_task_id') or task['id']))
+              task.get('parent_task_id') or task['id'],
+              task.get('owner_id')))
         cur.execute("SELECT * FROM tasks WHERE id=%s", (new_id,))
         new_task = row_to_dict(cur.fetchone())
         new_task['subtasks'] = []
@@ -133,10 +160,11 @@ def create_task():
         cur.execute("SELECT COALESCE(MAX(position),0) FROM tasks WHERE project_id=%s AND status=%s",
                     (project_id, status))
         max_pos = cur.fetchone()['coalesce']
-        cur.execute("""INSERT INTO tasks (id,title,description,project_id,status,due_date,due_time,tags,position,recurrence,recurrence_end,links)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+        owner_id = getattr(g, 'user_id', None)
+        cur.execute("""INSERT INTO tasks (id,title,description,project_id,status,due_date,due_time,tags,position,recurrence,recurrence_end,links,owner_id)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
             (tid, title, description, project_id, status, due_date, due_time,
-             json.dumps(tags), max_pos + 1, recurrence, recurrence_end, json.dumps(links)))
+             json.dumps(tags), max_pos + 1, recurrence, recurrence_end, json.dumps(links), owner_id))
         cur.execute("SELECT * FROM tasks WHERE id=%s", (tid,))
         task = row_to_dict(cur.fetchone())
         task['subtasks'] = []
@@ -182,7 +210,7 @@ def update_task(tid):
         if not row: return jsonify({'error': 'Not found'}), 404
         t = dict(row)
         old_status = t.get('status')
-        for f in ['title','description','project_id','status','due_date','due_time','position','recurrence','recurrence_end']:
+        for f in ['title','description','project_id','status','due_date','due_time','position','recurrence','recurrence_end','assigned_to']:
             if f in data: t[f] = data[f]
         if 'tags'  in data: t['tags']  = json.dumps(data['tags'])
         if 'links' in data: t['links'] = json.dumps(data['links'])
@@ -194,10 +222,10 @@ def update_task(tid):
         links_val = t.get('links', '[]')
         links_val = links_val if isinstance(links_val, str) else json.dumps(links_val)
         cur.execute("""UPDATE tasks SET title=%s,description=%s,project_id=%s,status=%s,
-            due_date=%s,due_time=%s,tags=%s,position=%s,completed_at=%s,recurrence=%s,recurrence_end=%s,links=%s,updated_at=NOW() WHERE id=%s""",
+            due_date=%s,due_time=%s,tags=%s,position=%s,completed_at=%s,recurrence=%s,recurrence_end=%s,links=%s,assigned_to=%s,updated_at=NOW() WHERE id=%s""",
             (t['title'], t['description'], t['project_id'], t['status'],
              t['due_date'], t['due_time'], tags_val, t['position'], t.get('completed_at'),
-             t.get('recurrence'), t.get('recurrence_end'), links_val, tid))
+             t.get('recurrence'), t.get('recurrence_end'), links_val, t.get('assigned_to'), tid))
         cur.execute("SELECT * FROM tasks WHERE id=%s", (tid,))
         result = row_to_dict(cur.fetchone())
         cur.execute("""
@@ -360,6 +388,7 @@ def search_tasks():
     exclude = request.args.get('exclude', '')
     if len(q) < 2:
         return jsonify([])
+    user_id = getattr(g, 'user_id', None)
     conn = get_db()
     try:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
@@ -368,6 +397,10 @@ def search_tasks():
         if exclude:
             sql += " AND id != %s"
             params.append(exclude)
+        if user_id:
+            sql += (" AND (owner_id=%s OR assigned_to=%s OR project_id IN "
+                    "(SELECT id FROM projects WHERE shared=TRUE))")
+            params += [user_id, user_id]
         sql += " ORDER BY updated_at DESC LIMIT 8"
         cur.execute(sql, params)
         return jsonify([dict(r) for r in cur.fetchall()])

@@ -2,11 +2,11 @@
 """Doit Server — slim entry point, delegates to route blueprints."""
 
 import logging, os, time as _time
-from flask import Flask, request, jsonify, redirect, send_from_directory
+from flask import Flask, request, jsonify, redirect, send_from_directory, g
 
 from lib.db   import init_db, DATABASE_URL
 
-from routes.auth      import bp as auth_bp,      is_authenticated, TD_PASSWORD, _PUBLIC_PATHS, _purge_expired_sessions
+from routes.auth      import bp as auth_bp, get_authenticated_user_id, needs_auth, _PUBLIC_PATHS, _purge_expired_sessions
 from routes.projects  import bp as projects_bp
 from routes.tasks     import bp as tasks_bp
 from routes.gcal      import bp as gcal_bp
@@ -14,6 +14,7 @@ from routes.ics       import bp as ics_bp
 from routes.settings  import bp as settings_bp
 from routes.otlp      import bp as otlp_bp
 from routes.dashboard import bp as dashboard_bp
+from routes.users     import bp as users_bp
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 
@@ -72,6 +73,7 @@ app.register_blueprint(ics_bp)
 app.register_blueprint(settings_bp)
 app.register_blueprint(otlp_bp)
 app.register_blueprint(dashboard_bp)
+app.register_blueprint(users_bp)
 
 # ── Auth middleware ────────────────────────────────────────────────────────────
 
@@ -80,17 +82,24 @@ _last_purge = [0.0]
 @app.before_request
 def require_auth():
     path = request.path
+    # Always public: OPTIONS, static assets, known public paths, and avatar images
     if (request.method == 'OPTIONS'
             or path in _PUBLIC_PATHS
             or path.startswith('/assets/')
             or path.startswith('/icons/')):
         return None
-    if not TD_PASSWORD:
+    # Avatar endpoint is public so <img> tags work without auth headers
+    if path.startswith('/api/users/') and path.endswith('/avatar'):
         return None
-    if not is_authenticated():
+    if not needs_auth():
+        g.user_id = None
+        return None
+    uid = get_authenticated_user_id()
+    if uid is None:
         if path.startswith('/api/'):
             return jsonify({'error': 'Unauthorized'}), 401
         return redirect(f'/login?next={path}')
+    g.user_id = uid
     now = _time.time()
     if now - _last_purge[0] > 3600:
         _purge_expired_sessions()

@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { X, CalendarDays, Puzzle, Bell, Link, Upload, Trash2, Plus, CheckCircle2, RefreshCw } from 'lucide-react'
+import { X, CalendarDays, Puzzle, Bell, Link, Upload, Trash2, Plus, CheckCircle2, RefreshCw, UserCircle, Users } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { api } from '../../api'
 
 const TABS = [
+  { id: 'account',       label: 'Account',       icon: UserCircle },
   { id: 'calendars',     label: 'Calendars',     icon: CalendarDays },
   { id: 'integrations',  label: 'Integrations',  icon: Puzzle },
   { id: 'notifications', label: 'Notifications', icon: Bell },
@@ -40,6 +41,179 @@ function SaveButton({ onClick, saving, saved }) {
     >
       {saving ? 'Saving…' : saved ? <><CheckCircle2 size={13} /> Saved</> : 'Save'}
     </button>
+  )
+}
+
+// ── Account tab ───────────────────────────────────────────────────────────────
+function AccountTab() {
+  const { state, dispatch } = useApp()
+  const user = state.currentUser
+  const fileRef = useRef()
+  const [displayName, setDisplayName] = useState(user?.display_name || '')
+  const [currentPw, setCurrentPw] = useState('')
+  const [newPw, setNewPw] = useState('')
+  const [confirmPw, setConfirmPw] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [pwError, setPwError] = useState('')
+  const [avatarPreview, setAvatarPreview] = useState(null)
+  const [avatarFile, setAvatarFile] = useState(null)
+  const [newUsername, setNewUsername] = useState('')
+  const [newUserPw, setNewUserPw] = useState('')
+  const [addingUser, setAddingUser] = useState(false)
+  const [addUserError, setAddUserError] = useState('')
+
+  const saveProfile = async () => {
+    setSaving(true); setSaved(false)
+    try {
+      const updated = await api.updateMe({ display_name: displayName.trim() || null })
+      dispatch({ type: 'SET_CURRENT_USER', payload: updated })
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    } finally { setSaving(false) }
+  }
+
+  const savePassword = async () => {
+    setPwError('')
+    if (newPw !== confirmPw) { setPwError('Passwords do not match'); return }
+    if (newPw.length < 6)    { setPwError('Password must be at least 6 characters'); return }
+    setSaving(true)
+    try {
+      await api.updateMe({ current_password: currentPw, new_password: newPw })
+      setCurrentPw(''); setNewPw(''); setConfirmPw('')
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    } catch (e) {
+      setPwError(e.message || 'Failed to change password')
+    } finally { setSaving(false) }
+  }
+
+  const handleAvatarChange = (e) => {
+    const f = e.target.files[0]
+    if (!f) return
+    setAvatarFile(f)
+    const reader = new FileReader()
+    reader.onload = ev => setAvatarPreview(ev.target.result)
+    reader.readAsDataURL(f)
+  }
+
+  const uploadAvatar = async () => {
+    if (!avatarFile) return
+    setSaving(true)
+    try {
+      await api.uploadAvatar(avatarFile)
+      const updated = await api.getMe()
+      dispatch({ type: 'SET_CURRENT_USER', payload: updated })
+      setAvatarFile(null); setAvatarPreview(null)
+    } catch (e) {
+      setPwError(e.message || 'Upload failed')
+    } finally { setSaving(false) }
+  }
+
+  const addUser = async () => {
+    setAddUserError('')
+    if (!newUsername.trim() || !newUserPw.trim()) { setAddUserError('Username and password required'); return }
+    setAddingUser(true)
+    try {
+      const created = await api.createUser({ username: newUsername.trim(), password: newUserPw.trim() })
+      const users = await api.getUsers()
+      if (users) dispatch({ type: 'SET_USERS', payload: users })
+      setNewUsername(''); setNewUserPw('')
+    } catch (e) {
+      setAddUserError(e.message || 'Failed to create user')
+    } finally { setAddingUser(false) }
+  }
+
+  if (!user) return null
+
+  const avatarSrc = avatarPreview || (user.has_avatar ? api.getUserAvatarUrl(user.id) : null)
+
+  return (
+    <div className="space-y-6">
+      {/* Avatar */}
+      <div className="flex items-center gap-4">
+        <div className="relative shrink-0">
+          {avatarSrc
+            ? <img src={avatarSrc} alt="" className="w-14 h-14 rounded-full object-cover" />
+            : (
+              <div className="w-14 h-14 rounded-full bg-td-blue dark:bg-tn-blue flex items-center justify-center text-white text-xl font-bold select-none">
+                {(user.display_name || user.username || '?')[0].toUpperCase()}
+              </div>
+            )
+          }
+        </div>
+        <div className="flex-1 space-y-2">
+          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
+          <button onClick={() => fileRef.current.click()}
+            className={`${inputCls} text-left text-td-muted dark:text-tn-muted border-dashed border border-td-border dark:border-tn-border`}>
+            {avatarFile ? avatarFile.name : 'Choose photo…'}
+          </button>
+          {avatarFile && (
+            <button onClick={uploadAvatar} disabled={saving}
+              className="w-full py-2 rounded-xl text-sm font-medium bg-td-blue/10 dark:bg-tn-blue/10 text-td-blue dark:text-tn-blue hover:bg-td-blue/20 dark:hover:bg-tn-blue/20 transition-colors disabled:opacity-50">
+              Upload avatar
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Display name */}
+      <Field label="Display name">
+        <div className="flex gap-2">
+          <input value={displayName} onChange={e => setDisplayName(e.target.value)}
+            placeholder={user.username} className={inputCls} />
+          <SaveButton onClick={saveProfile} saving={saving} saved={saved} />
+        </div>
+      </Field>
+
+      {/* Change password */}
+      <div className="border-t border-td-border/30 dark:border-tn-border/30 pt-4 space-y-3">
+        <p className={labelCls}>Change password</p>
+        <input type="password" value={currentPw} onChange={e => setCurrentPw(e.target.value)}
+          placeholder="Current password" className={inputCls} />
+        <input type="password" value={newPw} onChange={e => setNewPw(e.target.value)}
+          placeholder="New password" className={inputCls} />
+        <input type="password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)}
+          placeholder="Confirm new password" className={inputCls} />
+        {pwError && <p className="text-xs text-td-red dark:text-tn-red">{pwError}</p>}
+        <div className="flex justify-end">
+          <SaveButton onClick={savePassword} saving={saving} saved={saved} />
+        </div>
+      </div>
+
+      {/* Team members (admin only) */}
+      {user.is_admin && (
+        <div className="border-t border-td-border/30 dark:border-tn-border/30 pt-4 space-y-3">
+          <p className={labelCls}>Team members</p>
+          {state.users.map(u => (
+            <div key={u.id} className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-td-surface/50 dark:bg-tn-surface/50">
+              <div className="w-7 h-7 rounded-full bg-td-blue/20 dark:bg-tn-blue/20 flex items-center justify-center text-xs font-bold text-td-blue dark:text-tn-blue shrink-0">
+                {(u.display_name || u.username)[0].toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-td-fg dark:text-tn-fg truncate">{u.display_name || u.username}</p>
+                {u.display_name && <p className="text-[11px] text-td-muted dark:text-tn-muted">{u.username}</p>}
+              </div>
+              {u.is_admin && <span className="text-[10px] px-1.5 py-0.5 rounded bg-td-blue/10 dark:bg-tn-blue/10 text-td-blue dark:text-tn-blue font-semibold">admin</span>}
+            </div>
+          ))}
+          <div className="pt-1 space-y-2">
+            <p className={labelCls}>Add member</p>
+            <input value={newUsername} onChange={e => setNewUsername(e.target.value)}
+              placeholder="Username" className={inputCls} />
+            <input type="password" value={newUserPw} onChange={e => setNewUserPw(e.target.value)}
+              placeholder="Password" className={inputCls} />
+            {addUserError && <p className="text-xs text-td-red dark:text-tn-red">{addUserError}</p>}
+            <button onClick={addUser} disabled={addingUser}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium
+                bg-td-blue/10 dark:bg-tn-blue/10 text-td-blue dark:text-tn-blue
+                hover:bg-td-blue/20 dark:hover:bg-tn-blue/20 transition-colors disabled:opacity-50">
+              {addingUser ? 'Adding…' : <><Plus size={14} /> Add member</>}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -270,7 +444,7 @@ function NotificationsTab() {
 // ── Modal shell ───────────────────────────────────────────────────────────────
 export function SettingsModal({ onClose }) {
   const { state } = useApp()
-  const [tab, setTab] = useState('calendars')
+  const [tab, setTab] = useState('account')
 
   return createPortal(
     <>
@@ -312,6 +486,7 @@ export function SettingsModal({ onClose }) {
 
         {/* Content */}
         <div className="overflow-y-auto flex-1 px-5 py-4">
+          {tab === 'account'       && <AccountTab />}
           {tab === 'calendars'     && <CalendarsTab gcalEnabled={state.gcalEnabled} />}
           {tab === 'integrations'  && <IntegrationsTab />}
           {tab === 'notifications' && <NotificationsTab />}

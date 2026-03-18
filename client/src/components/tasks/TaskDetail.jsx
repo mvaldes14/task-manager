@@ -398,6 +398,7 @@ export function TaskDetail() {
   const [dueTime, setDueTime]           = useState('')
   const [projectId, setProjectId]       = useState('')
   const [tags, setTags]                 = useState([])
+  const [assignedTo, setAssignedTo]     = useState('')
   const [recurrence, setRecurrence]     = useState(null)
   const [recurrenceEnd, setRecurrenceEnd] = useState('')
   const [subtaskInput, setSubtaskInput] = useState('')
@@ -432,6 +433,7 @@ export function TaskDetail() {
     setDueTime(task.due_time || '')
     setProjectId(task.project_id || '')
     setTags(task.tags || [])
+    setAssignedTo(task.assigned_to || '')
     setRecurrence(task.recurrence || null)
     setRecurrenceEnd(task.recurrence_end || '')
   }, [task?.id])
@@ -601,6 +603,33 @@ export function TaskDetail() {
               onChange={next => { setTags(next); autoSave(task.id, { tags: next }) }}
             />
           </div>
+
+          {/* Assignee — only shown for shared projects */}
+          {(() => {
+            const taskProject = state.projects.find(p => p.id === task.project_id)
+            if (!taskProject?.shared) return null
+            return (
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-td-muted dark:text-tn-muted">Assigned To</label>
+                <select
+                  value={assignedTo}
+                  onChange={e => {
+                    const v = e.target.value || null
+                    setAssignedTo(v || '')
+                    autoSave(task.id, { assigned_to: v })
+                  }}
+                  className="w-full bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-xs rounded-lg px-2.5 py-2 outline-none border border-td-border/50 dark:border-tn-border/50"
+                >
+                  <option value="">Unassigned</option>
+                  {state.users.map(u => (
+                    <option key={u.id} value={u.id}>
+                      {u.display_name || u.username}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )
+          })()}
 
           {/* Links */}
           <LinksSection task={task} onUpdate={updated => dispatch({ type: 'UPDATE_TASK', payload: updated })} />

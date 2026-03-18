@@ -87,4 +87,26 @@ export const api = {
     const today = new Date().toISOString().split('T')[0] // YYYY-MM-DD in local timezone
     return req(`/dashboard/stats?days=${days}&today=${today}`)
   },
+
+  // Users
+  getUsers:        ()           => req('/users'),
+  getMe:           ()           => req('/users/me'),
+  updateMe:        (data)       => req('/users/me', 'PATCH', data),
+  createUser:      (data)       => req('/users', 'POST', data),
+  getUserAvatarUrl:(uid)        => `/api/users/${uid}/avatar`,
+  uploadAvatar:    (file)       => {
+    const fd = new FormData()
+    fd.append('file', file)
+    return fetch(base + '/users/me/avatar', { method: 'POST', body: fd, credentials: 'include' })
+      .then(async r => {
+        if (r.status === 401) { window.location.href = '/login'; return null }
+        if (!r.ok) {
+          const err = await r.json().catch(() => ({ error: r.statusText }))
+          throw new Error(err.error || r.statusText)
+        }
+        return r.json().catch(() => null)
+      })
+  },
+  authStatus: () =>
+    fetch('/auth/status', { credentials: 'include' }).then(r => r.json()),
 }

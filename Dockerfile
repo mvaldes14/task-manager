@@ -9,7 +9,7 @@ RUN npm run build
 # ── Stage 2: Python backend ───────────────────────────────────────────────────
 FROM python:3.12-slim
 WORKDIR /app
-RUN pip install flask gunicorn psycopg2-binary icalendar bcrypt \
+RUN pip install flask gunicorn psycopg2-binary icalendar bcrypt Pillow \
     google-api-python-client google-auth-httplib2 google-auth-oauthlib \
     opentelemetry-sdk opentelemetry-exporter-otlp-proto-grpc \
     opentelemetry-instrumentation-flask opentelemetry-instrumentation-psycopg2 \

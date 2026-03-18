@@ -2,17 +2,23 @@
 
 import uuid
 import psycopg2.extras
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 from lib.db import get_db, release_db, row_to_dict
 
 bp = Blueprint('projects', __name__)
 
 @bp.route('/api/projects', methods=['GET', 'OPTIONS'])
 def get_projects():
+    user_id = getattr(g, 'user_id', None)
     conn = get_db()
     try:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        cur.execute("SELECT * FROM projects ORDER BY created_at")
+        if user_id:
+            cur.execute(
+                "SELECT * FROM projects WHERE id='inbox' OR owner_id=%s OR shared=TRUE ORDER BY created_at",
+                (user_id,))
+        else:
+            cur.execute("SELECT * FROM projects ORDER BY created_at")
         return jsonify([row_to_dict(r) for r in cur.fetchall()])
     finally:
         release_db(conn)
@@ -21,19 +27,20 @@ def get_projects():
 def create_project():
     data = request.get_json()
     pid = str(uuid.uuid4())
+    owner_id = getattr(g, 'user_id', None)
     conn = get_db()
     try:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cur.execute(
-            "INSERT INTO projects (id,name,color,icon) VALUES (%s,%s,%s,%s) RETURNING *",
-            (pid, data['name'], data.get('color', '#6366f1'), data.get('icon', '📁')))
+            "INSERT INTO projects (id,name,color,icon,owner_id,shared) VALUES (%s,%s,%s,%s,%s,%s) RETURNING *",
+            (pid, data['name'], data.get('color', '#6366f1'), data.get('icon', '📁'), owner_id, False))
         row = row_to_dict(cur.fetchone())
         conn.commit()
     finally:
         release_db(conn)
     return jsonify(row), 201
 
-_ALLOWED_PROJECT_FIELDS = {'name', 'color', 'icon'}
+_ALLOWED_PROJECT_FIELDS = {'name', 'color', 'icon', 'shared'}
 
 @bp.route('/api/projects/<pid>', methods=['PUT', 'PATCH'])
 def update_project(pid):

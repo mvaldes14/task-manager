@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useApp } from '../../context/AppContext'
 import { isOverdue, isToday } from '../../utils'
-import { Plus, LogOut, Sun, Moon, Settings, Trash2, CheckCircle2, RefreshCw, Calendar, Inbox, Layers, AlertCircle, PanelLeftClose, PanelLeftOpen, LayoutDashboard } from 'lucide-react'
+import { Plus, LogOut, Sun, Moon, Settings, Trash2, CheckCircle2, RefreshCw, Calendar, Inbox, Layers, AlertCircle, PanelLeftClose, PanelLeftOpen, LayoutDashboard, Users } from 'lucide-react'
 import { api } from '../../api'
 import { ProjectIcon, PROJECT_ICON_OPTIONS } from '../shared/ProjectIcon'
 import { SettingsModal } from '../settings/SettingsModal'
@@ -46,6 +46,7 @@ function ProjectFormModal({ project, onClose }) {
   const [name, setName] = useState(project?.name || '')
   const [color, setColor] = useState(project?.color || PROJECT_COLORS[6])
   const [icon, setIcon] = useState(project?.icon || '📁')
+  const [shared, setShared] = useState(project?.shared || false)
   const [saving, setSaving] = useState(false)
 
   const save = async () => {
@@ -53,11 +54,11 @@ function ProjectFormModal({ project, onClose }) {
     setSaving(true)
     try {
       if (isEdit) {
-        const p = await api.updateProject(project.id, { name: name.trim(), color, icon })
+        const p = await api.updateProject(project.id, { name: name.trim(), color, icon, shared })
         dispatch({ type: 'UPDATE_PROJECT', payload: p })
         toast('Project updated')
       } else {
-        const p = await api.createProject({ name: name.trim(), color, icon })
+        const p = await api.createProject({ name: name.trim(), color, icon, shared })
         dispatch({ type: 'ADD_PROJECT', payload: p })
         toast('Project created')
       }
@@ -113,13 +114,26 @@ function ProjectFormModal({ project, onClose }) {
             </button>
           ))}
         </div>
-        <div className="flex gap-1.5 mb-5">
+        <div className="flex gap-1.5 mb-4">
           {PROJECT_COLORS.map(c => (
             <button key={c} onClick={() => setColor(c)}
               className={`w-6 h-6 rounded-full transition-transform ${color === c ? 'scale-125 ring-2 ring-white/50' : ''}`}
               style={{ background: c }} />
           ))}
         </div>
+        <button
+          onClick={() => setShared(s => !s)}
+          className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm mb-5 transition-colors border
+            ${shared
+              ? 'bg-td-blue/10 dark:bg-tn-blue/10 border-td-blue/30 dark:border-tn-blue/30 text-td-blue dark:text-tn-blue'
+              : 'bg-td-surface dark:bg-tn-surface border-td-border/50 dark:border-tn-border/50 text-td-muted dark:text-tn-muted'}`}
+        >
+          <Users size={14} />
+          <span className="flex-1 text-left font-medium">Shared project</span>
+          <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${shared ? 'bg-td-blue/20 dark:bg-tn-blue/20 text-td-blue dark:text-tn-blue' : 'bg-td-surface dark:bg-tn-surface text-td-muted/50 dark:text-tn-muted/50'}`}>
+            {shared ? 'ON' : 'OFF'}
+          </span>
+        </button>
         <div className="flex gap-2">
           <button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-td-muted dark:text-tn-muted text-sm bg-td-surface dark:bg-tn-surface">Cancel</button>
           <button onClick={save} disabled={!name.trim() || saving}
@@ -129,6 +143,29 @@ function ProjectFormModal({ project, onClose }) {
         </div>
       </div>
     </>
+  )
+}
+
+function UserAvatar({ user, size = 28 }) {
+  if (!user) return null
+  if (user.has_avatar) {
+    return (
+      <img
+        src={api.getUserAvatarUrl(user.id)}
+        alt={user.display_name || user.username}
+        className="rounded-full object-cover shrink-0"
+        style={{ width: size, height: size }}
+      />
+    )
+  }
+  const initials = (user.display_name || user.username || '?')[0].toUpperCase()
+  return (
+    <div
+      className="rounded-full flex items-center justify-center shrink-0 text-white font-semibold select-none"
+      style={{ width: size, height: size, fontSize: size * 0.4, background: '#7aa2f7' }}
+    >
+      {initials}
+    </div>
   )
 }
 
@@ -254,11 +291,12 @@ export function Sidebar() {
                 <ProjectIcon icon={p.icon} size={13} />
               </span>
               <span className="flex-1 text-left truncate">{p.name}</span>
-              {count > 0 && (
-                <span className="text-[10px] text-td-muted/60 dark:text-tn-muted/60 group-hover:hidden">
-                  {count}
-                </span>
-              )}
+              {p.shared
+                ? <Users size={10} className="text-td-blue/60 dark:text-tn-blue/60 shrink-0 group-hover:hidden" title="Shared project" />
+                : count > 0
+                  ? <span className="text-[10px] text-td-muted/60 dark:text-tn-muted/60 group-hover:hidden">{count}</span>
+                  : null
+              }
               <button
                 onClick={e => { e.stopPropagation(); setEditingProject(p) }}
                 className="hidden group-hover:flex items-center justify-center w-5 h-5 rounded
@@ -277,6 +315,7 @@ export function Sidebar() {
       <div className="border-t border-td-border/50 dark:border-tn-border/50 px-2 py-3">
         {collapsed ? (
           <div className="flex flex-col items-center gap-2">
+            {state.currentUser && <UserAvatar user={state.currentUser} size={28} />}
             <button onClick={toggleTheme} title={state.theme === 'dark' ? 'Light mode' : 'Dark mode'}
               className="p-2 rounded-lg text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg hover:bg-td-surface/50 dark:hover:bg-tn-surface/50 transition-colors">
               {state.theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
@@ -292,30 +331,40 @@ export function Sidebar() {
             </button>
           </div>
         ) : (
-          <div className="flex items-center gap-1">
-            <button
-              onClick={async () => { await api.logout(); window.location.href = '/login' }}
-              className="flex-1 flex items-center gap-3 px-3 py-2 rounded-lg text-sm
-                text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg
-                hover:bg-td-surface/50 dark:hover:bg-tn-surface/50 transition-colors"
-            >
-              <LogOut size={16} /> Sign out
-            </button>
-            <button onClick={() => setShowSettings(true)} title="Settings"
-              className="flex items-center justify-center p-2 rounded-lg text-td-muted dark:text-tn-nav
-                hover:text-td-fg dark:hover:text-tn-fg hover:bg-td-surface/50 dark:hover:bg-tn-surface/50 transition-colors">
-              <Settings size={15} />
-            </button>
-            <div title={state.gcalEnabled ? 'Synced to Google Calendar' : 'Google Calendar not connected'}
-              className="flex items-center gap-1 px-2 py-2 rounded-lg text-xs">
-              <RefreshCw size={14} className={state.gcalEnabled ? 'text-td-green dark:text-tn-green' : 'text-td-muted/30 dark:text-tn-muted/30'} />
-              {state.gcalEnabled && <CheckCircle2 size={10} className="text-td-green dark:text-tn-green -ml-0.5" />}
+          <div className="space-y-1">
+            {state.currentUser && (
+              <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg">
+                <UserAvatar user={state.currentUser} size={28} />
+                <span className="flex-1 text-sm font-medium text-td-fg dark:text-tn-fg truncate">
+                  {state.currentUser.display_name || state.currentUser.username}
+                </span>
+              </div>
+            )}
+            <div className="flex items-center gap-1">
+              <button
+                onClick={async () => { await api.logout(); window.location.href = '/login' }}
+                className="flex-1 flex items-center gap-3 px-3 py-2 rounded-lg text-sm
+                  text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg
+                  hover:bg-td-surface/50 dark:hover:bg-tn-surface/50 transition-colors"
+              >
+                <LogOut size={16} /> Sign out
+              </button>
+              <button onClick={() => setShowSettings(true)} title="Settings"
+                className="flex items-center justify-center p-2 rounded-lg text-td-muted dark:text-tn-nav
+                  hover:text-td-fg dark:hover:text-tn-fg hover:bg-td-surface/50 dark:hover:bg-tn-surface/50 transition-colors">
+                <Settings size={15} />
+              </button>
+              <div title={state.gcalEnabled ? 'Synced to Google Calendar' : 'Google Calendar not connected'}
+                className="flex items-center gap-1 px-2 py-2 rounded-lg text-xs">
+                <RefreshCw size={14} className={state.gcalEnabled ? 'text-td-green dark:text-tn-green' : 'text-td-muted/30 dark:text-tn-muted/30'} />
+                {state.gcalEnabled && <CheckCircle2 size={10} className="text-td-green dark:text-tn-green -ml-0.5" />}
+              </div>
+              <button onClick={toggle} title="Collapse sidebar"
+                className="hidden md:flex items-center justify-center p-2 rounded-lg text-td-muted dark:text-tn-muted
+                  hover:text-td-fg dark:hover:text-tn-fg hover:bg-td-surface/50 dark:hover:bg-tn-surface/50 transition-colors">
+                <PanelLeftClose size={15} />
+              </button>
             </div>
-            <button onClick={toggle} title="Collapse sidebar"
-              className="hidden md:flex items-center justify-center p-2 rounded-lg text-td-muted dark:text-tn-muted
-                hover:text-td-fg dark:hover:text-tn-fg hover:bg-td-surface/50 dark:hover:bg-tn-surface/50 transition-colors">
-              <PanelLeftClose size={15} />
-            </button>
           </div>
         )}
       </div>

@@ -1,6 +1,6 @@
 """Database connection pool and helpers."""
 
-import json, os, threading, logging
+import json, os, threading, logging, uuid
 
 import psycopg2, psycopg2.extras
 from psycopg2 import pool as psycopg2_pool
@@ -54,9 +54,18 @@ def init_db():
     try:
         cur = conn.cursor()
         cur.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id TEXT PRIMARY KEY, username TEXT NOT NULL UNIQUE,
+                password_hash TEXT NOT NULL, display_name TEXT,
+                avatar BYTEA, is_admin BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            )""")
+        cur.execute("""
             CREATE TABLE IF NOT EXISTS projects (
                 id TEXT PRIMARY KEY, name TEXT NOT NULL,
                 color TEXT DEFAULT '#6366f1', icon TEXT DEFAULT '📁',
+                owner_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+                shared BOOLEAN DEFAULT FALSE,
                 created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW()
             )""")
         cur.execute("""
@@ -68,7 +77,9 @@ def init_db():
                 created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW(),
                 completed_at TIMESTAMPTZ, gcal_event_id TEXT,
                 recurrence TEXT, recurrence_end DATE, parent_task_id TEXT,
-                obsidian_url TEXT, links JSONB DEFAULT '[]'
+                obsidian_url TEXT, links JSONB DEFAULT '[]',
+                owner_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+                assigned_to TEXT REFERENCES users(id) ON DELETE SET NULL
             )""")
         cur.execute("""
             CREATE TABLE IF NOT EXISTS subtasks (
@@ -79,7 +90,8 @@ def init_db():
         cur.execute("""
             CREATE TABLE IF NOT EXISTS sessions (
                 id TEXT PRIMARY KEY, created TIMESTAMPTZ DEFAULT NOW(),
-                expires TIMESTAMPTZ NOT NULL, remember BOOLEAN DEFAULT FALSE
+                expires TIMESTAMPTZ NOT NULL, remember BOOLEAN DEFAULT FALSE,
+                user_id TEXT REFERENCES users(id) ON DELETE CASCADE
             )""")
         cur.execute("""
             CREATE TABLE IF NOT EXISTS ics_calendars (
@@ -101,14 +113,53 @@ def init_db():
         cur.execute("CREATE INDEX IF NOT EXISTS idx_tasks_due_date ON tasks(due_date)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_subtasks_task_id ON subtasks(task_id)")
         cur.execute("ALTER TABLE subtasks ADD COLUMN IF NOT EXISTS linked_task_id TEXT REFERENCES tasks(id) ON DELETE SET NULL")
+        # Multi-user columns (additive migrations)
+        cur.execute("ALTER TABLE projects ADD COLUMN IF NOT EXISTS owner_id TEXT REFERENCES users(id) ON DELETE SET NULL")
+        cur.execute("ALTER TABLE projects ADD COLUMN IF NOT EXISTS shared BOOLEAN DEFAULT FALSE")
+        cur.execute("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS owner_id TEXT REFERENCES users(id) ON DELETE SET NULL")
+        cur.execute("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS assigned_to TEXT REFERENCES users(id) ON DELETE SET NULL")
+        cur.execute("ALTER TABLE sessions ADD COLUMN IF NOT EXISTS user_id TEXT REFERENCES users(id) ON DELETE CASCADE")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_tasks_owner_id    ON tasks(owner_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_tasks_assigned_to ON tasks(assigned_to)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_sessions_user_id  ON sessions(user_id)")
         conn.commit()
         logger.info("tables ready.")
+        _migrate_to_multiuser(conn)
     except Exception as e:
         conn.rollback()
         logger.exception("init_db failed: %s", e)
         raise
     finally:
         release_db(conn)
+
+
+def _migrate_to_multiuser(conn):
+    """One-time migration: seed first user from TD_USERNAME/TD_PASSWORD env vars."""
+    import bcrypt as _bcrypt
+    td_username = os.environ.get('TD_USERNAME', '').strip()
+    td_password = os.environ.get('TD_PASSWORD', '').strip()
+    if not td_password:
+        return
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT COUNT(*) AS cnt FROM users")
+        if cur.fetchone()['cnt'] > 0:
+            return  # already migrated
+        logger.info("[migration] seeding first user from TD_USERNAME/TD_PASSWORD")
+        uid = str(uuid.uuid4())
+        username = td_username or 'admin'
+        pw_hash = _bcrypt.hashpw(td_password.encode(), _bcrypt.gensalt(12)).decode()
+        cur.execute(
+            "INSERT INTO users (id, username, password_hash, display_name, is_admin) VALUES (%s,%s,%s,%s,TRUE)",
+            (uid, username, pw_hash, username.capitalize()))
+        cur.execute("UPDATE tasks SET owner_id=%s WHERE owner_id IS NULL", (uid,))
+        cur.execute("UPDATE sessions SET user_id=%s WHERE user_id IS NULL", (uid,))
+        cur.execute("UPDATE projects SET owner_id=%s WHERE owner_id IS NULL AND id != 'inbox'", (uid,))
+        conn.commit()
+        logger.info("[migration] created user '%s' (id=%s), assigned all existing tasks/sessions", username, uid)
+    except Exception:
+        conn.rollback()
+        logger.exception("[migration] failed")
 
 def get_settings() -> dict:
     """Return the single settings row as a dict, creating it if missing."""

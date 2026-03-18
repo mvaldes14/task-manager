@@ -25,6 +25,15 @@ function AppShell() {
           dispatch({ type: 'SET_SETTINGS', payload: data })
           setAuthed(true)
           loadAll()
+          // Load user identity and user list
+          api.authStatus().then(status => {
+            if (status?.current_user) {
+              dispatch({ type: 'SET_CURRENT_USER', payload: status.current_user })
+            }
+          }).catch(() => {})
+          api.getUsers().then(users => {
+            if (users) dispatch({ type: 'SET_USERS', payload: users })
+          }).catch(() => {})
         } else {
           setAuthed(false)
         }
