@@ -18,9 +18,19 @@ const RECUR_PRESETS = [
   { label: 'None',               value: null },
   { label: 'Daily',              value: 'RRULE:FREQ=DAILY' },
   { label: 'Weekdays (Mon–Fri)', value: 'RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR' },
-  { label: 'Weekly (same day)',  value: 'RRULE:FREQ=WEEKLY' },
+  { label: 'Weekly',             value: 'RRULE:FREQ=WEEKLY' },
   { label: 'Monthly (pick day)', value: '__monthly_dom__' },
   { label: 'Yearly',             value: 'RRULE:FREQ=YEARLY' },
+]
+
+const WEEK_DAYS = [
+  { code: 'MO', label: 'M' },
+  { code: 'TU', label: 'T' },
+  { code: 'WE', label: 'W' },
+  { code: 'TH', label: 'T' },
+  { code: 'FR', label: 'F' },
+  { code: 'SA', label: 'S' },
+  { code: 'SU', label: 'S' },
 ]
 
 function _rruleProps(str) {
@@ -35,8 +45,10 @@ function RecurrenceEditor({ recurrence, recurrenceEnd, onChange }) {
 
   const label        = recurrenceLabel(recurrence)
   const props        = _rruleProps(recurrence)
+  const isWeekly     = props.FREQ === 'WEEKLY'
   const isMonthlyDom = props.FREQ === 'MONTHLY' && props.BYMONTHDAY && !props.BYDAY
   const currentDom   = isMonthlyDom ? parseInt(props.BYMONTHDAY, 10) : null
+  const activeDays   = new Set((props.BYDAY || '').split(',').filter(Boolean))
 
   const selectPreset = (value) => {
     if (!value) {
@@ -44,16 +56,37 @@ function RecurrenceEditor({ recurrence, recurrenceEnd, onChange }) {
       setOpen(false)
     } else if (value === '__monthly_dom__') {
       // stay open so user can pick the day
+    } else if (value === 'RRULE:FREQ=WEEKLY') {
+      // enter weekly mode but keep existing BYDAY if already weekly
+      if (!isWeekly) onChange({ recurrence: value })
+      // don't close — show day picker
     } else {
       onChange({ recurrence: value })
       setOpen(false)
     }
   }
 
+  const toggleDay = (code) => {
+    const next = new Set(activeDays)
+    if (next.has(code)) next.delete(code)
+    else next.add(code)
+    if (next.size === 0) return
+    const ordered = WEEK_DAYS.map(d => d.code).filter(c => next.has(c))
+    onChange({ recurrence: `RRULE:FREQ=WEEKLY;BYDAY=${ordered.join(',')}` })
+  }
+
   const applyDom = () => {
     const dom = Math.max(1, Math.min(31, parseInt(domInput) || currentDom || 1))
     onChange({ recurrence: `RRULE:FREQ=MONTHLY;BYMONTHDAY=${dom}` })
     setOpen(false)
+  }
+
+  // preset is "active" if it exactly matches, or if weekly and we're in weekly mode with custom days
+  const isPresetActive = (opt) => {
+    if (!opt.value) return !recurrence
+    if (opt.value === '__monthly_dom__') return false
+    if (opt.value === 'RRULE:FREQ=WEEKLY') return isWeekly
+    return recurrence === opt.value
   }
 
   return (
@@ -79,13 +112,34 @@ function RecurrenceEditor({ recurrence, recurrenceEnd, onChange }) {
                 onClick={() => selectPreset(opt.value)}
                 className={`w-full text-left text-xs px-3 py-2.5 transition-colors
                   hover:bg-td-surface dark:hover:bg-tn-surface
-                  ${(!recurrence && !opt.value) || (opt.value && opt.value !== '__monthly_dom__' && recurrence === opt.value)
+                  ${isPresetActive(opt)
                     ? 'text-td-teal dark:text-tn-teal font-semibold bg-td-teal/5 dark:bg-tn-teal/5'
                     : 'text-td-fg dark:text-tn-fg'}`}
               >
                 {opt.label}
               </button>
             ))}
+
+            {isWeekly && (
+              <div className="border-t border-td-border dark:border-tn-border px-3 py-2.5 space-y-1.5">
+                <label className="block text-[10px] text-td-muted dark:text-tn-muted">Repeat on</label>
+                <div className="flex gap-1">
+                  {WEEK_DAYS.map(({ code, label: lbl }) => (
+                    <button
+                      key={code}
+                      onClick={() => toggleDay(code)}
+                      className={`flex-1 py-1 rounded text-[11px] font-medium transition-colors
+                        ${activeDays.has(code)
+                          ? 'bg-td-teal dark:bg-tn-teal text-white'
+                          : 'bg-td-surface dark:bg-tn-surface text-td-muted dark:text-tn-muted hover:bg-td-border/40 dark:hover:bg-tn-border/40'}`}
+                    >
+                      {lbl}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="border-t border-td-border dark:border-tn-border px-3 py-2.5 space-y-1.5">
               <label className="block text-[10px] text-td-muted dark:text-tn-muted">Monthly on day</label>
               <div className="flex gap-2">

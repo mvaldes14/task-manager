@@ -78,6 +78,19 @@ def rrule_from_text(text):
         rule  = rrule(WEEKLY, byweekday=wdays)
         text  = text[:m.start()] + text[m.end():]
 
+    elif m := re.search(
+            r'\b((?:(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)s?'
+            r'(?:\s*(?:,|and)\s*)?){1,7})\b', tl):
+        phrase = m.group(1).strip().rstrip(',').strip()
+        day_names = re.findall(
+            r'monday|tuesday|wednesday|thursday|friday|saturday|sunday', phrase)
+        has_plural = bool(re.search(
+            r'(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)s\b', phrase))
+        if day_names and (has_plural or len(day_names) >= 2):
+            wdays = [WEEKDAYS[DAYS.index(d)] for d in day_names]
+            rule  = rrule(WEEKLY, byweekday=wdays)
+            text  = text[:m.start()] + text[m.end():]
+
     elif m := re.search(r'\bevery\s+(\d+)\s+(day|days|week|weeks)\b', tl):
         n, unit = int(m.group(1)), m.group(2)
         rule = rrule(WEEKLY, interval=n) if 'week' in unit else rrule(DAILY, interval=n)
@@ -201,8 +214,8 @@ _DATE_SIGNAL_PATTERNS = [
     # single keywords  (tonight is handled by time slots, not date signals)
     r'\btomorrow\b',
     r'\btoday\b',
-    # day names
-    r'\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b',
+    # day names (singular only — plural forms are recurrence, not one-off dates)
+    r'\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)(?!s)\b',
     # month + day  e.g. "march 15th"
     r'(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2}(?:st|nd|rd|th)?',
     # numeric dates
