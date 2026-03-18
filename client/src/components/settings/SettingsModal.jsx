@@ -124,7 +124,11 @@ function AccountTab() {
     } finally { setAddingUser(false) }
   }
 
-  if (!user) return null
+  if (!user) return (
+    <div className="flex items-center justify-center py-12 text-td-muted dark:text-tn-muted text-sm">
+      Loading account…
+    </div>
+  )
 
   const avatarSrc = avatarPreview || (user.has_avatar ? api.getUserAvatarUrl(user.id) : null)
 
@@ -457,8 +461,8 @@ export function SettingsModal({ onClose }) {
       {/* Modal */}
       <div className="fixed inset-0 z-[201] flex items-center justify-center p-4 pointer-events-none">
         <div
-          className="pointer-events-auto w-full max-w-sm bg-td-bg2 dark:bg-tn-bg2 rounded-2xl
-            border border-td-border dark:border-tn-border shadow-2xl flex flex-col max-h-[85vh] overflow-hidden"
+          className="pointer-events-auto w-full max-w-lg bg-td-bg2 dark:bg-tn-bg2 rounded-2xl
+            border border-td-border dark:border-tn-border shadow-2xl flex flex-col max-h-[88vh] overflow-hidden"
           style={{ animation: 'slideUp 0.18s ease-out' }}
         >
 
@@ -471,7 +475,7 @@ export function SettingsModal({ onClose }) {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 px-5 pt-3 shrink-0">
+        <div className="flex gap-1 px-5 pt-3 shrink-0 overflow-x-auto pb-0.5">
           {TABS.map(({ id, label, icon: Icon }) => (
             <button key={id} onClick={() => setTab(id)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors

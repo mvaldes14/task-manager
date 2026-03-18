@@ -72,14 +72,16 @@ def _create_session(user_id: str | None, remember: bool):
 # cache: sid -> {'expires': datetime, 'user_id': str | None}
 _session_cache: dict = {}
 
-def _valid_session(sid: str) -> str | None:
-    """Return user_id for a valid session, or None if invalid/expired."""
-    if not sid: return None
+_INVALID_SESSION = object()  # sentinel: session does not exist or is expired
+
+def _valid_session(sid: str):
+    """Return user_id (str or None) for a valid session, or _INVALID_SESSION sentinel."""
+    if not sid: return _INVALID_SESSION
     now = datetime.now(timezone.utc)
     if sid in _session_cache:
         entry = _session_cache[sid]
         if now < entry['expires']:
-            return entry['user_id']
+            return entry['user_id']   # may be None for pre-migration sessions
         del _session_cache[sid]
     conn = None
     try:
@@ -87,16 +89,16 @@ def _valid_session(sid: str) -> str | None:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cur.execute("SELECT expires, user_id FROM sessions WHERE id=%s", (sid,))
         row = cur.fetchone()
-        if not row: return None
+        if not row: return _INVALID_SESSION
         exp = row['expires']
         exp = exp.replace(tzinfo=timezone.utc) if exp.tzinfo is None else exp
         if now < exp:
             _session_cache[sid] = {'expires': exp, 'user_id': row['user_id']}
-            return row['user_id']
-        return None
+            return row['user_id']   # may be None
+        return _INVALID_SESSION
     except Exception:
         logger.exception("Error validating session %s", sid[:8])
-        return None
+        return _INVALID_SESSION
     finally:
         if conn: release_db(conn)
 
@@ -129,14 +131,19 @@ def _purge_expired_sessions():
         if conn: release_db(conn)
 
 def get_authenticated_user_id() -> str | None:
-    """Return the current user's ID, or None if not authenticated."""
+    """Return the current user's ID, or None if not authenticated.
+    Raises no exception — returns None on any failure.
+    """
     if API_KEY:
         auth = request.headers.get('Authorization', '')
         if auth.startswith('Bearer ') and auth[7:] == API_KEY:
             return _get_api_key_user_id()
         if request.headers.get('X-API-Key', '') == API_KEY:
             return _get_api_key_user_id()
-    return _valid_session(request.cookies.get('td_session', ''))
+    result = _valid_session(request.cookies.get('td_session', ''))
+    if result is _INVALID_SESSION:
+        return None
+    return result  # str user_id, or None for pre-migration session (still authenticated)
 
 
 def _get_api_key_user_id() -> str | None:
@@ -155,23 +162,46 @@ def _get_api_key_user_id() -> str | None:
 
 
 def is_authenticated() -> bool:
-    return get_authenticated_user_id() is not None
+    """True if the current request has a valid session OR valid API key."""
+    if API_KEY:
+        auth = request.headers.get('Authorization', '')
+        if auth.startswith('Bearer ') and auth[7:] == API_KEY: return True
+        if request.headers.get('X-API-Key', '') == API_KEY: return True
+    return _valid_session(request.cookies.get('td_session', '')) is not _INVALID_SESSION
 
+
+# Cached at first call — auth requirement only changes when users are added/removed,
+# which requires a restart in this architecture anyway.
+_needs_auth_cache: bool | None = None
 
 def needs_auth() -> bool:
-    """True if the app requires authentication (has users in DB or TD_PASSWORD set)."""
+    """True if the app requires authentication. Cached after first call."""
+    global _needs_auth_cache
+    if _needs_auth_cache is not None:
+        return _needs_auth_cache
     if TD_PASSWORD:
+        _needs_auth_cache = True
         return True
     conn = None
     try:
         conn = get_db()
         cur = conn.cursor()
         cur.execute("SELECT 1 FROM users LIMIT 1")
-        return cur.fetchone() is not None
+        result = cur.fetchone() is not None
+        _needs_auth_cache = result
+        return result
     except Exception:
-        return False
+        # Fail closed: if we can't check, assume auth IS required
+        logger.warning("needs_auth() DB check failed — defaulting to auth required")
+        return True
     finally:
         if conn: release_db(conn)
+
+
+def invalidate_needs_auth_cache():
+    """Call after creating/deleting users to refresh the cache."""
+    global _needs_auth_cache
+    _needs_auth_cache = None
 
 # ── Login page HTML (loaded from adjacent file) ────────────────
 _LOGIN_HTML = (Path(__file__).parent / 'login.html').read_text()
@@ -211,16 +241,35 @@ def do_login():
     if user_id is None and TD_PASSWORD:
         uok = (not TD_USERNAME) or secrets.compare_digest(provided_username, TD_USERNAME)
         if uok and _check_env_password(provided_password):
-            # Find the migrated user by username
+            target_username = TD_USERNAME or 'admin'
             conn = None
             try:
                 conn = get_db()
                 cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-                cur.execute("SELECT id FROM users WHERE LOWER(username)=%s", (TD_USERNAME or 'admin',))
+                cur.execute("SELECT id FROM users WHERE LOWER(username)=%s", (target_username,))
                 row = cur.fetchone()
-                user_id = row['id'] if row else None
+                if row:
+                    user_id = row['id']
+                else:
+                    # Migration hasn't run yet — create user on-the-fly
+                    import uuid as _uuid
+                    uid = str(_uuid.uuid4())
+                    pw_hash = bcrypt.hashpw(provided_password.encode(), bcrypt.gensalt(12)).decode()
+                    cur.execute(
+                        "INSERT INTO users (id, username, password_hash, display_name, is_admin) VALUES (%s,%s,%s,%s,TRUE)",
+                        (uid, target_username, pw_hash, target_username.capitalize()))
+                    cur.execute("UPDATE tasks SET owner_id=%s WHERE owner_id IS NULL", (uid,))
+                    cur.execute("UPDATE sessions SET user_id=%s WHERE user_id IS NULL", (uid,))
+                    cur.execute("UPDATE projects SET owner_id=%s WHERE owner_id IS NULL AND id != 'inbox'", (uid,))
+                    conn.commit()
+                    user_id = uid
+                    invalidate_needs_auth_cache()
+                    logger.info("[auth] created user '%s' on first login", target_username)
             except Exception:
-                pass
+                logger.exception("Error in env-var login fallback")
+                if conn:
+                    try: conn.rollback()
+                    except Exception: pass
             finally:
                 if conn: release_db(conn)
 

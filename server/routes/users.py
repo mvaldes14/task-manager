@@ -6,6 +6,7 @@ import psycopg2.extras
 from flask import Blueprint, request, jsonify, g, send_file
 
 from lib.db import get_db, release_db
+from routes.auth import invalidate_needs_auth_cache
 
 logger = logging.getLogger(__name__)
 
@@ -140,6 +141,7 @@ def create_user():
         new_user = dict(cur.fetchone())
         new_user['has_avatar'] = False
         conn.commit()
+        invalidate_needs_auth_cache()
         return jsonify(new_user), 201
     except psycopg2.errors.UniqueViolation:
         conn.rollback()
