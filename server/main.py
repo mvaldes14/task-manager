@@ -88,8 +88,8 @@ def require_auth():
             or path.startswith('/assets/')
             or path.startswith('/icons/')):
         return None
-    # Avatar endpoint is public so <img> tags work without auth headers
-    if path.startswith('/api/users/') and path.endswith('/avatar'):
+    # Avatar GET endpoint is public so <img> tags work without auth headers
+    if request.method == 'GET' and path.startswith('/api/users/') and path.endswith('/avatar'):
         return None
     if not is_auth_required():
         g.user_id = None
