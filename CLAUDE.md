@@ -19,7 +19,9 @@ Self-hosted task manager (PWA). Flask backend + React 19 frontend, served as a s
 │   └── routes/
 │       ├── auth.py                 # Session auth, login/logout, Bearer token check
 │       ├── tasks.py                # CRUD for tasks + subtasks endpoints
-│       ├── projects.py             # CRUD for projects
+│       ├── projects.py             # CRUD for projects (includes shared flag)
+│       ├── users.py                # User management: list, me, create (admin), avatar upload/serve, password change
+│       ├── dashboard.py            # GET /api/dashboard/stats — productivity stats with visibility filtering
 │       ├── settings.py             # Single-row app settings (GET + PATCH /api/settings)
 │       ├── gcal.py                 # /api/gcal/status + /api/gcal/sync
 │       ├── ics.py                  # ICS calendar import (URL or file upload), list, delete
@@ -33,23 +35,34 @@ Self-hosted task manager (PWA). Flask backend + React 19 frontend, served as a s
 │       ├── api/
 │       │   └── index.js            # All fetch wrappers — single source of truth for API calls
 │       ├── context/
-│       │   └── AppContext.jsx      # Global reducer state (tasks, projects, settings, UI), PWA badge, notification timers
+│       │   └── AppContext.jsx      # Global reducer state (tasks, projects, settings, currentUser, UI), PWA badge, notification timers
 │       ├── hooks/
 │       │   ├── useTasks.js         # loadAll, loadSettings, createTask, updateTask, deleteTask, toggleTask
 │       │   ├── useKeyboardShortcuts.js
 │       │   ├── usePullToRefresh.js
 │       │   └── useInlineAutocomplete.js
 │       └── components/
+│           ├── LoginScreen.jsx     # Auth gate shown before session is established
+│           ├── dashboard/
+│           │   ├── DashboardView.jsx       # Main dashboard: stat cards, charts, insights (period selector: 7/30/90d)
+│           │   ├── CompletionTrendChart.jsx # Line chart: completed vs created per day
+│           │   ├── ActivityHeatmap.jsx      # GitHub-style completion heatmap
+│           │   └── StatusDonutChart.jsx     # Donut chart: todo/doing/done distribution
 │           ├── tasks/
 │           │   ├── TaskDetail.jsx  # Right-panel task editor (title, status, due date, recurrence, tags, links, subtasks)
 │           │   ├── TaskList.jsx    # List view with grouping/sorting
 │           │   ├── TaskCard.jsx    # Card used in list + kanban
 │           │   └── KanbanBoard.jsx # Board view with drag-and-drop
 │           ├── layout/
-│           │   ├── Sidebar.jsx     # Nav sidebar (desktop); settings button
+│           │   ├── Sidebar.jsx     # Nav sidebar (desktop); user avatar, settings, theme toggle; project shared toggle
+│           │   ├── MainContent.jsx # Content area router for all views
 │           │   └── TabBar.jsx      # Bottom nav (mobile)
+│           ├── shared/
+│           │   ├── ProjectIcon.jsx        # Icon renderer + PROJECT_ICON_OPTIONS registry
+│           │   ├── KeyboardShortcutsModal.jsx # ? shortcut overlay
+│           │   └── Overlays.jsx           # Toast + confirm dialog portal
 │           └── settings/
-│               └── SettingsModal.jsx  # Tabbed modal: Calendars, Integrations (Obsidian+OTel), Notifications
+│               └── SettingsModal.jsx  # Tabbed modal: Account (avatar, display name, password), Calendars, Integrations (Obsidian+OTel), Notifications
 │
 ├── requirements.txt                # Python deps (at repo root, not inside server/)
 ├── Dockerfile                      # Single image: builds client, runs gunicorn
@@ -82,16 +95,20 @@ Self-hosted task manager (PWA). Flask backend + React 19 frontend, served as a s
 ## Database Schema (key tables)
 
 ```sql
+users       — id (uuid), username, password_hash, display_name, is_admin, avatar (bytea, 50×50 JPEG), created_at
 tasks       — id, title, description, status, due_date, due_time, project_id, tags (JSONB),
-              links (JSONB), recurrence, recurrence_end, parent_task_id, created_at, position
+              links (JSONB), recurrence, recurrence_end, parent_task_id, created_at, updated_at, position,
+              owner_id (FK→users), assigned_to (FK→users)
 subtasks    — id, task_id (FK→tasks), title, completed, position, due_date, due_time, labels (JSONB)
-projects    — id, name, color, icon, position
+projects    — id, name, color, icon, position, shared (bool)
 settings    — id=1, data JSONB   (single row)
 ics_calendars — id, name, url, color, raw_ics
 sessions    — id, user_id, expires_at
 ```
 
 `parent_task_id` on `tasks` is used for recurring task clones only — do not repurpose it.
+
+Task visibility: a task is visible to a user if `owner_id = user_id`, `assigned_to = user_id`, or it belongs to a project with `shared = TRUE`.
 
 ---
 

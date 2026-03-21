@@ -8,6 +8,35 @@ A self-hosted task manager that runs as a PWA on phone and web. Understands natu
 
 ![Light Mode](https://s3.mvaldes.dev/doit2.png)
 
+---
+
+## Features
+
+- **Dashboard** — productivity overview with stat cards, completion trend chart, activity heatmap, status donut, project progress bars, top tags, and streak / completion-rate insights; filterable by 7 / 30 / 90-day window
+- **Multi-user** — admin can create users; each user has a display name, bcrypt password, and optional avatar (stored in DB, served as JPEG); role-based admin flag
+- **Shared projects** — mark a project as shared so all users can see its tasks; per-project toggle in the project editor
+- **NLP scheduling** — natural language → due date, time, project, tags, recurrence
+- **2 views** — List, Kanban board
+- **Group & sort** — group by Status or Tags; sort by Status, Due Date, Project, Title, or Created
+- **Drag and drop** — Kanban: drag cards between columns; Calendar: drag tasks to reschedule
+- **Pull to refresh** — pull down on mobile to reload
+- **Recurring tasks** — RFC 5545 RRULE format; auto-reschedules on completion
+- **Projects** — custom icon (25 lucide icons) and color
+- **Subtasks** — nested tasks with completion tracking
+- **Links** — attach URLs per task (Obsidian, GitHub, or any URL), auto-labeled
+- **Overdue view** — past-due tasks grouped by date
+- **Google Calendar sync** — tasks with due dates sync automatically; done tasks shown in linked calendar
+- **ICS calendar import** — import external calendars via URL or `.ics` file upload (managed in Settings)
+- **Obsidian integration** — `!notename` creates a note; detail panel links existing notes
+- **Push notifications** — ntfy or Gotify support for due-date reminders (configured in Settings)
+- **Settings modal** — Account tab (avatar, display name, password change), Calendars, Integrations (Obsidian, OTel), and Notifications
+- **OpenTelemetry** — backend (Flask + psycopg2) and frontend (fetch + document-load) tracing; opt-in via env vars or Settings UI
+- **PWA** — installable on iOS, Android, and macOS
+- **Collapsible sidebar** — full sidebar or slim icon rail (desktop); persisted preference
+- **Keyboard shortcuts** — full shortcut set on desktop (press `?` to see them)
+- **Theme** — toggle in sidebar
+
+---
 
 ## Quick Start
 
@@ -91,31 +120,6 @@ meeting every monday and friday at 10am
 | `end of month` | `RRULE:FREQ=MONTHLY;BYMONTHDAY=-1` |
 | `first monday of the month` | `RRULE:FREQ=MONTHLY;BYDAY=+1MO` |
 | `yearly` / `annually` | `RRULE:FREQ=YEARLY` |
-
----
-
-## Features
-
-- **NLP scheduling** — natural language → due date, time, project, tags, recurrence
-- **2 views** — List, Kanban board
-- **Group & sort** — group by Status or Tags; sort by Status, Due Date, Project, Title, or Created
-- **Drag and drop** — Kanban: drag cards between columns; Calendar: drag tasks to reschedule
-- **Pull to refresh** — pull down on mobile to reload
-- **Recurring tasks** — RFC 5545 RRULE format; auto-reschedules on completion
-- **Projects** — custom icon (25 lucide icons) and color
-- **Subtasks** — nested tasks with completion tracking
-- **Links** — attach URLs per task (Obsidian, GitHub, or any URL), auto-labeled
-- **Overdue view** — past-due tasks grouped by date
-- **Google Calendar sync** — tasks with due dates sync automatically; done tasks shown in linked calendar
-- **ICS calendar import** — import external calendars via URL or `.ics` file upload (managed in Settings)
-- **Obsidian integration** — `!notename` creates a note; detail panel links existing notes
-- **Push notifications** — ntfy or Gotify support for due-date reminders (configured in Settings)
-- **Settings modal** — in-app UI to configure Calendars, Integrations (Obsidian, OTel), and Notifications without editing env vars
-- **OpenTelemetry** — backend (Flask + psycopg2) and frontend (fetch + document-load) tracing; opt-in via env vars or Settings UI
-- **PWA** — installable on iOS, Android, and macOS
-- **Collapsible sidebar** — full sidebar or slim icon rail (desktop); persisted preference
-- **Keyboard shortcuts** — full shortcut set on desktop (press `?` to see them)
-- **Theme** — toggle in sidebar
 
 ---
 
@@ -311,6 +315,23 @@ Available icons: `folder`, `home`, `briefcase`, `target`, `flask`, `book`, `pale
 | `POST` | `/api/gcal/sync` | Trigger a full sync of all tasks with due dates |
 
 ---
+
+### Dashboard
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/dashboard/stats?days=30` | Productivity stats (7/30/90d); includes counts, completion trend, activity heatmap, status breakdown, project progress, top tags, streak insights |
+
+### Users
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/users` | List all users (id, username, display_name, is_admin, has_avatar) |
+| `GET` | `/api/users/me` | Current user profile |
+| `PATCH` | `/api/users/me` | Update display name or change password (`current_password` + `new_password`) |
+| `POST` | `/api/users/me/avatar` | Upload avatar image (multipart/form-data `file`); resized to 50×50 JPEG |
+| `GET` | `/api/users/<id>/avatar` | Serve user avatar as JPEG |
+| `POST` | `/api/users` | Create user — admin only (`username`, `password`, optional `display_name`) |
 
 ### Settings
 
