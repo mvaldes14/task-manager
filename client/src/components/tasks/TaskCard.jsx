@@ -103,6 +103,17 @@ export function TaskCard({ task }) {
             )
           })}
 
+          {/* Assignee — only shown when assigned to someone else */}
+          {task.assigned_to && task.assigned_to !== state.currentUser?.id && (() => {
+            const u = state.users.find(u => u.id === task.assigned_to)
+            if (!u) return null
+            return (
+              <span className="text-xs md:text-[11px] text-td-green dark:text-tn-green bg-td-green/10 dark:bg-tn-green/10 px-1.5 py-0.5 rounded-md">
+                +{u.display_name || u.username}
+              </span>
+            )
+          })()}
+
           {/* Subtasks */}
           {subtasksTotal > 0 && (
             <span className="text-xs md:text-[11px] text-td-muted dark:text-tn-muted">

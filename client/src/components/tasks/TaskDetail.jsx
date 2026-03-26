@@ -42,6 +42,7 @@ function _rruleProps(str) {
 function RecurrenceEditor({ recurrence, recurrenceEnd, onChange }) {
   const [open, setOpen] = useState(false)
   const [domInput, setDomInput] = useState('')
+  const [showMonthlyPicker, setShowMonthlyPicker] = useState(false)
 
   const label        = recurrenceLabel(recurrence)
   const props        = _rruleProps(recurrence)
@@ -53,15 +54,19 @@ function RecurrenceEditor({ recurrence, recurrenceEnd, onChange }) {
   const selectPreset = (value) => {
     if (!value) {
       onChange({ recurrence: null, recurrence_end: null })
+      setShowMonthlyPicker(false)
       setOpen(false)
     } else if (value === '__monthly_dom__') {
+      setShowMonthlyPicker(true)
       // stay open so user can pick the day
     } else if (value === 'RRULE:FREQ=WEEKLY') {
       // enter weekly mode but keep existing BYDAY if already weekly
       if (!isWeekly) onChange({ recurrence: value })
+      setShowMonthlyPicker(false)
       // don't close — show day picker
     } else {
       onChange({ recurrence: value })
+      setShowMonthlyPicker(false)
       setOpen(false)
     }
   }
@@ -94,7 +99,7 @@ function RecurrenceEditor({ recurrence, recurrenceEnd, onChange }) {
       <label className="text-xs font-bold text-td-muted dark:text-tn-muted">Recurrence</label>
       <div className="relative">
         <button
-          onClick={() => setOpen(o => !o)}
+          onClick={() => { setOpen(o => { if (o) setShowMonthlyPicker(false); return !o }) }}
           className="flex items-center gap-2 w-full text-xs px-3 py-2 rounded-lg transition-colors text-left
             bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg
             hover:bg-td-border/30 dark:hover:bg-tn-border/30 border border-td-border/50 dark:border-tn-border/50"
@@ -140,7 +145,7 @@ function RecurrenceEditor({ recurrence, recurrenceEnd, onChange }) {
               </div>
             )}
 
-            <div className="border-t border-td-border dark:border-tn-border px-3 py-2.5 space-y-1.5">
+            {(showMonthlyPicker || isMonthlyDom) && <div className="border-t border-td-border dark:border-tn-border px-3 py-2.5 space-y-1.5">
               <label className="block text-[10px] text-td-muted dark:text-tn-muted">Monthly on day</label>
               <div className="flex gap-2">
                 <input
@@ -157,7 +162,7 @@ function RecurrenceEditor({ recurrence, recurrenceEnd, onChange }) {
                   Set
                 </button>
               </div>
-            </div>
+            </div>}
           </div>
         )}
       </div>
@@ -604,32 +609,26 @@ export function TaskDetail() {
             />
           </div>
 
-          {/* Assignee — only shown for shared projects */}
-          {(() => {
-            const taskProject = state.projects.find(p => p.id === task.project_id)
-            if (!taskProject?.shared) return null
-            return (
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-td-muted dark:text-tn-muted">Assigned To</label>
-                <select
-                  value={assignedTo}
-                  onChange={e => {
-                    const v = e.target.value || null
-                    setAssignedTo(v || '')
-                    autoSave(task.id, { assigned_to: v })
-                  }}
-                  className="w-full bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-xs rounded-lg px-2.5 py-2 outline-none border border-td-border/50 dark:border-tn-border/50"
-                >
-                  <option value="">Unassigned</option>
-                  {state.users.map(u => (
-                    <option key={u.id} value={u.id}>
-                      {u.display_name || u.username}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )
-          })()}
+          {/* Assignee */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-td-muted dark:text-tn-muted">Assigned To</label>
+            <select
+              value={assignedTo}
+              onChange={e => {
+                const v = e.target.value || null
+                setAssignedTo(v || '')
+                autoSave(task.id, { assigned_to: v })
+              }}
+              className="w-full bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-xs rounded-lg px-2.5 py-2 outline-none border border-td-border/50 dark:border-tn-border/50"
+            >
+              <option value="">Unassigned</option>
+              {state.users.map(u => (
+                <option key={u.id} value={u.id}>
+                  {u.display_name || u.username}
+                </option>
+              ))}
+            </select>
+          </div>
 
           {/* Links */}
           <LinksSection task={task} onUpdate={updated => dispatch({ type: 'UPDATE_TASK', payload: updated })} />

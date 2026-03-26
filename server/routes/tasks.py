@@ -167,6 +167,7 @@ def create_task():
                     (project_id, status))
         max_pos = cur.fetchone()['coalesce']
         owner_id = getattr(g, 'user_id', None)
+        if not assigned_to: assigned_to = owner_id
         cur.execute("""INSERT INTO tasks (id,title,description,project_id,status,due_date,due_time,tags,position,recurrence,recurrence_end,links,owner_id,assigned_to)
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
             (tid, title, description, project_id, status, due_date, due_time,
