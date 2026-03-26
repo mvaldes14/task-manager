@@ -8,6 +8,7 @@ import { api } from '../../api'
 const SUGGESTION_COLORS = {
   tag:     { color: '#bb9af7' },
   project: { color: '#7aa2f7' },
+  user:    { color: '#4ade80' },
 }
 
 function SuggestionDropdown({ suggestions, onSelect }) {
@@ -30,6 +31,7 @@ const CHIP_COLORS = {
   date:     { color: '#7aa2f7', bg: 'rgba(122,162,247,0.15)' },
   tag:      { color: '#bb9af7', bg: 'rgba(187,154,247,0.15)' },
   obsidian: { color: '#e0af68', bg: 'rgba(224,175,104,0.15)' },
+  user:     { color: '#4ade80', bg: 'rgba(74,222,128,0.15)' },
 }
 
 function NlpChip({ label, color, bg }) {
@@ -54,7 +56,7 @@ export function FAB() {
   const taskOpen = !!state.selectedTaskId
 
   const { suggestions, onInput: acOnInput, onSelect: acOnSelect, closeSuggestions } = useInlineAutocomplete({
-    text, setText, inputRef, allTags, projects: state.projects,
+    text, setText, inputRef, allTags, projects: state.projects, users: state.users,
   })
 
   useEffect(() => {
@@ -103,6 +105,9 @@ export function FAB() {
       }
       if (result.project_name) {
         next.push({ label: '📁 ' + result.project_name, ...CHIP_COLORS.tag })
+      }
+      if (result.assigned_to_username) {
+        next.push({ label: '+' + result.assigned_to_username, ...CHIP_COLORS.user })
       }
       if (result.obsidian_url) {
         next.push({ label: '📎 Note', ...CHIP_COLORS.obsidian })

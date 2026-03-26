@@ -131,6 +131,7 @@ def create_task():
     project_id     = data.get('project_id', 'inbox')
     recurrence     = data.get('recurrence', nlp.get('recurrence'))
     recurrence_end = data.get('recurrence_end')
+    assigned_to    = data.get('assigned_to')
     obsidian_url   = nlp.get('obsidian_url') or data.get('obsidian_url')
     links          = data.get('links', [])
     if not links and obsidian_url:
@@ -145,6 +146,11 @@ def create_task():
     conn = get_db()
     try:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        assign_username = nlp.get('assigned_to_username')
+        if assign_username and not assigned_to:
+            cur.execute("SELECT id FROM users WHERE LOWER(username)=LOWER(%s)", (assign_username,))
+            urow = cur.fetchone()
+            if urow: assigned_to = urow['id']
         pname = nlp.get('project_name')
         if pname:
             cur.execute("SELECT id FROM projects WHERE LOWER(name)=LOWER(%s)", (pname,))
@@ -161,10 +167,10 @@ def create_task():
                     (project_id, status))
         max_pos = cur.fetchone()['coalesce']
         owner_id = getattr(g, 'user_id', None)
-        cur.execute("""INSERT INTO tasks (id,title,description,project_id,status,due_date,due_time,tags,position,recurrence,recurrence_end,links,owner_id)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+        cur.execute("""INSERT INTO tasks (id,title,description,project_id,status,due_date,due_time,tags,position,recurrence,recurrence_end,links,owner_id,assigned_to)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
             (tid, title, description, project_id, status, due_date, due_time,
-             json.dumps(tags), max_pos + 1, recurrence, recurrence_end, json.dumps(links), owner_id))
+             json.dumps(tags), max_pos + 1, recurrence, recurrence_end, json.dumps(links), owner_id, assigned_to))
         cur.execute("SELECT * FROM tasks WHERE id=%s", (tid,))
         task = row_to_dict(cur.fetchone())
         task['subtasks'] = []

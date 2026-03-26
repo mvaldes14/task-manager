@@ -265,7 +265,7 @@ def parse_natural_language(text):
         'title': text, 'due_date': None, 'due_time': None,
         'project_name': None, 'labels': [], 'nlp_summary': None,
         'obsidian_url': None, 'obsidian_new_url': None,
-        'links': [], 'recurrence': None,
+        'links': [], 'recurrence': None, 'assigned_to_username': None,
     }
     today      = date.today()
     found_date = None
@@ -294,7 +294,7 @@ def parse_natural_language(text):
                 result['obsidian_note'] = unquote(fn_match.group(1))
             text = text[:obs_match.start()] + text[obs_match.end():].strip()
 
-    # 3. Project / labels
+    # 3. Project / labels / assignee
     m = re.search(r'#(\w+)', text)
     if m:
         result['project_name'] = m.group(1)
@@ -303,6 +303,10 @@ def parse_natural_language(text):
     if labels:
         result['labels'] = labels
         text = re.sub(r'@\w+', '', text).strip()
+    assign_m = re.search(r'\+(\w+)', text)
+    if assign_m:
+        result['assigned_to_username'] = assign_m.group(1)
+        text = re.sub(r'\+\w+', '', text).strip()
 
     # 4. Named time slots (must come before explicit time to avoid conflicts)
     text, found_date, slot_time = _parse_time_slots(text, found_date, today)
@@ -349,6 +353,8 @@ def parse_natural_language(text):
         parts.append(f"at {h%12 or 12}:{mi:02d}{'am' if h < 12 else 'pm'}")
     if result['labels']:
         parts.append(' '.join(f"@{l}" for l in result['labels']))
+    if result['assigned_to_username']:
+        parts.append(f"+{result['assigned_to_username']}")
     if rrule_str:
         parts.append(f"🔁 {rrule_label(rrule_str)}")
     if result.get('obsidian_url'):

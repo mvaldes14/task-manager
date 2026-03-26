@@ -2,10 +2,10 @@ import { useState, useCallback } from 'react'
 
 /**
  * Inline autocomplete for FAB input.
- * Triggers on '@' (tags) and '#' (projects).
+ * Triggers on '@' (tags), '#' (projects), '+' (users).
  * Returns { suggestions, onInput, onSelect, closeSuggestions }
  */
-export function useInlineAutocomplete({ text, setText, inputRef, allTags, projects }) {
+export function useInlineAutocomplete({ text, setText, inputRef, allTags, projects, users = [] }) {
   const [suggestions, setSuggestions] = useState([])   // [{ label, value, type }]
   const [triggerStart, setTriggerStart] = useState(-1) // index of the @ or # char
 
@@ -14,8 +14,8 @@ export function useInlineAutocomplete({ text, setText, inputRef, allTags, projec
     const pos = el ? el.selectionStart : val.length
     // Scan backwards from cursor for a trigger character
     let i = pos - 1
-    while (i >= 0 && val[i] !== ' ' && val[i] !== '@' && val[i] !== '#') i--
-    if (i < 0 || (val[i] !== '@' && val[i] !== '#')) {
+    while (i >= 0 && val[i] !== ' ' && val[i] !== '@' && val[i] !== '#' && val[i] !== '+') i--
+    if (i < 0 || (val[i] !== '@' && val[i] !== '#' && val[i] !== '+')) {
       setSuggestions([]); setTriggerStart(-1); return
     }
     const trigger = val[i]
@@ -27,14 +27,20 @@ export function useInlineAutocomplete({ text, setText, inputRef, allTags, projec
         .slice(0, 6)
         .map(t => ({ label: '@' + t, value: t, type: 'tag' }))
       setSuggestions(matches)
-    } else {
+    } else if (trigger === '#') {
       const matches = projects
         .filter(p => p.name.toLowerCase().startsWith(query))
         .slice(0, 6)
         .map(p => ({ label: p.name, value: p.name, type: 'project' }))
       setSuggestions(matches)
+    } else {
+      const matches = users
+        .filter(u => (u.display_name || u.username).toLowerCase().startsWith(query) || u.username.toLowerCase().startsWith(query))
+        .slice(0, 6)
+        .map(u => ({ label: '+' + (u.display_name || u.username), value: u.username, type: 'user' }))
+      setSuggestions(matches)
     }
-  }, [allTags, projects, inputRef])
+  }, [allTags, projects, users, inputRef])
 
   const onSelect = useCallback((item) => {
     if (triggerStart < 0) return
