@@ -16,8 +16,6 @@ logger = logging.getLogger(__name__)
 TD_USERNAME    = os.environ.get('TD_USERNAME', '').strip().lower()
 TD_PASSWORD    = os.environ.get('TD_PASSWORD', '').strip()
 API_KEY        = os.environ.get('TD_API_KEY',  '').strip()
-OBSIDIAN_VAULT = os.environ.get('OBSIDIAN_VAULT', '').strip()
-OBSIDIAN_INBOX = os.environ.get('OBSIDIAN_INBOX', '').strip().strip('/')
 
 _hashed_pw: bytes | None = (
     bcrypt.hashpw(TD_PASSWORD.encode(), bcrypt.gensalt(12)) if TD_PASSWORD else None
@@ -356,6 +354,4 @@ def auth_status():
         'authenticated': valid,
         'current_user':  current_user,
         'gcal_enabled':  gcal_is_enabled(),
-        'obsidian_vault': OBSIDIAN_VAULT or None,
-        'obsidian_inbox': OBSIDIAN_INBOX or None,
     })

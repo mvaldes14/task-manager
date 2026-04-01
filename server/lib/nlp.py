@@ -6,14 +6,10 @@ One-off dates: parsed by dateparser, fallback regex for structural shortcuts
 
 import json, logging, re, os
 from datetime import date, datetime, timedelta
-from urllib.parse import quote, unquote
 from dateutil.rrule import rrule, rrulestr, DAILY, WEEKLY, MONTHLY, YEARLY, MO, TU, WE, TH, FR, SA, SU
 import dateparser
 
 logger = logging.getLogger(__name__)
-
-OBSIDIAN_VAULT  = os.environ.get('OBSIDIAN_VAULT', '').strip()
-OBSIDIAN_INBOX  = os.environ.get('OBSIDIAN_INBOX', '').strip().strip('/')
 
 DAYS     = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday']
 WEEKDAYS = [MO, TU, WE, TH, FR, SA, SU]
@@ -264,7 +260,6 @@ def parse_natural_language(text):
     result = {
         'title': text, 'due_date': None, 'due_time': None,
         'project_name': None, 'labels': [], 'nlp_summary': None,
-        'obsidian_url': None, 'obsidian_new_url': None,
         'links': [], 'recurrence': None, 'assigned_to_username': None,
     }
     today      = date.today()
@@ -274,27 +269,7 @@ def parse_natural_language(text):
     # 1. Recurrence — consume keywords before dateparser sees them
     rrule_str, text = rrule_from_text(text)
 
-    # 2. Obsidian !NoteName shortcut
-    wiki_match = re.search(r'!(\S+)', text)
-    if wiki_match:
-        note_name = wiki_match.group(1).strip()
-        vault = OBSIDIAN_VAULT or 'vault'
-        inbox_prefix = (OBSIDIAN_INBOX + '/') if OBSIDIAN_INBOX else ''
-        result['obsidian_url']     = f"obsidian://search?vault={quote(vault)}&query={quote(note_name)}"
-        result['obsidian_new_url'] = f"obsidian://new?vault={quote(vault)}&file={quote(inbox_prefix + note_name)}"
-        result['obsidian_note']    = note_name
-        text = text[:wiki_match.start()] + text[wiki_match.end():].strip()
-
-    if not result['obsidian_url']:
-        obs_match = re.search(r'obsidian://\S+', text)
-        if obs_match:
-            result['obsidian_url'] = obs_match.group(0)
-            fn_match = re.search(r'[?&]file=([^&]+)', obs_match.group(0))
-            if fn_match:
-                result['obsidian_note'] = unquote(fn_match.group(1))
-            text = text[:obs_match.start()] + text[obs_match.end():].strip()
-
-    # 3. Project / labels / assignee
+    # 2. Project / labels / assignee
     m = re.search(r'#(\w+)', text)
     if m:
         result['project_name'] = m.group(1)
@@ -357,8 +332,6 @@ def parse_natural_language(text):
         parts.append(f"+{result['assigned_to_username']}")
     if rrule_str:
         parts.append(f"🔁 {rrule_label(rrule_str)}")
-    if result.get('obsidian_url'):
-        parts.append(f"📎 {result.get('obsidian_note', 'obsidian')}")
     if parts:
         result['nlp_summary'] = ' · '.join(parts)
 

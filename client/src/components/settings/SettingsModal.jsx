@@ -331,8 +331,6 @@ function CalendarsTab({ gcalEnabled }) {
 // ── Integrations tab ──────────────────────────────────────────────────────────
 function IntegrationsTab() {
   const { dispatch } = useApp()
-  const [vault, setVault] = useState('')
-  const [inbox, setInbox] = useState('')
   const [otel, setOtel] = useState('')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -340,8 +338,6 @@ function IntegrationsTab() {
   useEffect(() => {
     api.getSettings().then(s => {
       if (!s) return
-      setVault(s.obsidian_vault || '')
-      setInbox(s.obsidian_inbox || '')
       setOtel(s.otel_frontend_endpoint || '')
     }).catch(() => {})
   }, [])
@@ -350,8 +346,6 @@ function IntegrationsTab() {
     setSaving(true); setSaved(false)
     try {
       const updated = await api.updateSettings({
-        obsidian_vault: vault.trim() || null,
-        obsidian_inbox: inbox.trim() || null,
         otel_frontend_endpoint: otel.trim() || null,
       })
       if (updated) dispatch({ type: 'SET_SETTINGS', payload: updated })
@@ -363,16 +357,6 @@ function IntegrationsTab() {
   return (
     <div className="space-y-5">
       <div className="space-y-4">
-        <p className={labelCls}>Obsidian</p>
-        <Field label="Vault name" hint="Used to generate obsidian:// links when creating tasks with !note">
-          <input value={vault} onChange={e => setVault(e.target.value)} placeholder="my-vault" className={inputCls} />
-        </Field>
-        <Field label="Inbox folder" hint="New notes are created here (e.g. 00-Inbox)">
-          <input value={inbox} onChange={e => setInbox(e.target.value)} placeholder="00-Inbox" className={inputCls} />
-        </Field>
-      </div>
-
-      <div className="border-t border-td-border/30 dark:border-tn-border/30 pt-4 space-y-4">
         <p className={labelCls}>OpenTelemetry</p>
         <Field label="Frontend OTLP/HTTP endpoint" hint="Browser traces are sent here. Leave empty to disable.">
           <input value={otel} onChange={e => setOtel(e.target.value)} placeholder="https://signoz:4318" className={inputCls} />

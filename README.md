@@ -2,7 +2,7 @@
 
 ![Logo](https://s3.mvaldes.dev/doit-logo.png)
 
-A self-hosted task manager that runs as a PWA on phone and web. Understands natural language, syncs with Google Calendar, and links to Obsidian notes.
+A self-hosted task manager that runs as a PWA on phone and web. Understands natural language and syncs with Google Calendar.
 
 ![Dark Mode](https://s3.mvaldes.dev/doit.png)
 
@@ -23,13 +23,12 @@ A self-hosted task manager that runs as a PWA on phone and web. Understands natu
 - **Recurring tasks** — RFC 5545 RRULE format; auto-reschedules on completion
 - **Projects** — custom icon (25 lucide icons) and color
 - **Subtasks** — nested tasks with completion tracking
-- **Links** — attach URLs per task (Obsidian, GitHub, or any URL), auto-labeled
+- **Links** — attach URLs per task (GitHub, Obsidian, or any URL), auto-labeled
 - **Overdue view** — past-due tasks grouped by date
 - **Google Calendar sync** — tasks with due dates sync automatically; done tasks shown in linked calendar
 - **ICS calendar import** — import external calendars via URL or `.ics` file upload (managed in Settings)
-- **Obsidian integration** — `!notename` creates a note; detail panel links existing notes
 - **Push notifications** — ntfy or Gotify support for due-date reminders (configured in Settings)
-- **Settings modal** — Account tab (avatar, display name, password change), Calendars, Integrations (Obsidian, OTel), and Notifications
+- **Settings modal** — Account tab (avatar, display name, password change), Calendars, Integrations (OTel), and Notifications
 - **OpenTelemetry** — backend (Flask + psycopg2) and frontend (fetch + document-load) tracing; opt-in via env vars or Settings UI
 - **PWA** — installable on iOS, Android, and macOS
 - **Collapsible sidebar** — full sidebar or slim icon rail (desktop); persisted preference
@@ -72,8 +71,6 @@ Copy `.env.example` to `.env` and set:
 | `TD_API_KEY` | API key for Bearer token auth (automations) |
 | `GCAL_CREDENTIALS_JSON` | Google service account JSON (single line) |
 | `GCAL_CALENDAR_ID` | Calendar to sync to (default: `primary`) |
-| `OBSIDIAN_VAULT` | Obsidian vault name (can also be set in Settings UI) |
-| `OBSIDIAN_INBOX` | Folder for new notes (e.g. `00-Inbox`) (can also be set in Settings UI) |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | Backend gRPC OTLP endpoint (e.g. `http://signoz:4317`) |
 | `OTEL_SERVICE_NAME` | Backend service name (default: `doit`) |
 | `VITE_OTEL_ENDPOINT` | Frontend HTTP OTLP endpoint (e.g. `http://signoz:4318`); can also be set in Settings UI |
@@ -104,7 +101,6 @@ meeting every monday and friday at 10am
 | `next monday`, `tomorrow`, `in 3 days` | Due date |
 | `at 3pm`, `noon`, `EOD`, `morning` | Due time |
 | `every monday`, `daily`, `every 2 weeks` | Recurrence (stored as RRULE) |
-| `!notename` | Create new Obsidian note and link it |
 
 ### Recurrence Patterns
 
@@ -337,7 +333,7 @@ Available icons: `folder`, `home`, `briefcase`, `target`, `flask`, `book`, `pale
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/api/settings` | Returns current settings (`gcal_enabled`, `obsidian_vault`, `obsidian_inbox`, `otel_frontend_endpoint`, `notification_type`, `notification_url`, `username`) |
+| `GET` | `/api/settings` | Returns current settings (`gcal_enabled`, `otel_frontend_endpoint`, `notification_type`, `notification_url`, `username`) |
 | `PATCH` | `/api/settings` | Update settings fields |
 
 ---

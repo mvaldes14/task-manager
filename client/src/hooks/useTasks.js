@@ -25,7 +25,6 @@ export function useTasks() {
       if (task) {
         dispatch({ type: 'ADD_TASK', payload: task })
         toast('Task added')
-        if (task.obsidian_new_url) window.open(task.obsidian_new_url, '_blank')
       }
       return task
     } catch (e) {

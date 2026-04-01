@@ -132,15 +132,8 @@ def create_task():
     recurrence     = data.get('recurrence', nlp.get('recurrence'))
     recurrence_end = data.get('recurrence_end')
     assigned_to    = data.get('assigned_to')
-    obsidian_url   = nlp.get('obsidian_url') or data.get('obsidian_url')
     links          = data.get('links', [])
-    if not links and obsidian_url:
-        note_name = nlp.get('obsidian_note') or 'Obsidian'
-        links = [{'url': obsidian_url, 'label': note_name}]
-    # Use obsidian_url as description if none provided (set within the same transaction below)
     description = data.get('description', '')
-    if obsidian_url and not description.strip():
-        description = obsidian_url
 
     # Single transaction: project lookup/creation + task insert
     conn = get_db()
@@ -180,7 +173,6 @@ def create_task():
         release_db(conn)
 
     if nlp.get('nlp_summary'): task['nlp_summary'] = nlp['nlp_summary']
-    if nlp.get('obsidian_new_url'): task['obsidian_new_url'] = nlp['obsidian_new_url']
     if due_date:
         task['timezone'] = data.get('timezone') or 'UTC'
         eid = gcal_upsert(task)

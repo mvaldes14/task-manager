@@ -28,8 +28,6 @@ const initialState = {
   calMonth: new Date().getMonth(),
   // Settings
   theme: localStorage.getItem('td-theme') || 'dark',
-  obsidianVault: '',
-  obsidianInbox: '',
   otelEndpoint: '',
 }
 
@@ -65,7 +63,7 @@ function reducer(state, action) {
     case 'SET_CONFIRM':     return { ...state, confirm: action.payload }
     case 'SET_THEME':       return { ...state, theme: action.payload }
     case 'SET_CAL':         return { ...state, calYear: action.payload.year, calMonth: action.payload.month }
-    case 'SET_SETTINGS':    return { ...state, obsidianVault: action.payload.obsidian_vault || '', obsidianInbox: action.payload.obsidian_inbox || '', gcalEnabled: action.payload.gcal_enabled || false, otelEndpoint: action.payload.otel_frontend_endpoint || '' }
+    case 'SET_SETTINGS':    return { ...state, gcalEnabled: action.payload.gcal_enabled || false, otelEndpoint: action.payload.otel_frontend_endpoint || '' }
     default:                return state
   }
 }

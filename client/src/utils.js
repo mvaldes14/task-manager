@@ -92,13 +92,6 @@ export function recurrenceLabel(ruleStr) {
   return null
 }
 
-export function obsidianNoteName(url) {
-  if (!url) return null
-  const m = url.match(/open\?vault=[^&]+&file=([^&]+)/)
-  if (m) return decodeURIComponent(m[1].replace(/\.md$/, ''))
-  return null
-}
-
 export function escHtml(s) {
   return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }

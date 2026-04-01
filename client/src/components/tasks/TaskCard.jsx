@@ -1,7 +1,7 @@
 import { useApp } from '../../context/AppContext'
 import { ProjectIcon } from '../shared/ProjectIcon'
 import { useTasks } from '../../hooks/useTasks'
-import { formatDate, isOverdue, priorityColor, recurrenceLabel, obsidianNoteName, fmtTime, getLinkLabel, getLinkStyle } from '../../utils'
+import { formatDate, isOverdue, priorityColor, recurrenceLabel, fmtTime, getLinkLabel, getLinkStyle } from '../../utils'
 import { Paperclip, GitBranch, Link2 } from 'lucide-react'
 
 function LinkIcon({ url }) {

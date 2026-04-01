@@ -30,7 +30,6 @@ function SuggestionDropdown({ suggestions, onSelect }) {
 const CHIP_COLORS = {
   date:     { color: '#7aa2f7', bg: 'rgba(122,162,247,0.15)' },
   tag:      { color: '#bb9af7', bg: 'rgba(187,154,247,0.15)' },
-  obsidian: { color: '#e0af68', bg: 'rgba(224,175,104,0.15)' },
   user:     { color: '#4ade80', bg: 'rgba(74,222,128,0.15)' },
 }
 
@@ -108,9 +107,6 @@ export function FAB() {
       }
       if (result.assigned_to_username) {
         next.push({ label: '+' + result.assigned_to_username, ...CHIP_COLORS.user })
-      }
-      if (result.obsidian_url) {
-        next.push({ label: '📎 Note', ...CHIP_COLORS.obsidian })
       }
       setChips(next)
     } catch { /* silent */ }
