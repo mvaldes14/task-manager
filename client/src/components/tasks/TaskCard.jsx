@@ -1,7 +1,7 @@
 import { useApp } from '../../context/AppContext'
 import { ProjectIcon } from '../shared/ProjectIcon'
 import { useTasks } from '../../hooks/useTasks'
-import { formatDate, isOverdue, priorityColor, recurrenceLabel, fmtTime, getLinkLabel, getLinkStyle } from '../../utils'
+import { formatDate, isOverdue, priorityColor, recurrenceLabel, fmtTime, getLinkLabel, getLinkStyle, rescheduleOptions } from '../../utils'
 import { Paperclip, GitBranch, Link2 } from 'lucide-react'
 
 function LinkIcon({ url }) {
@@ -12,7 +12,7 @@ function LinkIcon({ url }) {
 
 export function TaskCard({ task }) {
   const { state, dispatch } = useApp()
-  const { toggleTask } = useTasks()
+  const { toggleTask, updateTask } = useTasks()
   const project = state.projects.find(p => p.id === task.project_id)
   const isDark = state.theme === 'dark'
   const overdue = isOverdue(task)
@@ -121,6 +121,23 @@ export function TaskCard({ task }) {
             </span>
           )}
         </div>
+
+        {/* Reschedule pills — only for overdue tasks */}
+        {overdue && !done && (
+          <div className="flex flex-wrap gap-1.5 mt-2" onClick={e => e.stopPropagation()}>
+            {rescheduleOptions().map(({ label, isoDate }) => (
+              <button
+                key={label}
+                onClick={() => updateTask(task.id, { due_date: isoDate })}
+                className="text-[10px] md:text-[10px] font-medium px-2 py-0.5 rounded-full border
+                  border-td-red/40 dark:border-tn-red/40 text-td-red dark:text-tn-red
+                  hover:bg-td-red/10 dark:hover:bg-tn-red/10 transition-colors"
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Chevron */}

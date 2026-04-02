@@ -106,6 +106,32 @@ export function fmtTime(t) {
 
 // ── Shared link utilities (used by TaskCard and TaskDetail) ────────────────
 
+// Returns [{label, isoDate}] quick-reschedule options for overdue tasks
+export function rescheduleOptions() {
+  const today = new Date(); today.setHours(0,0,0,0)
+  const fmt = d => d.toISOString().slice(0, 10)
+
+  const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1)
+
+  const weekend = new Date(today)
+  const dayOfWeek = today.getDay() // 0=Sun … 6=Sat
+  const daysUntilSat = dayOfWeek === 6 ? 7 : 6 - dayOfWeek
+  weekend.setDate(today.getDate() + daysUntilSat)
+
+  const nextMonday = new Date(today)
+  const daysUntilMon = dayOfWeek === 0 ? 1 : 8 - dayOfWeek
+  nextMonday.setDate(today.getDate() + daysUntilMon)
+
+  const twoWeeks = new Date(today); twoWeeks.setDate(today.getDate() + 14)
+
+  return [
+    { label: 'Tomorrow',   isoDate: fmt(tomorrow) },
+    { label: 'Weekend',    isoDate: fmt(weekend) },
+    { label: 'Next week',  isoDate: fmt(nextMonday) },
+    { label: 'In 2 weeks', isoDate: fmt(twoWeeks) },
+  ]
+}
+
 export function getLinkLabel(url = '') {
   if (url.startsWith('obsidian://')) return 'Obsidian Note'
   if (url.includes('github.com'))   return 'GitHub'

@@ -4,6 +4,7 @@ import { useTasks } from '../../hooks/useTasks'
 import { api } from '../../api'
 import { formatDate, fmtTime, recurrenceLabel, getLinkLabel, getLinkStyle } from '../../utils'
 import { X, Trash2, Plus, Check, ChevronRight, Paperclip, GitBranch, Link2, Repeat2, ExternalLink } from 'lucide-react'
+import { DateTimePicker } from '../shared/DateTimePicker'
 
 const STATUSES = ['todo', 'doing', 'blocked', 'done']
 
@@ -170,11 +171,11 @@ function RecurrenceEditor({ recurrence, recurrenceEnd, onChange }) {
       {recurrence && (
         <div className="space-y-1">
           <label className="text-[10px] font-semibold tracking-wider text-td-muted/60 dark:text-tn-muted/60 uppercase">Stop repeating on</label>
-          <input
-            type="date"
-            value={recurrenceEnd || ''}
-            onChange={e => onChange({ recurrence_end: e.target.value || null })}
-            className="w-full bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-xs rounded-lg px-2.5 py-2 outline-none border border-td-border/50 dark:border-tn-border/50"
+          <DateTimePicker
+            date={recurrenceEnd || ''}
+            placeholder="No end date"
+            onClear={() => onChange({ recurrence_end: null })}
+            onChange={({ date: d }) => { if (d !== undefined) onChange({ recurrence_end: d || null }) }}
           />
         </div>
       )}
@@ -560,17 +561,16 @@ export function TaskDetail() {
           {/* Due date + time */}
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-td-muted dark:text-tn-muted">Due Date</label>
-            <div className="flex gap-2">
-              <input type="date" value={dueDate}
-                onChange={e => { const v = e.target.value; setDueDate(v); autoSave(task.id, { due_date: v || null }) }}
-                className="flex-1 bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-xs rounded-lg px-2.5 py-2 outline-none border border-td-border/50 dark:border-tn-border/50"
-              />
-              <input type="time" value={dueTime}
-                onChange={e => setDueTime(e.target.value)}
-                onBlur={e => { const v = e.target.value; if (v !== (task.due_time || '')) autoSave(task.id, { due_time: v || null }) }}
-                className="w-28 bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-xs rounded-lg px-2.5 py-2 outline-none border border-td-border/50 dark:border-tn-border/50"
-              />
-            </div>
+            <DateTimePicker
+              date={dueDate}
+              time={dueTime}
+              placeholder="Set due date"
+              onClear={() => { setDueDate(''); setDueTime(''); autoSave(task.id, { due_date: null, due_time: null }) }}
+              onChange={({ date: d, time: t }) => {
+                if (d !== undefined) { setDueDate(d); autoSave(task.id, { due_date: d || null }) }
+                if (t !== undefined) { setDueTime(t); autoSave(task.id, { due_time: t || null }) }
+              }}
+            />
           </div>
 
           {/* Recurrence */}
