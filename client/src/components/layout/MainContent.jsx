@@ -350,10 +350,12 @@ export function MainContent() {
 
   // Apply show/hide done + sort + search
   const visibleTasks = useMemo(() => {
+    // Board view owns its own done toggle — always include done tasks so KanbanBoard can filter
+    const skipDoneFilter = viewMode === 'board'
     // If searching across all tasks, start from full task list instead of view-filtered baseTasks
     const pool = (searchQuery.trim() && searchScope === 'all')
-      ? (showDone ? tasks : tasks.filter(t => t.status !== 'done'))
-      : (showDone ? baseTasks : baseTasks.filter(t => t.status !== 'done'))
+      ? (showDone || skipDoneFilter ? tasks : tasks.filter(t => t.status !== 'done'))
+      : (showDone || skipDoneFilter ? baseTasks : baseTasks.filter(t => t.status !== 'done'))
     let result = sortBy !== 'status' ? sortTasks(pool, sortBy, projects) : pool
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase()
@@ -403,11 +405,11 @@ export function MainContent() {
       )}
 
       <div
-        className={`flex-1 min-h-0 ${(isCalendar || isDashboard) ? 'overflow-hidden flex flex-col' : 'overflow-y-auto'}`}
-        style={!(isCalendar || isDashboard) ? { paddingBottom: 'calc(80px + env(safe-area-inset-bottom, 0px))' } : undefined}
-        onTouchStart={!(isCalendar || isDashboard) ? onTouchStart : undefined}
-        onTouchMove={!(isCalendar || isDashboard) ? onTouchMove : undefined}
-        onTouchEnd={!(isCalendar || isDashboard) ? onTouchEnd : undefined}
+        className={`flex-1 min-h-0 ${(isCalendar || isDashboard || viewMode === 'board') ? 'overflow-hidden flex flex-col' : 'overflow-y-auto'}`}
+        style={!(isCalendar || isDashboard || viewMode === 'board') ? { paddingBottom: 'calc(80px + env(safe-area-inset-bottom, 0px))' } : undefined}
+        onTouchStart={!(isCalendar || isDashboard || viewMode === 'board') ? onTouchStart : undefined}
+        onTouchMove={!(isCalendar || isDashboard || viewMode === 'board') ? onTouchMove : undefined}
+        onTouchEnd={!(isCalendar || isDashboard || viewMode === 'board') ? onTouchEnd : undefined}
       >
         {/* Pull to refresh indicator */}
         {!(isCalendar || isDashboard) && (

@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { useApp } from '../../context/AppContext'
 import { useTasks } from '../../hooks/useTasks'
 import { TaskCard } from './TaskCard'
-import { Plus } from 'lucide-react'
+import { Plus, Eye, EyeOff } from 'lucide-react'
 
 const COLUMNS = [
   { status: 'todo',    label: 'To Do',      color: '#565f89' },
@@ -15,6 +15,7 @@ export function KanbanBoard({ tasks }) {
   const { dispatch } = useApp()
   const { updateTask } = useTasks()
   const [overColumn, setOverColumn] = useState(null)
+  const [showDone, setShowDone] = useState(false)
 
   // Touch drag state
   const touchDragTask = useRef(null)
@@ -121,10 +122,28 @@ export function KanbanBoard({ tasks }) {
     window.addEventListener('touchend', onEnd)
   }, [createGhost, moveGhost, getColumnAtPoint, removeGhost, dispatch, updateTask])
 
+  const filteredTasks = showDone ? tasks : tasks.filter(t => t.status !== 'done')
+  const doneCount = tasks.filter(t => t.status === 'done').length
+
   return (
-    <div className="flex gap-3 p-4 overflow-x-auto h-full pb-6">
+    <div className="flex flex-col gap-0 h-full">
+      {/* Board toolbar */}
+      <div className="flex items-center justify-end px-4 pt-3 pb-1 shrink-0">
+        <button
+          onClick={() => setShowDone(v => !v)}
+          className={`flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-lg border transition-colors
+            ${showDone
+              ? 'bg-td-surface dark:bg-tn-surface border-td-border dark:border-tn-border text-td-fg dark:text-tn-fg'
+              : 'border-transparent text-td-muted/60 dark:text-tn-muted/60 hover:text-td-muted dark:hover:text-tn-muted hover:bg-td-surface dark:hover:bg-tn-surface'}`}
+        >
+          {showDone ? <Eye size={12} /> : <EyeOff size={12} />}
+          Completed{doneCount > 0 ? ` (${doneCount})` : ''}
+        </button>
+      </div>
+
+    <div className="flex gap-3 px-4 pb-6 overflow-x-auto flex-1 min-h-0">
       {COLUMNS.map(({ status, label, color }) => {
-        const items = tasks.filter(t => t.status === status)
+        const items = filteredTasks.filter(t => t.status === status)
         const isOver = overColumn === status
         return (
           <div key={status} className="flex-1 min-w-[260px] max-w-[320px] flex flex-col">
@@ -145,7 +164,7 @@ export function KanbanBoard({ tasks }) {
               onDragOver={e => handleDragOver(e, status)}
               onDragLeave={() => setOverColumn(null)}
               onDrop={e => handleDrop(e, status)}
-              className={`flex-1 rounded-xl overflow-hidden transition-all duration-150
+              className={`flex-1 rounded-xl overflow-y-auto transition-all duration-150
                 ${isOver
                   ? 'bg-td-surface dark:bg-tn-surface ring-2 ring-td-blue/50 dark:ring-tn-blue/50'
                   : 'bg-td-bg3/50 dark:bg-tn-bg3/50'}`}
@@ -180,6 +199,7 @@ export function KanbanBoard({ tasks }) {
           </div>
         )
       })}
+    </div>
     </div>
   )
 }

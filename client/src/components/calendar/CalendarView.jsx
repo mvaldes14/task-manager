@@ -1,7 +1,7 @@
 import { useMemo, useRef, useCallback, useState, useEffect } from 'react'
 import { useApp } from '../../context/AppContext'
 import { useTasks } from '../../hooks/useTasks'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react'
 import { api } from '../../api'
 
 const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
@@ -44,6 +44,30 @@ function IcsPill({ event, color }) {
       }}
     >
       {timeStr}{event.title}
+    </div>
+  )
+}
+
+function UnscheduledCard({ task, project, onDragStart }) {
+  const { dispatch } = useApp()
+  const done = task.status === 'done'
+  return (
+    <div
+      draggable
+      onDragStart={e => onDragStart(e, task)}
+      onClick={() => dispatch({ type: 'SELECT_TASK', payload: task.id })}
+      className="flex items-start gap-2 px-2.5 py-2 rounded-lg cursor-grab active:cursor-grabbing select-none
+        bg-td-bg3/60 dark:bg-tn-bg3/60 hover:bg-td-surface dark:hover:bg-tn-surface
+        border border-transparent hover:border-td-border dark:hover:border-tn-border
+        transition-all group"
+    >
+      {project && (
+        <span className="mt-0.5 w-1.5 h-1.5 rounded-full shrink-0" style={{ background: project.color }} />
+      )}
+      <span className={`text-[11px] leading-snug font-medium break-words
+        ${done ? 'line-through text-td-muted/50 dark:text-tn-muted/50' : 'text-td-fg dark:text-tn-fg'}`}>
+        {task.title}
+      </span>
     </div>
   )
 }
@@ -219,8 +243,16 @@ export function CalendarView({ tasks }) {
     dispatch({ type: 'SET_CAL', payload: { year: month === 11 ? year + 1 : year, month: month === 11 ? 0 : month + 1 } })
   }
 
+  const { projects } = state
+  const unscheduled = useMemo(
+    () => tasks.filter(t => !t.due_date && t.status !== 'done'),
+    [tasks]
+  )
+
   return (
-    <div className="flex flex-col h-full p-3 pb-0">
+    <div className="flex h-full gap-3 p-3 pb-0 min-w-0">
+    {/* ── Calendar ─────────────────────────────────────────────── */}
+    <div className="flex-1 flex flex-col min-w-0">
       {/* Header */}
       <div className="flex items-center justify-between mb-3 shrink-0">
         <button onClick={prev} className="p-1.5 text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg rounded-lg hover:bg-td-surface dark:hover:bg-tn-surface">
@@ -299,6 +331,36 @@ export function CalendarView({ tasks }) {
           </div>
         ))}
       </div>
+    </div>
+
+    {/* ── Unscheduled sidebar (desktop only) ───────────────────── */}
+    <div className="hidden lg:flex flex-col w-52 shrink-0 pb-4">
+      <div className="flex items-center gap-2 mb-3 shrink-0">
+        <CalendarDays size={13} className="text-td-muted dark:text-tn-muted" />
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-td-muted dark:text-tn-muted">
+          Unscheduled
+        </span>
+        <span className="ml-auto text-[10px] text-td-muted/60 dark:text-tn-muted/60 bg-td-surface dark:bg-tn-surface px-1.5 rounded-full">
+          {unscheduled.length}
+        </span>
+      </div>
+      <div className="flex-1 overflow-y-auto space-y-1.5 pr-0.5">
+        {unscheduled.length === 0 ? (
+          <p className="text-[11px] text-td-muted/40 dark:text-tn-muted/40 text-center pt-6">
+            All tasks scheduled
+          </p>
+        ) : (
+          unscheduled.map(task => (
+            <UnscheduledCard
+              key={task.id}
+              task={task}
+              project={projects.find(p => p.id === task.project_id)}
+              onDragStart={handleDragStart}
+            />
+          ))
+        )}
+      </div>
+    </div>
     </div>
   )
 }
