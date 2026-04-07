@@ -3,6 +3,7 @@
 ![Logo](https://s3.mvaldes.dev/doit-logo.png)
 
 A self-hosted task manager that runs as a PWA on phone and web. Understands natural language and syncs with Google Calendar.
+![Dark Mode](https://s3.mvaldes.dev/dash1.png)
 
 ![Dark Mode](https://s3.mvaldes.dev/doit.png)
 
