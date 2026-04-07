@@ -225,6 +225,9 @@ def update_task(tid):
             (t['title'], t['description'], t['project_id'], t['status'],
              t['due_date'], t['due_time'], tags_val, t['position'], t.get('completed_at'),
              t.get('recurrence'), t.get('recurrence_end'), links_val, t.get('assigned_to'), tid))
+        # Reset reminder if the due date or time changed so a fresh reminder fires
+        if any(f in data for f in ('due_date', 'due_time')):
+            cur.execute("UPDATE tasks SET reminder_sent_at = NULL WHERE id = %s", (tid,))
         cur.execute("SELECT * FROM tasks WHERE id=%s", (tid,))
         result = row_to_dict(cur.fetchone())
         cur.execute("""

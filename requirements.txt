@@ -13,3 +13,4 @@ opentelemetry-instrumentation-psycopg2
 Pillow
 python-dateutil
 dateparser
+APScheduler

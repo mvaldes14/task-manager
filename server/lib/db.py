@@ -32,7 +32,7 @@ def release_db(conn):
 def row_to_dict(row):
     if row is None: return None
     d = dict(row)
-    for field in ('created_at', 'updated_at', 'completed_at'):
+    for field in ('created_at', 'updated_at', 'completed_at', 'reminder_sent_at'):
         if field in d and d[field] is not None: d[field] = str(d[field])
     if 'due_date'       in d and d['due_date']       is not None: d['due_date']       = str(d['due_date'])[:10]
     if 'recurrence_end' in d and d['recurrence_end'] is not None: d['recurrence_end'] = str(d['recurrence_end'])[:10]
@@ -122,6 +122,9 @@ def init_db():
         cur.execute("CREATE INDEX IF NOT EXISTS idx_tasks_owner_id    ON tasks(owner_id)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_tasks_assigned_to ON tasks(assigned_to)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_sessions_user_id  ON sessions(user_id)")
+        # Reminders
+        cur.execute("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS reminder_sent_at TIMESTAMPTZ")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_tasks_reminder ON tasks(due_date, reminder_sent_at) WHERE status != 'done'")
         conn.commit()
         logger.info("tables ready.")
         _migrate_to_multiuser(conn)

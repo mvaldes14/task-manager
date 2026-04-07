@@ -371,9 +371,32 @@ function IntegrationsTab() {
 }
 
 // ── Notifications tab ─────────────────────────────────────────────────────────
+const TIMEZONES = [
+  ['America/New_York',    'Eastern (ET)'],
+  ['America/Chicago',     'Central (CT)'],
+  ['America/Denver',      'Mountain (MT)'],
+  ['America/Phoenix',     'Mountain — no DST (AZ)'],
+  ['America/Los_Angeles', 'Pacific (PT)'],
+  ['America/Anchorage',   'Alaska (AKT)'],
+  ['Pacific/Honolulu',    'Hawaii (HST)'],
+  ['Europe/London',       'London (GMT/BST)'],
+  ['Europe/Paris',        'Paris (CET/CEST)'],
+  ['Europe/Berlin',       'Berlin (CET/CEST)'],
+  ['Asia/Tokyo',          'Tokyo (JST)'],
+  ['Asia/Shanghai',       'Shanghai (CST)'],
+  ['Asia/Kolkata',        'India (IST)'],
+  ['Australia/Sydney',    'Sydney (AEST)'],
+  ['UTC',                 'UTC'],
+]
+
 function NotificationsTab() {
   const [type, setType] = useState('')
   const [url, setUrl] = useState('')
+  const [token, setToken] = useState('')
+  const [reminderEnabled, setReminderEnabled] = useState(false)
+  const [minutesBefore, setMinutesBefore] = useState(30)
+  const [allDayTime, setAllDayTime] = useState('08:00')
+  const [tz, setTz] = useState('America/Chicago')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
@@ -382,6 +405,11 @@ function NotificationsTab() {
       if (!s) return
       setType(s.notification_type || '')
       setUrl(s.notification_url || '')
+      setToken(s.notification_token || '')
+      setReminderEnabled(!!s.reminder_enabled)
+      setMinutesBefore(s.reminder_minutes_before ?? 30)
+      setAllDayTime(s.reminder_allday_time || '08:00')
+      setTz(s.reminder_timezone || 'America/Chicago')
     }).catch(() => {})
   }, [])
 
@@ -389,8 +417,13 @@ function NotificationsTab() {
     setSaving(true); setSaved(false)
     try {
       await api.updateSettings({
-        notification_type: type || null,
-        notification_url: url.trim() || null,
+        notification_type:        type || null,
+        notification_url:         url.trim() || null,
+        notification_token:       token.trim() || null,
+        reminder_enabled:         reminderEnabled,
+        reminder_minutes_before:  Number(minutesBefore),
+        reminder_allday_time:     allDayTime,
+        reminder_timezone:        tz,
       })
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
@@ -399,6 +432,7 @@ function NotificationsTab() {
 
   return (
     <div className="space-y-5">
+      {/* Service selector */}
       <Field label="Notification service">
         <div className="flex bg-td-surface dark:bg-tn-surface rounded-lg p-0.5">
           {[['', 'None'], ['ntfy', 'ntfy'], ['gotify', 'Gotify']].map(([val, lbl]) => (
@@ -412,15 +446,78 @@ function NotificationsTab() {
       </Field>
 
       {type && (
-        <Field
-          label={type === 'ntfy' ? 'ntfy topic URL' : 'Gotify server URL'}
-          hint={type === 'ntfy' ? 'e.g. https://ntfy.sh/my-topic' : 'e.g. https://gotify.example.com'}
-        >
-          <input value={url} onChange={e => setUrl(e.target.value)}
-            placeholder={type === 'ntfy' ? 'https://ntfy.sh/my-topic' : 'https://gotify.example.com'}
-            className={inputCls} />
-        </Field>
+        <>
+          <Field
+            label={type === 'ntfy' ? 'ntfy topic URL' : 'Gotify server URL'}
+            hint={type === 'ntfy' ? 'e.g. https://ntfy.sh/my-topic' : 'e.g. https://gotify.example.com'}
+          >
+            <input value={url} onChange={e => setUrl(e.target.value)}
+              placeholder={type === 'ntfy' ? 'https://ntfy.sh/my-topic' : 'https://gotify.example.com'}
+              className={inputCls} />
+          </Field>
+
+          <Field
+            label={type === 'gotify' ? 'App token' : 'Auth token (optional)'}
+            hint={type === 'gotify' ? 'Token from your Gotify app' : 'Leave empty for public ntfy topics'}
+          >
+            <input type="password" value={token} onChange={e => setToken(e.target.value)}
+              placeholder={type === 'gotify' ? 'xxxxxxxxxxxxxxx' : 'Bearer token (optional)'}
+              className={inputCls} />
+          </Field>
+        </>
       )}
+
+      {/* Reminders section */}
+      <div className="border-t border-td-border/30 dark:border-tn-border/30 pt-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-td-fg dark:text-tn-fg">Reminders</p>
+            <p className="text-[11px] text-td-muted dark:text-tn-muted mt-0.5">Send a notification before tasks are due</p>
+          </div>
+          <button
+            onClick={() => setReminderEnabled(v => !v)}
+            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent
+              transition-colors duration-200 focus:outline-none
+              ${reminderEnabled ? 'bg-td-blue dark:bg-tn-blue' : 'bg-td-border dark:bg-tn-border'}`}
+          >
+            <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow
+              transition duration-200 ${reminderEnabled ? 'translate-x-4' : 'translate-x-0'}`} />
+          </button>
+        </div>
+
+        {reminderEnabled && (
+          <div className="space-y-3 pl-0.5">
+            <Field label="Timezone">
+              <select value={tz} onChange={e => setTz(e.target.value)} className={inputCls}>
+                {TIMEZONES.map(([val, lbl]) => (
+                  <option key={val} value={val}>{lbl}</option>
+                ))}
+              </select>
+            </Field>
+
+            <Field label="Remind before due time (timed tasks)" hint="Minutes before the task's due time to send the notification">
+              <div className="flex items-center gap-2">
+                <input
+                  type="number" min="0" max="1440"
+                  value={minutesBefore}
+                  onChange={e => setMinutesBefore(e.target.value)}
+                  className={`${inputCls} w-24`}
+                />
+                <span className="text-xs text-td-muted dark:text-tn-muted shrink-0">minutes before</span>
+              </div>
+            </Field>
+
+            <Field label="All-day task reminder time" hint="Time to send reminders for tasks with a due date but no specific time">
+              <input
+                type="time"
+                value={allDayTime}
+                onChange={e => setAllDayTime(e.target.value)}
+                className={`${inputCls} w-36`}
+              />
+            </Field>
+          </div>
+        )}
+      </div>
 
       <div className="flex justify-end">
         <SaveButton onClick={save} saving={saving} saved={saved} />

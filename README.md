@@ -27,7 +27,7 @@ A self-hosted task manager that runs as a PWA on phone and web. Understands natu
 - **Overdue view** — past-due tasks grouped by date
 - **Google Calendar sync** — tasks with due dates sync automatically; done tasks shown in linked calendar
 - **ICS calendar import** — import external calendars via URL or `.ics` file upload (managed in Settings)
-- **Push notifications** — ntfy or Gotify support for due-date reminders (configured in Settings)
+- **Push notifications** — ntfy or Gotify reminders; configurable per-task (timed: N minutes before due; all-day: at a set time); timezone-aware; deduplication via `reminder_sent_at`
 - **Settings modal** — Account tab (avatar, display name, password change), Calendars, Integrations (OTel), and Notifications
 - **OpenTelemetry** — backend (Flask + psycopg2) and frontend (fetch + document-load) tracing; opt-in via env vars or Settings UI
 - **PWA** — installable on iOS, Android, and macOS
@@ -333,7 +333,7 @@ Available icons: `folder`, `home`, `briefcase`, `target`, `flask`, `book`, `pale
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/api/settings` | Returns current settings (`gcal_enabled`, `otel_frontend_endpoint`, `notification_type`, `notification_url`, `username`) |
+| `GET` | `/api/settings` | Returns current settings (`gcal_enabled`, `otel_frontend_endpoint`, `notification_type`, `notification_url`, `notification_token`, `reminder_enabled`, `reminder_minutes_before`, `reminder_allday_time`, `reminder_timezone`) |
 | `PATCH` | `/api/settings` | Update settings fields |
 
 ---

@@ -22,6 +22,10 @@ def get_full_settings() -> dict:
             if val:
                 data[key] = val
     data['gcal_enabled'] = gcal_is_enabled()
+    data.setdefault('reminder_enabled', False)
+    data.setdefault('reminder_minutes_before', 30)
+    data.setdefault('reminder_allday_time', '08:00')
+    data.setdefault('reminder_timezone', 'America/Chicago')
     return data
 
 

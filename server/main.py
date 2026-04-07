@@ -134,19 +134,16 @@ def serve_spa(path):
 
 # ── Startup ───────────────────────────────────────────────────────────────────
 
-OBSIDIAN_VAULT = os.environ.get('OBSIDIAN_VAULT', '').strip()
-OBSIDIAN_INBOX = os.environ.get('OBSIDIAN_INBOX', '').strip().strip('/')
-
 logger.info('[startup] DATABASE_URL = %s', DATABASE_URL)
-if OBSIDIAN_VAULT:
-    logger.info('[startup] Obsidian vault: %s%s', OBSIDIAN_VAULT,
-                f' inbox: {OBSIDIAN_INBOX}' if OBSIDIAN_INBOX else '')
 
 init_db()
 init_auth()
 logger.info('[startup] auth required: %s', is_auth_required())
 
 if __name__ == '__main__':
+    # In dev mode gunicorn.conf.py is not used, so start the scheduler here
+    from lib.notifications import start_scheduler
+    start_scheduler()
     import socket
     try:    ip = socket.gethostbyname(socket.gethostname())
     except: ip = '127.0.0.1'
