@@ -20,5 +20,5 @@ COPY server/gunicorn.conf.py .
 COPY server/lib/ ./lib/
 COPY server/routes/ ./routes/
 COPY --from=frontend /app/client/dist ./client/dist
-EXPOSE 5000
+EXPOSE 3000
 CMD ["gunicorn", "--config", "gunicorn.conf.py", "main:app"]

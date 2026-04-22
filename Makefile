@@ -2,7 +2,7 @@
 
 APP  = task-manager-app-1
 DB   = task-manager-db-1
-PORT = 5000
+PORT = 3000
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage: make \033[36m<target>\033[0m\n\nTargets:\n"} /^[a-zA-Z_-]+:.*##/ { printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)

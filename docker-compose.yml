@@ -17,7 +17,7 @@ services:
     build: .
     image: ${TD_IMAGE:-task-manager}
     ports:
-      - "5000:5000"
+      - "3000:3000"
     depends_on:
       db:
         condition: service_healthy

@@ -9,6 +9,7 @@ import { CalendarView } from '../calendar/CalendarView'
 import { DashboardView } from '../dashboard/DashboardView'
 import { LayoutList, Columns, Menu, Search, X, ChevronDown } from 'lucide-react'
 import { ProjectIcon } from '../shared/ProjectIcon'
+import { PriorityTodayView } from '../tasks/PriorityTodayView'
 
 function ViewHeader({ title, count, onSearch, searchOpen, setSearchOpen, searchScope, setSearchScope }) {
   const { state, dispatch } = useApp()
@@ -150,7 +151,7 @@ function OverdueView({ tasks }) {
       if (!byDate[d]) byDate[d] = []
       byDate[d].push(t)
     })
-    return Object.entries(byDate).sort(([a],[b]) => a.localeCompare(b))
+    return Object.entries(byDate).sort(([a], [b]) => a.localeCompare(b))
   }, [tasks])
 
   if (!tasks.length) {
@@ -180,17 +181,17 @@ function OverdueView({ tasks }) {
 }
 
 const SORT_OPTIONS = [
-  { value: 'status',   label: 'Status' },
+  { value: 'status', label: 'Status' },
   { value: 'due_date', label: 'Due Date' },
-  { value: 'project',  label: 'Project' },
-  { value: 'title',    label: 'Title' },
-  { value: 'created',  label: 'Created' },
+  { value: 'project', label: 'Project' },
+  { value: 'title', label: 'Title' },
+  { value: 'created', label: 'Created' },
 ]
 
 const GROUP_OPTIONS = [
   { value: 'status', label: 'Status' },
-  { value: 'tags',   label: 'Tags' },
-  { value: 'none',   label: 'None' },
+  { value: 'tags', label: 'Tags' },
+  { value: 'none', label: 'None' },
 ]
 
 function ListToolbar({ showDone, onToggleDone, sortBy, onSortBy, groupBy, onGroupBy }) {
@@ -323,7 +324,7 @@ export function MainContent() {
     }
     if (view === 'today') return {
       title: 'Today',
-      baseTasks: tasks.filter(t => isToday(t)),
+      baseTasks: tasks.filter(t => isToday(t) || isOverdue(t)),
       emptyMessage: 'Nothing due today',
     }
     if (view === 'all') return {
@@ -371,7 +372,7 @@ export function MainContent() {
   const activeCount = useMemo(() =>
     baseTasks.filter(t => t.status !== 'done').length, [baseTasks])
 
-  const showToolbar = viewMode === 'list' && view !== 'overdue' && view !== 'calendar' && view !== 'dashboard'
+  const showToolbar = viewMode === 'list' && view !== 'overdue' && view !== 'calendar' && view !== 'dashboard' && view !== 'today'
   const isCalendar = view === 'calendar'
   const isDashboard = view === 'dashboard'
 
@@ -416,10 +417,10 @@ export function MainContent() {
           <div ref={indicatorEl} className="flex items-center justify-center overflow-hidden transition-all duration-200" style={{ height: 0, opacity: 0 }}>
             <div className="flex flex-col items-center gap-1">
               <svg data-arrow width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-td-muted dark:text-tn-muted transition-transform duration-150">
-                <path d="M12 5v14M5 12l7 7 7-7"/>
+                <path d="M12 5v14M5 12l7 7 7-7" />
               </svg>
               <svg data-spinner width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-td-blue dark:text-tn-blue animate-spin" style={{ display: 'none' }}>
-                <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+                <path d="M21 12a9 9 0 1 1-6.219-8.56" />
               </svg>
             </div>
           </div>
@@ -432,6 +433,9 @@ export function MainContent() {
           <OverdueView tasks={visibleTasks} />
         ) : viewMode === 'board' ? (
           <KanbanBoard tasks={visibleTasks} />
+        ) : view === 'today' ? (
+          +          <PriorityTodayView tasks={visibleTasks} />
+
         ) : (
           <TaskList
             tasks={visibleTasks}
