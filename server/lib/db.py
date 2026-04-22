@@ -124,6 +124,8 @@ def init_db():
         cur.execute("CREATE INDEX IF NOT EXISTS idx_sessions_user_id  ON sessions(user_id)")
         # Reminders
         cur.execute("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS reminder_sent_at TIMESTAMPTZ")
+        # Priority
+        cur.execute("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS priority TEXT DEFAULT 'medium'")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_tasks_reminder ON tasks(due_date, reminder_sent_at) WHERE status != 'done'")
         conn.commit()
         logger.info("tables ready.")
