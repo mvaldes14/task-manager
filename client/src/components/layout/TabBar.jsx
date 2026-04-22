@@ -34,6 +34,8 @@ export function TabBar() {
     return state.view === key
   }
 
+  if (state.fabOpen) return null
+
   return (
     <nav
       className="md:hidden fixed bottom-0 left-0 right-0 z-[95] bg-td-bg2/95 dark:bg-tn-bg2/95 backdrop-blur-md border-t border-td-border dark:border-tn-border flex"

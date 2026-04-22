@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, ArrowRight } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { useTasks } from '../../hooks/useTasks'
 import { useInlineAutocomplete } from '../../hooks/useInlineAutocomplete'
@@ -42,6 +42,63 @@ function NlpChip({ label, color, bg }) {
   )
 }
 
+// Quick-insert shelf helpers
+function toIso(date) {
+  return date.toISOString().slice(0, 10)
+}
+function shelfDates() {
+  const today = new Date(); today.setHours(0,0,0,0)
+  const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1)
+  const nextMon = new Date(today)
+  nextMon.setDate(today.getDate() + ((8 - today.getDay()) % 7 || 7))
+  return [
+    { label: 'Today',     text: 'today' },
+    { label: 'Tomorrow',  text: 'tomorrow' },
+    { label: 'Next week', text: 'next monday' },
+  ]
+}
+
+function SmartShelf({ projects, tags, onInsert }) {
+  const dates = shelfDates()
+  const priorities = ['high', 'medium']
+  const shownProjects = projects.slice(0, 4)
+  const shownTags = tags.slice(0, 4)
+
+  const Row = ({ label, items, color }) => (
+    <div className="flex items-center gap-2 px-4 py-1.5 overflow-x-auto no-scrollbar">
+      <span className="text-[10px] font-semibold tracking-wider text-tn-muted/60 shrink-0 w-8 uppercase">{label}</span>
+      {items.map(item => (
+        <button
+          key={item.text}
+          onMouseDown={e => { e.preventDefault(); onInsert(item.text) }}
+          onTouchStart={e => { e.preventDefault(); onInsert(item.text) }}
+          className="text-xs px-3 py-1.5 rounded-full shrink-0 border border-tn-border bg-tn-surface text-tn-fg active:scale-95 transition-transform"
+          style={item.color ? { color: item.color, borderColor: item.color + '40', background: item.color + '15' } : {}}
+        >
+          {item.label}
+        </button>
+      ))}
+    </div>
+  )
+
+  return (
+    <div className="border-t border-tn-border/50 py-1">
+      <Row label="Date" items={dates} />
+      {shownProjects.length > 0 && (
+        <Row label="Proj" items={shownProjects.map(p => ({ label: p.name, text: '#' + p.name, color: p.color }))} />
+      )}
+      {shownTags.length > 0 && (
+        <Row label="Tag" items={shownTags.map(t => ({ label: '@' + t, text: '@' + t, color: '#bb9af7' }))} />
+      )}
+      <Row label="Pri" items={priorities.map(p => ({
+        label: p.charAt(0).toUpperCase() + p.slice(1),
+        text: '!' + p,
+        color: p === 'high' ? '#f7768e' : '#e0af68',
+      }))} />
+    </div>
+  )
+}
+
 export function FAB() {
   const { state, dispatch } = useApp()
   const { createTask } = useTasks()
@@ -49,6 +106,7 @@ export function FAB() {
   const [chips, setChips] = useState([])
   const [loading, setLoading] = useState(false)
   const [allTags, setAllTags] = useState([])
+  const [keyboardHeight, setKeyboardHeight] = useState(0)
   const inputRef = useRef(null)
   const timerRef = useRef(null)
   const open = state.fabOpen
@@ -62,7 +120,25 @@ export function FAB() {
     if (open) {
       setTimeout(() => inputRef.current?.focus(), 80)
       api.getTags().then(t => { if (t) setAllTags(t) }).catch(() => {})
-    } else { setText(''); setChips([]) }
+    } else { setText(''); setChips([]); setKeyboardHeight(0) }
+  }, [open])
+
+  // Track keyboard height via visualViewport (mobile)
+  useEffect(() => {
+    if (!open) return
+    const vv = window.visualViewport
+    if (!vv) return
+    const update = () => {
+      const kh = Math.max(0, window.innerHeight - vv.height - vv.offsetTop)
+      setKeyboardHeight(kh)
+    }
+    vv.addEventListener('resize', update)
+    vv.addEventListener('scroll', update)
+    update()
+    return () => {
+      vv.removeEventListener('resize', update)
+      vv.removeEventListener('scroll', update)
+    }
   }, [open])
 
   // Global keyboard shortcut: Q or Cmd+K opens FAB (desktop only)
@@ -136,6 +212,14 @@ export function FAB() {
 
   const close = () => dispatch({ type: 'SET_FAB', payload: { open: false } })
 
+  const insertShelfText = useCallback((word) => {
+    const val = text ? text + ' ' + word : word
+    setText(val)
+    inputRef.current?.focus()
+    clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => parseNlp(val), 400)
+  }, [text, parseNlp])
+
   return (
     <>
       {/* Mobile FAB */}
@@ -167,25 +251,22 @@ export function FAB() {
       {/* Backdrop */}
       {open && <div className="fixed inset-0 z-[88] bg-black/60 animate-fade-in" onClick={close} />}
 
-      {/* ── Mobile: bottom sheet ── */}
+      {/* ── Mobile: bottom sheet — pinned above keyboard ── */}
       {open && (
         <div
-          className="md:hidden fixed inset-x-0 z-[89] rounded-t-2xl shadow-2xl
+          className="md:hidden fixed inset-x-0 z-[96] rounded-t-2xl shadow-2xl
             bg-white dark:bg-tn-bg2 border-t border-td-border dark:border-tn-border
             animate-slide-up"
-          style={{
-            bottom: 'calc(64px + env(safe-area-inset-bottom, 0px))',
-            paddingBottom: '8px'
-          }}
+          style={{ bottom: keyboardHeight }}
           onClick={e => e.stopPropagation()}
         >
           {/* Drag handle */}
-          <div className="flex justify-center pt-3 pb-1">
-            <div className="w-10 h-1 rounded-full bg-td-border dark:bg-tn-border" />
+          <div className="flex justify-center pt-2.5 pb-1">
+            <div className="w-9 h-1 rounded-full bg-td-border dark:bg-tn-border" />
           </div>
 
-          {/* Task name + submit inline */}
-          <div className="relative flex items-center gap-3 px-4 pt-3 pb-3">
+          {/* Task input */}
+          <div className="relative px-4 pt-2 pb-2">
             <SuggestionDropdown suggestions={suggestions} onSelect={acOnSelect} />
             <input
               ref={inputRef}
@@ -193,31 +274,46 @@ export function FAB() {
               value={text}
               onChange={handleChange}
               onKeyDown={handleKeyDown}
-              placeholder="Task Name"
-              className="flex-1 bg-transparent text-td-fg dark:text-tn-fg text-2xl font-semibold
+              placeholder="What needs to be done?"
+              className="w-full bg-transparent text-td-fg dark:text-tn-fg text-xl font-semibold
                 outline-none leading-snug placeholder-td-muted/30 dark:placeholder-tn-muted/30"
             />
-            <button
-              onClick={submit}
-              disabled={!text.trim() || loading}
-              className="w-10 h-10 rounded-full flex items-center justify-center shrink-0
-                bg-tn-red disabled:opacity-30 active:scale-95 transition-all"
-            >
-              {loading
-                ? <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                : text.trim()
-                  ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-                  : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              }
-            </button>
           </div>
 
           {/* NLP chips */}
           {chips.length > 0 && (
-            <div className="flex flex-wrap gap-2 px-5 pb-3">
+            <div className="flex flex-wrap gap-2 px-4 pb-2">
               {chips.map((c, i) => <NlpChip key={i} {...c} />)}
             </div>
           )}
+
+          {/* Smart shelf */}
+          <SmartShelf
+            projects={state.projects}
+            tags={allTags}
+            onInsert={insertShelfText}
+          />
+
+          {/* Action row */}
+          <div className="flex items-center justify-between px-4 py-3 border-t border-td-border/40 dark:border-tn-border/40">
+            <button
+              onClick={close}
+              className="text-sm font-medium text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg transition-colors px-1"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={submit}
+              disabled={!text.trim() || loading}
+              className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold
+                bg-td-blue dark:bg-tn-blue text-white disabled:opacity-30 active:scale-95 transition-all"
+            >
+              {loading
+                ? <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                : <>Add task <ArrowRight size={14} strokeWidth={2.5} /></>
+              }
+            </button>
+          </div>
         </div>
       )}
 
