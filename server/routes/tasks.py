@@ -133,7 +133,8 @@ def create_task():
     recurrence_end = data.get('recurrence_end')
     assigned_to    = data.get('assigned_to')
     links          = data.get('links', [])
-    description = data.get('description', '')
+    description    = data.get('description', '')
+    priority       = data.get('priority', nlp.get('priority') or 'medium')
 
     # Single transaction: project lookup/creation + task insert
     conn = get_db()
@@ -161,10 +162,10 @@ def create_task():
         max_pos = cur.fetchone()['coalesce']
         owner_id = getattr(g, 'user_id', None)
         if not assigned_to: assigned_to = owner_id
-        cur.execute("""INSERT INTO tasks (id,title,description,project_id,status,due_date,due_time,tags,position,recurrence,recurrence_end,links,owner_id,assigned_to)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+        cur.execute("""INSERT INTO tasks (id,title,description,project_id,status,due_date,due_time,tags,position,recurrence,recurrence_end,links,owner_id,assigned_to,priority)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
             (tid, title, description, project_id, status, due_date, due_time,
-             json.dumps(tags), max_pos + 1, recurrence, recurrence_end, json.dumps(links), owner_id, assigned_to))
+             json.dumps(tags), max_pos + 1, recurrence, recurrence_end, json.dumps(links), owner_id, assigned_to, priority))
         cur.execute("SELECT * FROM tasks WHERE id=%s", (tid,))
         task = row_to_dict(cur.fetchone())
         task['subtasks'] = []
@@ -209,7 +210,7 @@ def update_task(tid):
         if not row: return jsonify({'error': 'Not found'}), 404
         t = dict(row)
         old_status = t.get('status')
-        for f in ['title','description','project_id','status','due_date','due_time','position','recurrence','recurrence_end','assigned_to']:
+        for f in ['title','description','project_id','status','due_date','due_time','position','recurrence','recurrence_end','assigned_to','priority']:
             if f in data: t[f] = data[f]
         if 'tags'  in data: t['tags']  = json.dumps(data['tags'])
         if 'links' in data: t['links'] = json.dumps(data['links'])
@@ -221,10 +222,10 @@ def update_task(tid):
         links_val = t.get('links', '[]')
         links_val = links_val if isinstance(links_val, str) else json.dumps(links_val)
         cur.execute("""UPDATE tasks SET title=%s,description=%s,project_id=%s,status=%s,
-            due_date=%s,due_time=%s,tags=%s,position=%s,completed_at=%s,recurrence=%s,recurrence_end=%s,links=%s,assigned_to=%s,updated_at=NOW() WHERE id=%s""",
+            due_date=%s,due_time=%s,tags=%s,position=%s,completed_at=%s,recurrence=%s,recurrence_end=%s,links=%s,assigned_to=%s,priority=%s,updated_at=NOW() WHERE id=%s""",
             (t['title'], t['description'], t['project_id'], t['status'],
              t['due_date'], t['due_time'], tags_val, t['position'], t.get('completed_at'),
-             t.get('recurrence'), t.get('recurrence_end'), links_val, t.get('assigned_to'), tid))
+             t.get('recurrence'), t.get('recurrence_end'), links_val, t.get('assigned_to'), t.get('priority', 'medium'), tid))
         # Reset reminder if the due date or time changed so a fresh reminder fires
         if any(f in data for f in ('due_date', 'due_time')):
             cur.execute("UPDATE tasks SET reminder_sent_at = NULL WHERE id = %s", (tid,))

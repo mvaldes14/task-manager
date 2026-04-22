@@ -232,8 +232,10 @@ export function Sidebar() {
         <NavItem icon={Sun}         label="Today"     viewKey="today"    badge={todayCount} collapsed={collapsed} />
         <NavItem icon={Layers}      label="All"       viewKey="all"      collapsed={collapsed} />
         <NavItem icon={Calendar}    label="Calendar"  viewKey="calendar" collapsed={collapsed} />
-        <NavItem icon={AlertCircle} label="Overdue"   viewKey="overdue"
-          badge={overdueCount} badgeColor="bg-td-red dark:bg-tn-red" collapsed={collapsed} />
+        {overdueCount > 0 && (
+          <NavItem icon={AlertCircle} label="Overdue"   viewKey="overdue"
+            badge={overdueCount} badgeColor="bg-td-red dark:bg-tn-red" collapsed={collapsed} />
+        )}
 
         {!collapsed && (
           <div className="pt-3 pb-1 px-3">

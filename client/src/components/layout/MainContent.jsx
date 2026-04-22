@@ -7,11 +7,11 @@ import { TaskList } from '../tasks/TaskList'
 import { KanbanBoard } from '../tasks/KanbanBoard'
 import { CalendarView } from '../calendar/CalendarView'
 import { DashboardView } from '../dashboard/DashboardView'
-import { LayoutList, Columns, Menu, Search, X, ChevronDown } from 'lucide-react'
+import { LayoutList, Columns, Menu, Search, X, ChevronDown, Inbox, Sun, Layers, CalendarDays, AlertCircle } from 'lucide-react'
 import { ProjectIcon } from '../shared/ProjectIcon'
 import { PriorityTodayView } from '../tasks/PriorityTodayView'
 
-function ViewHeader({ title, count, onSearch, searchOpen, setSearchOpen, searchScope, setSearchScope }) {
+function ViewHeader({ title, icon: Icon, count, onSearch, searchOpen, setSearchOpen, searchScope, setSearchScope }) {
   const { state, dispatch } = useApp()
   const [searchQuery, setSearchQuery] = useState('')
   const inputRef = useRef(null)
@@ -93,10 +93,14 @@ function ViewHeader({ title, count, onSearch, searchOpen, setSearchOpen, searchS
       ) : (
         /* Normal title */
         <div className="flex-1 flex items-center gap-2.5 min-w-0">
-          {project && (
+          {project ? (
             <span className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
               style={{ background: project.color + '25' }}>
               <ProjectIcon icon={project.icon} size={14} />
+            </span>
+          ) : Icon && (
+            <span className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-td-surface dark:bg-tn-surface text-td-muted dark:text-tn-muted">
+              <Icon size={14} />
             </span>
           )}
           <h1 className="text-td-fg dark:text-tn-fg font-semibold text-base truncate">
@@ -316,37 +320,42 @@ export function MainContent() {
     setGroupBy(v)
   }
 
-  const { title, baseTasks, emptyMessage } = useMemo(() => {
+  const { title, icon, baseTasks, emptyMessage } = useMemo(() => {
     if (view === 'inbox') return {
-      title: 'Inbox',
+      title: 'Inbox', icon: Inbox,
       baseTasks: tasks.filter(t => t.project_id === 'inbox'),
       emptyMessage: 'Inbox is empty',
     }
     if (view === 'today') return {
-      title: 'Today',
+      title: 'Today', icon: Sun,
       baseTasks: tasks.filter(t => isToday(t) || isOverdue(t)),
       emptyMessage: 'Nothing due today',
     }
     if (view === 'all') return {
-      title: 'All Tasks',
+      title: 'All Tasks', icon: Layers,
       baseTasks: tasks,
       emptyMessage: 'No tasks yet',
     }
     if (view === 'overdue') return {
-      title: 'Overdue',
+      title: 'Overdue', icon: AlertCircle,
       baseTasks: tasks.filter(t => isOverdue(t)),
       emptyMessage: 'No overdue tasks',
+    }
+    if (view === 'calendar') return {
+      title: 'Calendar', icon: CalendarDays,
+      baseTasks: [],
+      emptyMessage: '',
     }
     if (view.startsWith('project:')) {
       const pid = view.replace('project:', '')
       const project = projects.find(p => p.id === pid)
       return {
-        title: project ? project.name : 'Project',
+        title: project ? project.name : 'Project', icon: null,
         baseTasks: tasks.filter(t => t.project_id === pid),
         emptyMessage: 'No tasks in this project',
       }
     }
-    return { title: 'Tasks', baseTasks: tasks, emptyMessage: 'No tasks' }
+    return { title: 'Tasks', icon: null, baseTasks: tasks, emptyMessage: 'No tasks' }
   }, [view, tasks, projects])
 
   // Apply show/hide done + sort + search
@@ -381,6 +390,7 @@ export function MainContent() {
       {!isDashboard && (
         <ViewHeader
           title={title}
+          icon={icon}
           count={activeCount > 0 ? activeCount : null}
           onSearch={setSearchQuery}
           searchOpen={searchOpen}

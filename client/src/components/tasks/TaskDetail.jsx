@@ -2,11 +2,12 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useApp } from '../../context/AppContext'
 import { useTasks } from '../../hooks/useTasks'
 import { api } from '../../api'
-import { formatDate, fmtTime, recurrenceLabel, getLinkLabel, getLinkStyle } from '../../utils'
+import { formatDate, fmtTime, recurrenceLabel, getLinkLabel, getLinkStyle, priorityColor } from '../../utils'
 import { X, Trash2, Plus, Check, ChevronRight, Paperclip, GitBranch, Link2, Repeat2, ExternalLink } from 'lucide-react'
 import { DateTimePicker } from '../shared/DateTimePicker'
 
 const STATUSES = ['todo', 'doing', 'blocked', 'done']
+const PRIORITIES = ['low', 'medium', 'high']
 
 const STATUS_DOT = {
   todo:    'bg-td-muted/40 dark:bg-tn-muted/40',
@@ -404,6 +405,7 @@ export function TaskDetail() {
   const [dueTime, setDueTime]           = useState('')
   const [projectId, setProjectId]       = useState('')
   const [tags, setTags]                 = useState([])
+  const [priority, setPriority]         = useState('medium')
   const [assignedTo, setAssignedTo]     = useState('')
   const [recurrence, setRecurrence]     = useState(null)
   const [recurrenceEnd, setRecurrenceEnd] = useState('')
@@ -439,6 +441,7 @@ export function TaskDetail() {
     setDueTime(task.due_time || '')
     setProjectId(task.project_id || '')
     setTags(task.tags || [])
+    setPriority(task.priority || 'medium')
     setAssignedTo(task.assigned_to || '')
     setRecurrence(task.recurrence || null)
     setRecurrenceEnd(task.recurrence_end || '')
@@ -464,7 +467,7 @@ export function TaskDetail() {
       subtaskDebounce.current = setTimeout(async () => {
         const results = await api.searchTasks(val, task.id).catch(() => [])
         setSubtaskResults(results || [])
-      }, 300)
+      }, 150)
     } else {
       setSubtaskResults([])
     }
@@ -556,6 +559,31 @@ export function TaskDetail() {
             >
               {STATUSES.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
             </select>
+          </div>
+
+          {/* Priority */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-td-muted dark:text-tn-muted">Priority</label>
+            <div className="flex gap-1">
+              {PRIORITIES.map(p => {
+                const active = priority === p
+                const color = priorityColor(p)
+                return (
+                  <button
+                    key={p}
+                    onClick={() => { setPriority(p); autoSave(task.id, { priority: p }) }}
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium transition-colors border
+                      ${active
+                        ? 'border-transparent text-white'
+                        : 'border-td-border/50 dark:border-tn-border/50 text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg bg-td-surface dark:bg-tn-surface'}`}
+                    style={active ? { background: color } : {}}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: active ? 'white' : color }} />
+                    {p.charAt(0).toUpperCase() + p.slice(1)}
+                  </button>
+                )
+              })}
+            </div>
           </div>
 
           {/* Due date + time */}

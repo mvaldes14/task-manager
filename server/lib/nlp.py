@@ -261,6 +261,7 @@ def parse_natural_language(text):
         'title': text, 'due_date': None, 'due_time': None,
         'project_name': None, 'labels': [], 'nlp_summary': None,
         'links': [], 'recurrence': None, 'assigned_to_username': None,
+        'priority': None,
     }
     today      = date.today()
     found_date = None
@@ -282,6 +283,12 @@ def parse_natural_language(text):
     if assign_m:
         result['assigned_to_username'] = assign_m.group(1)
         text = re.sub(r'\+\w+', '', text).strip()
+
+    # 3. Priority: p1=high, p2=medium, p3=low
+    priority_m = re.search(r'\bp([123])\b', text, re.IGNORECASE)
+    if priority_m:
+        result['priority'] = {'1': 'high', '2': 'medium', '3': 'low'}[priority_m.group(1)]
+        text = (text[:priority_m.start()] + text[priority_m.end():]).strip()
 
     # 4. Named time slots (must come before explicit time to avoid conflicts)
     text, found_date, slot_time = _parse_time_slots(text, found_date, today)
@@ -330,6 +337,8 @@ def parse_natural_language(text):
         parts.append(' '.join(f"@{l}" for l in result['labels']))
     if result['assigned_to_username']:
         parts.append(f"+{result['assigned_to_username']}")
+    if result['priority']:
+        parts.append(result['priority'])
     if rrule_str:
         parts.append(f"🔁 {rrule_label(rrule_str)}")
     if parts:
