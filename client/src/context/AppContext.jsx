@@ -31,6 +31,7 @@ const initialState = {
   // Settings
   theme: localStorage.getItem('td-theme') || 'dark',
   otelEndpoint: '',
+  aiWebhookUrl: '',
 }
 
 function reducer(state, action) {
@@ -69,7 +70,7 @@ function reducer(state, action) {
       localStorage.setItem('td-cal-view', action.payload)
       return { ...state, calView: action.payload }
     }
-    case 'SET_SETTINGS':    return { ...state, gcalEnabled: action.payload.gcal_enabled || false, otelEndpoint: action.payload.otel_frontend_endpoint || '' }
+    case 'SET_SETTINGS':    return { ...state, gcalEnabled: action.payload.gcal_enabled || false, otelEndpoint: action.payload.otel_frontend_endpoint || '', aiWebhookUrl: action.payload.ai_webhook_url || '' }
     default:                return state
   }
 }

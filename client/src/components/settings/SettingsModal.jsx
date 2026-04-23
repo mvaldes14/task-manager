@@ -332,6 +332,7 @@ function CalendarsTab({ gcalEnabled }) {
 function IntegrationsTab() {
   const { dispatch } = useApp()
   const [otel, setOtel] = useState('')
+  const [aiWebhook, setAiWebhook] = useState('')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
@@ -339,6 +340,7 @@ function IntegrationsTab() {
     api.getSettings().then(s => {
       if (!s) return
       setOtel(s.otel_frontend_endpoint || '')
+      setAiWebhook(s.ai_webhook_url || '')
     }).catch(() => {})
   }, [])
 
@@ -347,6 +349,7 @@ function IntegrationsTab() {
     try {
       const updated = await api.updateSettings({
         otel_frontend_endpoint: otel.trim() || null,
+        ai_webhook_url: aiWebhook.trim() || null,
       })
       if (updated) dispatch({ type: 'SET_SETTINGS', payload: updated })
       setSaved(true)
@@ -357,6 +360,21 @@ function IntegrationsTab() {
   return (
     <div className="space-y-5">
       <div className="space-y-4">
+        <p className={labelCls}>AI Webhook</p>
+        <Field
+          label="Webhook URL"
+          hint="Tasks tagged @ai are POST'd here as JSON. Works with n8n, Make, Zapier, etc."
+        >
+          <input
+            value={aiWebhook}
+            onChange={e => setAiWebhook(e.target.value)}
+            placeholder="https://n8n.example.com/webhook/..."
+            className={inputCls}
+          />
+        </Field>
+      </div>
+
+      <div className="border-t border-td-border/30 dark:border-tn-border/30 pt-5 space-y-4">
         <p className={labelCls}>OpenTelemetry</p>
         <Field label="Frontend OTLP/HTTP endpoint" hint="Browser traces are sent here. Leave empty to disable.">
           <input value={otel} onChange={e => setOtel(e.target.value)} placeholder="https://signoz:4318" className={inputCls} />

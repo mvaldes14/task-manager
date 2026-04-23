@@ -24,7 +24,7 @@ export function useTasks() {
       const task = await api.createTask(data)
       if (task) {
         dispatch({ type: 'ADD_TASK', payload: task })
-        toast('Task added')
+        toast(task.ai_webhook_fired ? 'Task added · AI webhook dispatched' : 'Task added')
       }
       return task
     } catch (e) {
@@ -36,7 +36,10 @@ export function useTasks() {
   const updateTask = useCallback(async (id, data) => {
     try {
       const task = await api.updateTask(id, data)
-      if (task) dispatch({ type: 'UPDATE_TASK', payload: task })
+      if (task) {
+        dispatch({ type: 'UPDATE_TASK', payload: task })
+        if (task.ai_webhook_fired) toast('AI webhook dispatched')
+      }
       return task
     } catch (e) {
       toast('Failed to update task')
