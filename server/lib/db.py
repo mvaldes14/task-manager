@@ -127,6 +127,16 @@ def init_db():
         # Priority
         cur.execute("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS priority TEXT DEFAULT 'medium'")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_tasks_reminder ON tasks(due_date, reminder_sent_at) WHERE status != 'done'")
+        # AI results
+        cur.execute("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS has_ai_result BOOLEAN DEFAULT FALSE")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS task_ai_results (
+                task_id TEXT PRIMARY KEY REFERENCES tasks(id) ON DELETE CASCADE,
+                content TEXT NOT NULL,
+                model TEXT,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                updated_at TIMESTAMPTZ DEFAULT NOW()
+            )""")
         conn.commit()
         logger.info("tables ready.")
         _migrate_to_multiuser(conn)

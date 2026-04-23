@@ -3,8 +3,9 @@ import { useApp } from '../../context/AppContext'
 import { useTasks } from '../../hooks/useTasks'
 import { api } from '../../api'
 import { formatDate, fmtTime, recurrenceLabel, getLinkLabel, getLinkStyle, priorityColor } from '../../utils'
-import { X, Trash2, Plus, Check, ChevronRight, Paperclip, GitBranch, Link2, Repeat2, ExternalLink } from 'lucide-react'
+import { X, Trash2, Plus, Check, ChevronRight, Paperclip, GitBranch, Link2, Repeat2, ExternalLink, Sparkles } from 'lucide-react'
 import { DateTimePicker } from '../shared/DateTimePicker'
+import { AiResultModal } from './AiResultModal'
 
 const STATUSES = ['todo', 'doing', 'blocked', 'done']
 const PRIORITIES = ['low', 'medium', 'high']
@@ -411,6 +412,7 @@ export function TaskDetail() {
   const [recurrenceEnd, setRecurrenceEnd] = useState('')
   const [subtaskInput, setSubtaskInput] = useState('')
   const [subtaskResults, setSubtaskResults] = useState([])
+  const [aiOpen, setAiOpen] = useState(false)
   const [saveIndicator, setSaveIndicator] = useState('idle') // 'idle' | 'saving' | 'saved'
   const subtaskDebounce = useRef(null)
   const inFlight = useRef(0)
@@ -548,6 +550,19 @@ export function TaskDetail() {
               className="w-full bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-sm rounded-lg px-2.5 py-2 outline-none border border-td-border/50 dark:border-tn-border/50 resize-none placeholder-td-muted/40 dark:placeholder-tn-muted/40 font-mono text-xs leading-relaxed"
             />
           </div>
+
+          {/* AI result chip */}
+          {task.has_ai_result && (
+            <button
+              onClick={() => setAiOpen(true)}
+              className="flex items-center gap-1.5 w-full px-3 py-2 rounded-xl text-sm font-medium
+                text-td-purple dark:text-tn-purple bg-td-purple/10 dark:bg-tn-purple/10
+                hover:bg-td-purple/20 dark:hover:bg-tn-purple/20 transition-colors"
+            >
+              <Sparkles size={13} />
+              View AI Result
+            </button>
+          )}
 
           {/* Status */}
           <div className="space-y-1.5">
@@ -708,6 +723,8 @@ export function TaskDetail() {
           </div>
         </div>
       </aside>
+
+      {aiOpen && <AiResultModal taskId={task.id} onClose={() => setAiOpen(false)} />}
     </>
   )
 }

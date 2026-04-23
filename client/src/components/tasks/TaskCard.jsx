@@ -1,8 +1,10 @@
+import { useState } from 'react'
 import { useApp } from '../../context/AppContext'
 import { ProjectIcon } from '../shared/ProjectIcon'
 import { useTasks } from '../../hooks/useTasks'
 import { formatDate, isOverdue, priorityColor, recurrenceLabel, fmtTime, getLinkLabel, getLinkStyle, rescheduleOptions } from '../../utils'
-import { Paperclip, GitBranch, Link2 } from 'lucide-react'
+import { Paperclip, GitBranch, Link2, Sparkles } from 'lucide-react'
+import { AiResultModal } from './AiResultModal'
 
 function LinkIcon({ url }) {
   if (url.startsWith('obsidian://')) return <Paperclip size={10} />
@@ -13,6 +15,7 @@ function LinkIcon({ url }) {
 export function TaskCard({ task }) {
   const { state, dispatch } = useApp()
   const { toggleTask, updateTask } = useTasks()
+  const [aiOpen, setAiOpen] = useState(false)
   const project = state.projects.find(p => p.id === task.project_id)
   const isDark = state.theme === 'dark'
   const overdue = isOverdue(task)
@@ -84,6 +87,17 @@ export function TaskCard({ task }) {
             </span>
           ))}
 
+          {/* AI result chip */}
+          {task.has_ai_result && (
+            <button
+              onClick={e => { e.stopPropagation(); setAiOpen(true) }}
+              className="flex items-center gap-1 text-xs md:text-[11px] text-td-purple dark:text-tn-purple bg-td-purple/10 dark:bg-tn-purple/10 px-1.5 py-0.5 rounded-md hover:bg-td-purple/20 dark:hover:bg-tn-purple/20 transition-colors"
+            >
+              <Sparkles size={9} />
+              AI
+            </button>
+          )}
+
           {/* Recurrence */}
           {recurrenceLabel(task.recurrence) && (
             <span className="text-xs md:text-[11px] text-td-teal dark:text-tn-teal">{recurrenceLabel(task.recurrence)}</span>
@@ -145,6 +159,8 @@ export function TaskCard({ task }) {
         fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M9 18l6-6-6-6" />
       </svg>
+
+      {aiOpen && <AiResultModal taskId={task.id} onClose={() => setAiOpen(false)} />}
     </div>
   )
 }

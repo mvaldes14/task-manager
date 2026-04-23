@@ -82,6 +82,10 @@ export const api = {
   getSettings: () => req('/settings'),
   updateSettings: (data) => req('/settings', 'PATCH', data),
 
+  // AI results
+  getTaskAi: (taskId) => req(`/tasks/${taskId}/ai`),
+  putTaskAi: (taskId, data) => req(`/tasks/${taskId}/ai`, 'PUT', data),
+
   // Dashboard
   getDashboardStats: (days = 30) => {
     const today = new Date().toISOString().split('T')[0] // YYYY-MM-DD in local timezone

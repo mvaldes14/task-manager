@@ -15,6 +15,7 @@ from routes.settings  import bp as settings_bp
 from routes.otlp      import bp as otlp_bp
 from routes.dashboard import bp as dashboard_bp
 from routes.users     import bp as users_bp
+from routes.ai        import bp as ai_bp
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 
@@ -74,6 +75,7 @@ app.register_blueprint(settings_bp)
 app.register_blueprint(otlp_bp)
 app.register_blueprint(dashboard_bp)
 app.register_blueprint(users_bp)
+app.register_blueprint(ai_bp)
 
 # ── Auth middleware ────────────────────────────────────────────────────────────
 
