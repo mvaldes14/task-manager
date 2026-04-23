@@ -26,6 +26,8 @@ const initialState = {
   // Calendar
   calYear: new Date().getFullYear(),
   calMonth: new Date().getMonth(),
+  calDay: new Date().getDate(),
+  calView: localStorage.getItem('td-cal-view') || 'month',
   // Settings
   theme: localStorage.getItem('td-theme') || 'dark',
   otelEndpoint: '',
@@ -62,7 +64,11 @@ function reducer(state, action) {
     case 'SET_TOAST':       return { ...state, toast: action.payload }
     case 'SET_CONFIRM':     return { ...state, confirm: action.payload }
     case 'SET_THEME':       return { ...state, theme: action.payload }
-    case 'SET_CAL':         return { ...state, calYear: action.payload.year, calMonth: action.payload.month }
+    case 'SET_CAL':         return { ...state, calYear: action.payload.year, calMonth: action.payload.month, ...(action.payload.day !== undefined ? { calDay: action.payload.day } : {}) }
+    case 'SET_CAL_VIEW': {
+      localStorage.setItem('td-cal-view', action.payload)
+      return { ...state, calView: action.payload }
+    }
     case 'SET_SETTINGS':    return { ...state, gcalEnabled: action.payload.gcal_enabled || false, otelEndpoint: action.payload.otel_frontend_endpoint || '' }
     default:                return state
   }

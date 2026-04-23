@@ -120,6 +120,22 @@ function ViewHeader({ title, icon: Icon, count, onSearch, searchOpen, setSearchO
           </button>
         )}
 
+        {state.view === 'calendar' && !searchOpen && (
+          <div className="flex items-center gap-0.5 bg-td-surface dark:bg-tn-surface rounded-lg p-0.5">
+            {['month', 'week', 'day'].map(v => (
+              <button
+                key={v}
+                onClick={() => dispatch({ type: 'SET_CAL_VIEW', payload: v })}
+                className={`px-2 py-1 rounded-md text-[11px] font-medium transition-colors capitalize
+                  ${state.calView === v
+                    ? 'bg-td-bg2 dark:bg-tn-bg2 text-td-fg dark:text-tn-fg shadow-sm'
+                    : 'text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg'}`}
+              >
+                {v.charAt(0).toUpperCase() + v.slice(1)}
+              </button>
+            ))}
+          </div>
+        )}
         {state.view !== 'calendar' && !searchOpen && (
           <div className="flex items-center gap-1 bg-td-surface dark:bg-tn-surface rounded-lg p-0.5">
             <button

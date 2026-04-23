@@ -6,3 +6,4 @@ __pycache__/
 .env
 client-react/node_modules/
 client/dist/
+.claude
