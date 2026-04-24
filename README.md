@@ -29,6 +29,7 @@ A self-hosted task manager that runs as a PWA on phone and web. Understands natu
 - **Google Calendar sync** — tasks with due dates sync automatically; done tasks shown in linked calendar
 - **ICS calendar import** — import external calendars via URL or `.ics` file upload (managed in Settings)
 - **Push notifications** — ntfy or Gotify reminders; configurable per-task (timed: N minutes before due; all-day: at a set time); timezone-aware; deduplication via `reminder_sent_at`
+- **AI results** — store and retrieve AI-generated content per task (model-agnostic; written by any external client via `PUT /api/tasks/<id>/ai`)
 - **Settings modal** — Account tab (avatar, display name, password change), Calendars, Integrations (OTel), and Notifications
 - **OpenTelemetry** — backend (Flask + psycopg2) and frontend (fetch + document-load) tracing; opt-in via env vars or Settings UI
 - **PWA** — installable on iOS, Android, and macOS
@@ -339,6 +340,48 @@ Available icons: `folder`, `home`, `briefcase`, `target`, `flask`, `book`, `pale
 
 ---
 
+### AI Results
+
+Store and retrieve AI-generated content attached to a task. The backend is model-agnostic — any external client can write results; the frontend reads them.
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/tasks/<id>/ai` | Get stored AI result for a task |
+| `PUT` | `/api/tasks/<id>/ai` | Store (upsert) AI result for a task |
+
+**PUT body:**
+
+| Field | Type | Description |
+|---|---|---|
+| `content` | string | AI-generated text (required) |
+| `model` | string | Model identifier e.g. `claude-sonnet-4-6` (optional) |
+
+```bash
+# Store an AI result
+curl -X PUT http://baseurl/api/tasks/<id>/ai \
+  -H "Authorization: Bearer $TD_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"content": "Break this into: 1) research, 2) draft, 3) review", "model": "claude-sonnet-4-6"}'
+
+# Retrieve it
+curl http://baseurl/api/tasks/<id>/ai \
+  -H "Authorization: Bearer $TD_API_KEY"
+```
+
+**GET response:**
+```json
+{
+  "content": "Break this into: 1) research, 2) draft, 3) review",
+  "model": "claude-sonnet-4-6",
+  "created_at": "2026-04-24T10:00:00",
+  "updated_at": "2026-04-24T10:05:00"
+}
+```
+
+Tasks with a stored result have `has_ai_result: true` in their task object.
+
+---
+
 ## Automation Examples
 
 ### iOS Shortcut — quick capture
@@ -387,7 +430,8 @@ curl -s http://baseurl/api/tasks/overdue \
 
 - **Backend** — Python 3.12 + Flask + PostgreSQL
 - **Frontend** — React 19 + Vite + Tailwind CSS
-- **NLP** — `dateparser` + `python-dateutil` (RRULE) — no external AI API
+- **NLP** — `dateparser` + `python-dateutil` (RRULE)
+- **AI** — model-agnostic result storage per task; any client writes via `PUT /api/tasks/<id>/ai`
 - **Observability** — OpenTelemetry SDK (backend: Flask + psycopg2; frontend: fetch + document-load); opt-in via env vars or Settings UI
 - **Theme** — TailwindCSS dark/light
 - **Auth** — Session-based with PostgreSQL storage; optional Bearer API key
