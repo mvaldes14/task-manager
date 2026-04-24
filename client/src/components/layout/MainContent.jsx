@@ -457,7 +457,7 @@ export function MainContent() {
           <CalendarView tasks={tasks} />
         ) : view === 'overdue' ? (
           <OverdueView tasks={visibleTasks} />
-        ) : view === 'today' ? (
+        ) : view === 'today' && viewMode !== 'board' ? (
           <PriorityTodayView tasks={visibleTasks} />
         ) : viewMode === 'board' ? (
           <KanbanBoard tasks={visibleTasks} />

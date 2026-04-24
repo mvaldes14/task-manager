@@ -60,7 +60,10 @@ function shelfDates() {
 
 function SmartShelf({ projects, tags, onInsert }) {
   const dates = shelfDates()
-  const priorities = ['high', 'medium']
+  const priorities = [
+    { label: 'P1 High', text: 'p1', color: '#f7768e' },
+    { label: 'P2 Med',  text: 'p2', color: '#e0af68' },
+  ]
   const shownProjects = projects.slice(0, 4)
   const shownTags = tags.slice(0, 4)
 
@@ -90,11 +93,7 @@ function SmartShelf({ projects, tags, onInsert }) {
       {shownTags.length > 0 && (
         <Row label="Tag" items={shownTags.map(t => ({ label: '@' + t, text: '@' + t, color: '#bb9af7' }))} />
       )}
-      <Row label="Pri" items={priorities.map(p => ({
-        label: p.charAt(0).toUpperCase() + p.slice(1),
-        text: '!' + p,
-        color: p === 'high' ? '#f7768e' : '#e0af68',
-      }))} />
+      <Row label="Pri" items={priorities} />
     </div>
   )
 }

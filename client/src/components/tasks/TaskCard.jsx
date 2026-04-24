@@ -91,7 +91,7 @@ export function TaskCard({ task }) {
           {task.has_ai_result && (
             <button
               onClick={e => { e.stopPropagation(); setAiOpen(true) }}
-              className="flex items-center gap-1 text-xs md:text-[11px] text-td-purple dark:text-tn-purple bg-td-purple/10 dark:bg-tn-purple/10 px-1.5 py-0.5 rounded-md hover:bg-td-purple/20 dark:hover:bg-tn-purple/20 transition-colors"
+              className="flex items-center gap-1 text-xs md:text-[11px] text-td-red dark:text-tn-red bg-td-red/10 dark:bg-tn-red/10 px-1.5 py-0.5 rounded-md hover:bg-td-red/20 dark:hover:bg-tn-red/20 transition-colors"
             >
               <Sparkles size={9} />
               AI
