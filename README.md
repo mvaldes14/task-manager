@@ -5,9 +5,11 @@
 A self-hosted task manager that runs as a PWA on phone and web. Understands natural language and syncs with Google Calendar.
 ![Dark Mode](https://s3.mvaldes.dev/dash1.png)
 
-![Dark Mode](https://s3.mvaldes.dev/doit.png)
+![Dark Mode](https://s3.mvaldes.dev/doit1.png)
 
-![Light Mode](https://s3.mvaldes.dev/doit2.png)
+![Kanban Mode](https://s3.mvaldes.dev/doit2.png)
+
+![Calendar Mode](https://s3.mvaldes.dev/doit3.png)
 
 ---
 
