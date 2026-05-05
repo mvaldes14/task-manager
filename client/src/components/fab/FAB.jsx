@@ -31,6 +31,7 @@ const CHIP_COLORS = {
   date:     { color: '#7aa2f7', bg: 'rgba(122,162,247,0.15)' },
   tag:      { color: '#bb9af7', bg: 'rgba(187,154,247,0.15)' },
   user:     { color: '#4ade80', bg: 'rgba(74,222,128,0.15)' },
+  link:     { color: '#38bdf8', bg: 'rgba(56,189,248,0.15)' },
 }
 
 function NlpChip({ label, color, bg }) {
@@ -182,6 +183,11 @@ export function FAB() {
       }
       if (result.assigned_to_username) {
         next.push({ label: '+' + result.assigned_to_username, ...CHIP_COLORS.user })
+      }
+      if (result.links?.length) {
+        result.links.forEach(l =>
+          next.push({ label: '🔗 ' + l.label, ...CHIP_COLORS.link })
+        )
       }
       setChips(next)
     } catch { /* silent */ }

@@ -11,6 +11,32 @@ import dateparser
 
 logger = logging.getLogger(__name__)
 
+from urllib.parse import urlparse as _urlparse
+
+def _derive_link_label(url):
+    if url.startswith('obsidian://'): return 'Obsidian Note'
+    if 'github.com' in url: return 'GitHub'
+    try:
+        return (_urlparse(url).hostname or '').lstrip('www.') or 'Link'
+    except Exception:
+        return 'Link'
+
+def _derive_title_from_url(url):
+    try:
+        p = _urlparse(url)
+        host = (p.hostname or '').lstrip('www.')
+        parts = [s for s in p.path.split('/') if s]
+        if parts:
+            slug = parts[-1].replace('-', ' ').replace('_', ' ')
+            if len(slug) > 40: slug = slug[:40]
+            return f"{slug} — {host}"
+        return host or 'Link'
+    except Exception:
+        return 'Link'
+
+_BANG_URL_RE  = re.compile(r'!(?P<url>https?://\S+)', re.IGNORECASE)
+_BARE_URL_RE  = re.compile(r'^https?://\S+$', re.IGNORECASE)
+
 DAYS     = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday']
 WEEKDAYS = [MO, TU, WE, TH, FR, SA, SU]
 
@@ -267,6 +293,12 @@ def parse_natural_language(text):
     found_date = None
     found_time = None
 
+    # 0. Extract !url links before any other processing
+    for m in _BANG_URL_RE.finditer(text):
+        url = m.group('url').rstrip('.,;)')
+        result['links'].append({'url': url, 'label': _derive_link_label(url)})
+    text = _BANG_URL_RE.sub('', text).strip()
+
     # 1. Recurrence — consume keywords before dateparser sees them
     rrule_str, text = rrule_from_text(text)
 
@@ -323,6 +355,12 @@ def parse_natural_language(text):
     title = re.sub(r'^[,.\-]\s*', '', title)
     title = re.sub(r'\s*[,.]$', '', title)
     result['title'] = title or original
+
+    # 9b. Bare URL as entire title → move to links and derive a readable name
+    if _BARE_URL_RE.match(result['title']):
+        url = result['title'].rstrip('.,;)')
+        result['links'].append({'url': url, 'label': _derive_link_label(url)})
+        result['title'] = _derive_title_from_url(url)
 
     # 10. NLP summary
     parts = []

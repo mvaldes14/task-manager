@@ -153,8 +153,7 @@ def create_task():
     data = request.get_json(); tid = str(uuid.uuid4())
     title = data.get('title', '').strip()
     if not title: return jsonify({'error': 'Title required'}), 400
-    nlp = {}
-    if data.get('nlp'): nlp = parse_natural_language(title); title = nlp.get('title', title)
+    nlp            = parse_natural_language(title); title = nlp.get('title', title)
     tags           = data.get('tags', nlp.get('labels', []))
     due_date       = data.get('due_date', nlp.get('due_date'))
     due_time       = data.get('due_time', nlp.get('due_time'))
@@ -163,7 +162,7 @@ def create_task():
     recurrence     = data.get('recurrence', nlp.get('recurrence'))
     recurrence_end = data.get('recurrence_end')
     assigned_to    = data.get('assigned_to')
-    links          = data.get('links', [])
+    links          = data.get('links') or nlp.get('links', [])
     description    = data.get('description', '')
     priority       = data.get('priority', nlp.get('priority') or 'medium')
 
