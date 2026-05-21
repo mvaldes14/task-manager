@@ -24,14 +24,14 @@ A self-hosted task manager that runs as a PWA on phone and web. Understands natu
 - **Drag and drop** — Kanban: drag cards between columns; Calendar: drag tasks to reschedule
 - **Pull to refresh** — pull down on mobile to reload
 - **Recurring tasks** — RFC 5545 RRULE format; auto-reschedules on completion
-- **Projects** — custom icon (25 lucide icons) and color
+- **Projects** — custom icon (25 lucide icons) and color; drag to reorder in the sidebar (desktop)
 - **Subtasks** — nested tasks with completion tracking
-- **Links** — attach URLs per task (GitHub, Obsidian, or any URL), auto-labeled
+- **Links** — attach URLs per task (GitHub, Obsidian, or any URL), auto-labeled; also extractable inline from the task title with `!<url>` (rendered as link chips)
 - **Overdue view** — past-due tasks grouped by date
 - **Google Calendar sync** — tasks with due dates sync automatically; done tasks shown in linked calendar
 - **ICS calendar import** — import external calendars via URL or `.ics` file upload (managed in Settings)
 - **Push notifications** — ntfy or Gotify reminders; configurable per-task (timed: N minutes before due; all-day: at a set time); timezone-aware; deduplication via `reminder_sent_at`
-- **AI results** — store and retrieve AI-generated content per task (model-agnostic; written by any external client via `PUT /api/tasks/<id>/ai`)
+- **AI results** — store and retrieve AI-generated content per task (model-agnostic; written by any external client via `PUT /api/tasks/<id>/ai`); tasks with a stored result show an AI badge in the task detail view, and clicking it opens a modal with the rendered markdown content
 - **Settings modal** — Account tab (avatar, display name, password change), Calendars, Integrations (OTel), and Notifications
 - **OpenTelemetry** — backend (Flask + psycopg2) and frontend (fetch + document-load) tracing; opt-in via env vars or Settings UI
 - **PWA** — installable on iOS, Android, and macOS
@@ -92,8 +92,9 @@ call dentist tuesday at 2:30pm #health
 finish report by friday @urgent
 standup daily at 9am
 pay rent end of month
-review PR in 3 days
+review PR in 3 days !https://github.com/org/repo/pull/42
 meeting every monday and friday at 10am
+fix flaky test p1 +alice
 ```
 
 ### Syntax
@@ -102,6 +103,9 @@ meeting every monday and friday at 10am
 |---|---|
 | `#projectname` | Assign to project |
 | `@label` | Add tag |
+| `+username` | Assign task to a user |
+| `p1` / `p2` / `p3` | Priority (high / medium / low) |
+| `!<url>` | Strip URL from title and attach it as a link chip (auto-labeled) |
 | `next monday`, `tomorrow`, `in 3 days` | Due date |
 | `at 3pm`, `noon`, `EOD`, `morning` | Due time |
 | `every monday`, `daily`, `every 2 weeks` | Recurrence (stored as RRULE) |
@@ -290,9 +294,10 @@ curl -s -X POST http://baseurl/api/nlp/parse \
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/api/projects` | List all projects (includes task counts) |
-| `POST` | `/api/projects` | Create project |
+| `GET` | `/api/projects` | List all projects (includes task counts), ordered by sidebar position |
+| `POST` | `/api/projects` | Create project (appended to end of order) |
 | `PATCH` | `/api/projects/<id>` | Update project |
+| `POST` | `/api/projects/reorder` | Persist sidebar order — body: `{"order": ["<pid1>", "<pid2>", ...]}` |
 | `DELETE` | `/api/projects/<id>` | Delete project (tasks moved to inbox) |
 
 **Project fields:**

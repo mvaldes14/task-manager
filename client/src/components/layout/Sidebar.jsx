@@ -170,10 +170,34 @@ function UserAvatar({ user, size = 28 }) {
 }
 
 export function Sidebar() {
-  const { state, dispatch } = useApp()
+  const { state, dispatch, toast } = useApp()
   const [showNewProject, setShowNewProject] = useState(false)
   const [editingProject, setEditingProject] = useState(null)
   const [showSettings, setShowSettings] = useState(false)
+  const [dragProjectId, setDragProjectId] = useState(null)
+  const [dropTargetId, setDropTargetId] = useState(null)
+
+  const handleProjectDrop = async (targetId) => {
+    const sourceId = dragProjectId
+    setDragProjectId(null)
+    setDropTargetId(null)
+    if (!sourceId || sourceId === targetId) return
+    const list = state.projects.filter(p => p.id !== 'inbox')
+    const fromIdx = list.findIndex(p => p.id === sourceId)
+    const toIdx = list.findIndex(p => p.id === targetId)
+    if (fromIdx < 0 || toIdx < 0) return
+    const reordered = [...list]
+    const [moved] = reordered.splice(fromIdx, 1)
+    reordered.splice(toIdx, 0, moved)
+    const withPositions = reordered.map((p, i) => ({ ...p, position: i + 1 }))
+    const inbox = state.projects.find(p => p.id === 'inbox')
+    dispatch({ type: 'SET_PROJECTS', payload: inbox ? [inbox, ...withPositions] : withPositions })
+    try {
+      await api.reorderProjects(reordered.map(p => p.id))
+    } catch {
+      toast('Failed to reorder projects')
+    }
+  }
 
   const collapsed = state.sidebarCollapsed
   const toggle = () => dispatch({ type: 'TOGGLE_SIDEBAR_COLLAPSED' })
@@ -282,8 +306,16 @@ export function Sidebar() {
             </button>
           ) : (
             <button key={p.id}
+              draggable
+              onDragStart={e => { setDragProjectId(p.id); e.dataTransfer.effectAllowed = 'move' }}
+              onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (dragProjectId && dragProjectId !== p.id) setDropTargetId(p.id) }}
+              onDragLeave={() => { if (dropTargetId === p.id) setDropTargetId(null) }}
+              onDrop={e => { e.preventDefault(); handleProjectDrop(p.id) }}
+              onDragEnd={() => { setDragProjectId(null); setDropTargetId(null) }}
               onClick={() => dispatch({ type: 'SET_VIEW', payload: `project:${p.id}` })}
               className={`group w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors
+                ${dragProjectId === p.id ? 'opacity-40' : ''}
+                ${dropTargetId === p.id ? 'ring-1 ring-td-blue/60 dark:ring-tn-blue/60' : ''}
                 ${active
                   ? 'bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg font-semibold'
                   : 'text-td-muted dark:text-tn-nav font-medium hover:text-td-fg dark:hover:text-tn-fg hover:bg-td-surface/50 dark:hover:bg-tn-surface/50'}`}

@@ -30,6 +30,7 @@ export const api = {
   getProjects: () => req('/projects'),
   createProject: (data) => req('/projects', 'POST', data),
   updateProject: (id, data) => req(`/projects/${id}`, 'PATCH', data),
+  reorderProjects: (order) => req('/projects/reorder', 'POST', { order }),
   deleteProject: (id) => req(`/projects/${id}`, 'DELETE'),
 
   // Tasks — always include browser timezone so GCal events land at the right time

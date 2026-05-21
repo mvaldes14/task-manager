@@ -116,6 +116,15 @@ def init_db():
         # Multi-user columns (additive migrations)
         cur.execute("ALTER TABLE projects ADD COLUMN IF NOT EXISTS owner_id TEXT REFERENCES users(id) ON DELETE SET NULL")
         cur.execute("ALTER TABLE projects ADD COLUMN IF NOT EXISTS shared BOOLEAN DEFAULT FALSE")
+        cur.execute("ALTER TABLE projects ADD COLUMN IF NOT EXISTS position INTEGER DEFAULT 0")
+        # Backfill position for any projects still at 0 using created_at order (per owner)
+        cur.execute("""
+            WITH ranked AS (
+                SELECT id, ROW_NUMBER() OVER (PARTITION BY owner_id ORDER BY created_at) AS rn
+                FROM projects WHERE id != 'inbox' AND position = 0
+            )
+            UPDATE projects p SET position = ranked.rn FROM ranked WHERE p.id = ranked.id
+        """)
         cur.execute("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS owner_id TEXT REFERENCES users(id) ON DELETE SET NULL")
         cur.execute("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS assigned_to TEXT REFERENCES users(id) ON DELETE SET NULL")
         cur.execute("ALTER TABLE sessions ADD COLUMN IF NOT EXISTS user_id TEXT REFERENCES users(id) ON DELETE CASCADE")

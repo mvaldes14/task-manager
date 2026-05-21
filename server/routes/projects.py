@@ -13,12 +13,14 @@ def get_projects():
     conn = get_db()
     try:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        # Inbox always first; rest by position then created_at
+        order_clause = "ORDER BY (id='inbox') DESC, position, created_at"
         if user_id:
             cur.execute(
-                "SELECT * FROM projects WHERE id='inbox' OR owner_id=%s OR shared=TRUE ORDER BY created_at",
+                f"SELECT * FROM projects WHERE id='inbox' OR owner_id=%s OR shared=TRUE {order_clause}",
                 (user_id,))
         else:
-            cur.execute("SELECT * FROM projects ORDER BY created_at")
+            cur.execute(f"SELECT * FROM projects {order_clause}")
         return jsonify([row_to_dict(r) for r in cur.fetchall()])
     finally:
         release_db(conn)
@@ -32,8 +34,12 @@ def create_project():
     try:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cur.execute(
-            "INSERT INTO projects (id,name,color,icon,owner_id,shared) VALUES (%s,%s,%s,%s,%s,%s) RETURNING *",
-            (pid, data['name'], data.get('color', '#6366f1'), data.get('icon', '📁'), owner_id, False))
+            "SELECT COALESCE(MAX(position), 0) + 1 AS next_pos FROM projects WHERE id != 'inbox' AND owner_id IS NOT DISTINCT FROM %s",
+            (owner_id,))
+        next_pos = cur.fetchone()['next_pos']
+        cur.execute(
+            "INSERT INTO projects (id,name,color,icon,owner_id,shared,position) VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING *",
+            (pid, data['name'], data.get('color', '#6366f1'), data.get('icon', '📁'), owner_id, False, next_pos))
         row = row_to_dict(cur.fetchone())
         conn.commit()
     finally:
@@ -59,6 +65,24 @@ def update_project(pid):
     finally:
         release_db(conn)
     return jsonify(row)
+
+@bp.route('/api/projects/reorder', methods=['POST'])
+def reorder_projects():
+    data = request.get_json() or {}
+    order = data.get('order') or []
+    if not isinstance(order, list):
+        return jsonify({'error': 'order must be a list of project ids'}), 400
+    conn = get_db()
+    try:
+        cur = conn.cursor()
+        for idx, pid in enumerate(order, start=1):
+            if pid == 'inbox':
+                continue
+            cur.execute("UPDATE projects SET position=%s, updated_at=NOW() WHERE id=%s", (idx, pid))
+        conn.commit()
+    finally:
+        release_db(conn)
+    return '', 204
 
 @bp.route('/api/projects/<pid>', methods=['DELETE'])
 def delete_project(pid):
