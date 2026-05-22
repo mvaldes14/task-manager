@@ -1,0 +1,1002 @@
+openapi: 3.1.0
+info:
+  title: Doit API
+  description: |
+    Self-hosted task manager. Flask backend serving the compiled React frontend.
+
+    **Authentication:** session cookie (`td_session`) set by `POST /auth/login`,
+    or an API key passed as `Authorization: Bearer <TD_API_KEY>` or `X-API-Key: <TD_API_KEY>`.
+    Public paths: `/login`, `/auth/login`, `/auth/logout`, `/auth/status`, PWA assets.
+  version: "1.0.0"
+
+servers:
+  - url: http://localhost:5000
+    description: Local dev (gunicorn / flask)
+  - url: https://doit.example.com
+    description: Self-hosted production
+
+security:
+  - sessionCookie: []
+  - bearerAuth: []
+  - apiKeyHeader: []
+
+tags:
+  - name: auth
+  - name: tasks
+  - name: subtasks
+  - name: projects
+  - name: users
+  - name: settings
+  - name: dashboard
+  - name: gcal
+  - name: ics
+  - name: ai
+  - name: nlp
+  - name: otlp
+
+paths:
+  # ── Auth ────────────────────────────────────────────────────────
+  /login:
+    get:
+      tags: [auth]
+      summary: Login HTML page (or redirect to /)
+      security: []
+      responses:
+        '200': { description: HTML login page, content: { text/html: {} } }
+        '302': { description: Redirect to / when not required or already authed }
+
+  /auth/login:
+    post:
+      tags: [auth]
+      summary: Log in with username/password
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: { type: string }
+                password: { type: string }
+                remember: { type: boolean, default: false }
+      responses:
+        '200':
+          description: OK — sets `td_session` cookie
+          headers:
+            Set-Cookie:
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { type: object, properties: { ok: { type: boolean } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { description: Rate limited (5 failures / 15 min) }
+
+  /auth/logout:
+    post:
+      tags: [auth]
+      summary: Destroy session
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { type: object, properties: { ok: { type: boolean } } }
+
+  /auth/status:
+    get:
+      tags: [auth]
+      summary: Current auth + user state
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  password_set:  { type: boolean }
+                  authenticated: { type: boolean }
+                  gcal_enabled:  { type: boolean }
+                  current_user:
+                    oneOf:
+                      - { type: 'null' }
+                      - $ref: '#/components/schemas/User'
+
+  # ── Tasks ───────────────────────────────────────────────────────
+  /api/tasks:
+    get:
+      tags: [tasks]
+      summary: List tasks (filterable)
+      parameters:
+        - { in: query, name: project_id, schema: { type: string } }
+        - { in: query, name: status,     schema: { $ref: '#/components/schemas/TaskStatus' } }
+        - { in: query, name: search,     schema: { type: string } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Task' }
+    post:
+      tags: [tasks]
+      summary: Create a task (title supports NLP — "tomorrow at 5pm #work !!high")
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TaskCreate' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Task' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /api/tasks/today:
+    get:
+      tags: [tasks]
+      summary: Tasks due today (not done)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Task' } }
+
+  /api/tasks/upcoming:
+    get:
+      tags: [tasks]
+      summary: Tasks due in the next 7 days
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Task' } }
+
+  /api/tasks/overdue:
+    get:
+      tags: [tasks]
+      summary: Tasks with past due dates (not done)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Task' } }
+
+  /api/tasks/search:
+    get:
+      tags: [tasks]
+      summary: Type-ahead search (open tasks only, max 8 results)
+      parameters:
+        - { in: query, name: q,       required: true, schema: { type: string, minLength: 2 } }
+        - { in: query, name: exclude, schema: { type: string, description: Task id to exclude } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:         { type: string }
+                    title:      { type: string }
+                    status:     { $ref: '#/components/schemas/TaskStatus' }
+                    project_id: { type: string }
+
+  /api/tasks/reorder:
+    post:
+      tags: [tasks]
+      summary: Bulk update task positions and statuses (drag-and-drop)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: object
+                required: [id, position, status]
+                properties:
+                  id:       { type: string }
+                  position: { type: integer }
+                  status:   { $ref: '#/components/schemas/TaskStatus' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { type: object, properties: { ok: { type: boolean } } }
+
+  /api/tasks/{tid}:
+    parameters:
+      - $ref: '#/components/parameters/TaskId'
+    get:
+      tags: [tasks]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Task' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [tasks]
+      summary: Full or partial update (PUT and PATCH are equivalent)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TaskUpdate' }
+      responses:
+        '200':
+          description: Updated task (may include `recurrence_next` when a recurring clone was created)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Task' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [tasks]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TaskUpdate' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Task' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [tasks]
+      responses:
+        '204': { description: Deleted }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/tasks/{tid}/subtasks:
+    parameters:
+      - $ref: '#/components/parameters/TaskId'
+    post:
+      tags: [subtasks]
+      summary: Add a subtask (free-form title runs through NLP, or pass `linked_task_id`)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:          { type: string }
+                linked_task_id: { type: string, description: Link to an existing task; title is taken from that task }
+      responses:
+        '201':
+          description: Returns the *full* parent task with all subtasks
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Task' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/tasks/{tid}/subtasks/{sid}:
+    parameters:
+      - $ref: '#/components/parameters/TaskId'
+      - $ref: '#/components/parameters/SubtaskId'
+    patch:
+      tags: [subtasks]
+      summary: Update a subtask (only the changed subtask row is returned)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:     { type: string }
+                completed: { type: boolean }
+                due_date:  { type: string, format: date }
+                due_time:  { type: string, example: "14:30" }
+                labels:    { type: array, items: { type: string } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Subtask' }
+    delete:
+      tags: [subtasks]
+      responses:
+        '204': { description: Deleted }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/tasks/{tid}/ai:
+    parameters:
+      - $ref: '#/components/parameters/TaskId'
+    get:
+      tags: [ai]
+      summary: Get stored AI-generated content for a task
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  content:    { type: string }
+                  model:      { type: string, nullable: true }
+                  created_at: { type: string, format: date-time, nullable: true }
+                  updated_at: { type: string, format: date-time, nullable: true }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [ai]
+      summary: Upsert AI content for a task
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content: { type: string }
+                model:   { type: string, nullable: true }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:      { type: boolean }
+                  task_id: { type: string }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/tags:
+    get:
+      tags: [tasks]
+      summary: List all distinct task tags
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { type: array, items: { type: string } }
+
+  /api/nlp/parse:
+    post:
+      tags: [nlp]
+      summary: Parse a free-form task title (dates, recurrence, project, assignee, tags, links, priority)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text: { type: string, example: "Send invoice tomorrow at 3pm #work !!high" }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                properties:
+                  title:                 { type: string }
+                  due_date:              { type: string, format: date, nullable: true }
+                  due_time:              { type: string, nullable: true }
+                  recurrence:            { type: string, nullable: true }
+                  labels:                { type: array, items: { type: string } }
+                  links:                 { type: array, items: { $ref: '#/components/schemas/Link' } }
+                  project_name:          { type: string, nullable: true }
+                  assigned_to_username:  { type: string, nullable: true }
+                  priority:              { type: string, nullable: true }
+                  nlp_summary:           { type: string, nullable: true }
+
+  # ── Projects ────────────────────────────────────────────────────
+  /api/projects:
+    get:
+      tags: [projects]
+      responses:
+        '200':
+          description: OK (inbox first, then user-visible projects)
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Project' } }
+    post:
+      tags: [projects]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:  { type: string }
+                color: { type: string, default: "#6366f1" }
+                icon:  { type: string, default: "📁" }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Project' }
+
+  /api/projects/reorder:
+    post:
+      tags: [projects]
+      summary: Reorder projects (inbox is ignored if included)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [order]
+              properties:
+                order: { type: array, items: { type: string }, description: project IDs in desired order }
+      responses:
+        '204': { description: Reordered }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /api/projects/{pid}:
+    parameters:
+      - { in: path, name: pid, required: true, schema: { type: string } }
+    put:
+      tags: [projects]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProjectUpdate' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Project' }
+    patch:
+      tags: [projects]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProjectUpdate' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Project' }
+    delete:
+      tags: [projects]
+      summary: Delete project; its tasks fall back to inbox. Cannot delete `inbox`.
+      responses:
+        '204': { description: Deleted }
+
+  # ── Users ───────────────────────────────────────────────────────
+  /api/users:
+    get:
+      tags: [users]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/User' } }
+    post:
+      tags: [users]
+      summary: Create a user (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username:     { type: string }
+                password:     { type: string }
+                display_name: { type: string, nullable: true }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { description: Admin only }
+        '409': { description: Username already taken }
+
+  /api/users/me:
+    get:
+      tags: [users]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [users]
+      summary: Update own display name / password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                display_name:     { type: string, nullable: true }
+                current_password: { type: string, description: required when setting `new_password` }
+                new_password:     { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '400': { description: current_password incorrect }
+
+  /api/users/me/avatar:
+    post:
+      tags: [users]
+      summary: Upload avatar (stored resized to 50×50 JPEG)
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { type: object, properties: { ok: { type: boolean } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /api/users/{uid}/avatar:
+    parameters:
+      - { in: path, name: uid, required: true, schema: { type: string } }
+    get:
+      tags: [users]
+      summary: Get a user avatar (JPEG)
+      responses:
+        '200':
+          description: OK
+          content:
+            image/jpeg:
+              schema: { type: string, format: binary }
+        '404': { description: No avatar }
+
+  # ── Settings ────────────────────────────────────────────────────
+  /api/settings:
+    get:
+      tags: [settings]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Settings' }
+    patch:
+      tags: [settings]
+      summary: Merge-patch settings (read-only keys like `gcal_enabled` are stripped)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Settings' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Settings' }
+
+  # ── Dashboard ───────────────────────────────────────────────────
+  /api/dashboard/stats:
+    get:
+      tags: [dashboard]
+      parameters:
+        - { in: query, name: days,  schema: { type: integer, enum: [7, 30, 90], default: 30 } }
+        - { in: query, name: today, schema: { type: string, format: date, description: client-supplied today to dodge TZ issues } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DashboardStats' }
+
+  # ── Google Calendar ─────────────────────────────────────────────
+  /api/gcal/status:
+    get:
+      tags: [gcal]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  enabled:     { type: boolean }
+                  calendar_id: { type: string, nullable: true }
+
+  /api/gcal/sync:
+    post:
+      tags: [gcal]
+      summary: Push all open tasks with due dates to Google Calendar
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  synced: { type: integer }
+                  total:  { type: integer }
+        '400': { description: GCal not configured }
+
+  # ── ICS calendars ───────────────────────────────────────────────
+  /api/ics:
+    get:
+      tags: [ics]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/IcsCalendar' } }
+    post:
+      tags: [ics]
+      summary: Add an ICS calendar by URL or uploaded file
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:  { type: string }
+                color: { type: string }
+                url:   { type: string, format: uri }
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:  { type: string, format: binary }
+                name:  { type: string }
+                color: { type: string }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/IcsCalendar' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /api/ics/{cid}:
+    parameters:
+      - { in: path, name: cid, required: true, schema: { type: string } }
+    delete:
+      tags: [ics]
+      responses:
+        '204': { description: Deleted }
+
+  /api/ics/{cid}/events:
+    parameters:
+      - { in: path, name: cid, required: true, schema: { type: string } }
+      - { in: query, name: year,  schema: { type: integer } }
+      - { in: query, name: month, schema: { type: integer, minimum: 1, maximum: 12 } }
+    get:
+      tags: [ics]
+      summary: Events for the given month (defaults to current month)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/IcsEvent' } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ── OTLP proxy ──────────────────────────────────────────────────
+  /api/otlp/v1/traces:
+    post:
+      tags: [otlp]
+      summary: Browser → backend proxy for OTLP/HTTP trace export
+      requestBody:
+        required: true
+        content:
+          application/x-protobuf:
+            schema: { type: string, format: binary }
+          application/json:
+            schema: { type: object }
+      responses:
+        '200': { description: Forwarded }
+        '204': { description: No endpoint configured (or dropped on error) }
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: td_session
+    bearerAuth:
+      type: http
+      scheme: bearer
+    apiKeyHeader:
+      type: apiKey
+      in: header
+      name: X-API-Key
+
+  parameters:
+    TaskId:
+      name: tid
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    SubtaskId:
+      name: sid
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error: { type: string }
+
+    TaskStatus:
+      type: string
+      enum: [todo, doing, done]
+
+    Priority:
+      type: string
+      enum: [low, medium, high]
+
+    Link:
+      type: object
+      properties:
+        url:   { type: string }
+        label: { type: string, nullable: true }
+
+    Subtask:
+      type: object
+      properties:
+        id:                  { type: string, format: uuid }
+        task_id:             { type: string, format: uuid }
+        title:               { type: string }
+        completed:           { type: boolean }
+        position:            { type: integer }
+        due_date:            { type: string, format: date, nullable: true }
+        due_time:            { type: string, nullable: true }
+        labels:              { type: array, items: { type: string } }
+        linked_task_id:      { type: string, format: uuid, nullable: true }
+        linked_task_title:   { type: string, nullable: true }
+        linked_task_status:  { allOf: [{ $ref: '#/components/schemas/TaskStatus' }], nullable: true }
+
+    Task:
+      type: object
+      properties:
+        id:               { type: string, format: uuid }
+        title:            { type: string }
+        description:      { type: string }
+        status:           { $ref: '#/components/schemas/TaskStatus' }
+        priority:         { $ref: '#/components/schemas/Priority' }
+        due_date:         { type: string, format: date, nullable: true }
+        due_time:         { type: string, nullable: true, example: "14:30" }
+        project_id:       { type: string }
+        tags:             { type: array, items: { type: string } }
+        links:            { type: array, items: { $ref: '#/components/schemas/Link' } }
+        recurrence:       { type: string, nullable: true, description: "RRULE-style or shorthand: daily, weekly, monthly, etc." }
+        recurrence_end:   { type: string, format: date, nullable: true }
+        parent_task_id:   { type: string, format: uuid, nullable: true, description: Set on clones of a recurring task }
+        owner_id:         { type: string, format: uuid, nullable: true }
+        assigned_to:      { type: string, format: uuid, nullable: true }
+        position:         { type: integer }
+        created_at:       { type: string, format: date-time }
+        updated_at:       { type: string, format: date-time }
+        completed_at:     { type: string, format: date-time, nullable: true }
+        gcal_event_id:    { type: string, nullable: true }
+        has_ai_result:    { type: boolean }
+        subtasks:         { type: array, items: { $ref: '#/components/schemas/Subtask' } }
+        recurrence_next:  { allOf: [{ $ref: '#/components/schemas/Task' }], description: Only present when completing a recurring task triggers a clone }
+        ai_webhook_fired: { type: boolean, description: Only present when the 'ai' tag was just added and the webhook fired }
+        nlp_summary:      { type: string, description: Diagnostic — only present on create when NLP parsing extracted fields }
+
+    TaskCreate:
+      type: object
+      required: [title]
+      properties:
+        title:          { type: string, description: NLP-parsed (dates, #tags, !priority, @user, +project, !url=…) }
+        description:    { type: string }
+        status:         { $ref: '#/components/schemas/TaskStatus' }
+        priority:       { $ref: '#/components/schemas/Priority' }
+        project_id:     { type: string, default: inbox }
+        due_date:       { type: string, format: date }
+        due_time:       { type: string }
+        tags:           { type: array, items: { type: string } }
+        links:          { type: array, items: { $ref: '#/components/schemas/Link' } }
+        recurrence:     { type: string }
+        recurrence_end: { type: string, format: date }
+        assigned_to:    { type: string, format: uuid }
+        timezone:       { type: string, description: IANA TZ used when syncing to GCal }
+
+    TaskUpdate:
+      type: object
+      description: Any subset of editable fields. Setting `status=done` may trigger recurrence cloning.
+      properties:
+        title:          { type: string }
+        description:    { type: string }
+        project_id:     { type: string }
+        status:         { $ref: '#/components/schemas/TaskStatus' }
+        priority:       { $ref: '#/components/schemas/Priority' }
+        due_date:       { type: string, format: date, nullable: true }
+        due_time:       { type: string, nullable: true }
+        position:       { type: integer }
+        recurrence:     { type: string, nullable: true }
+        recurrence_end: { type: string, format: date, nullable: true }
+        assigned_to:    { type: string, format: uuid, nullable: true }
+        tags:           { type: array, items: { type: string } }
+        links:          { type: array, items: { $ref: '#/components/schemas/Link' } }
+        timezone:       { type: string }
+
+    Project:
+      type: object
+      properties:
+        id:         { type: string }
+        name:       { type: string }
+        color:     { type: string }
+        icon:       { type: string }
+        position:   { type: integer }
+        shared:     { type: boolean }
+        owner_id:   { type: string, format: uuid, nullable: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    ProjectUpdate:
+      type: object
+      description: Only `name`, `color`, `icon`, `shared` are accepted; other keys are ignored.
+      properties:
+        name:   { type: string }
+        color:  { type: string }
+        icon:   { type: string }
+        shared: { type: boolean }
+
+    User:
+      type: object
+      properties:
+        id:           { type: string, format: uuid }
+        username:     { type: string }
+        display_name: { type: string, nullable: true }
+        is_admin:     { type: boolean }
+        has_avatar:   { type: boolean }
+
+    Settings:
+      type: object
+      description: Free-form key/value bag. Common keys are listed here.
+      additionalProperties: true
+      properties:
+        obsidian_vault:          { type: string, nullable: true }
+        obsidian_inbox:          { type: string, nullable: true }
+        ai_webhook_url:          { type: string, nullable: true }
+        otel_frontend_endpoint:  { type: string, nullable: true }
+        otel_frontend_service:   { type: string, nullable: true }
+        reminder_enabled:        { type: boolean }
+        reminder_minutes_before: { type: integer }
+        reminder_allday_time:    { type: string, example: "08:00" }
+        reminder_timezone:       { type: string, example: "America/Chicago" }
+        gcal_enabled:            { type: boolean, readOnly: true }
+
+    DashboardStats:
+      type: object
+      properties:
+        counts:
+          type: object
+          properties:
+            total_active:     { type: integer }
+            completed_period: { type: integer }
+            due_today:        { type: integer }
+            overdue:          { type: integer }
+            by_status:
+              type: object
+              additionalProperties: { type: integer }
+        completion_trend:
+          type: array
+          items:
+            type: object
+            properties:
+              date:      { type: string, format: date }
+              completed: { type: integer }
+              created:   { type: integer }
+        activity_heatmap:
+          type: array
+          items:
+            type: object
+            properties:
+              date:  { type: string, format: date }
+              count: { type: integer }
+        projects:
+          type: array
+          items:
+            type: object
+            properties:
+              id:        { type: string }
+              name:      { type: string }
+              total:     { type: integer }
+              completed: { type: integer }
+        tags:
+          type: array
+          items:
+            type: object
+            properties:
+              tag:   { type: string }
+              count: { type: integer }
+        insights:
+          type: object
+          properties:
+            current_streak:  { type: integer }
+            longest_streak:  { type: integer }
+            avg_per_day:     { type: number }
+            best_day:        { type: string, nullable: true }
+            completion_rate: { type: number }
+
+    IcsCalendar:
+      type: object
+      properties:
+        id:    { type: string, format: uuid }
+        name:  { type: string }
+        color: { type: string }
+        url:   { type: string, nullable: true }
+
+    IcsEvent:
+      type: object
+      properties:
+        id:       { type: string }
+        title:    { type: string }
+        due_date: { type: string, format: date }
+        due_time: { type: string, nullable: true }
+        all_day:  { type: boolean }
