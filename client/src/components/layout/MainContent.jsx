@@ -234,7 +234,7 @@ function ListToolbar({ showDone, onToggleDone, sortBy, onSortBy, groupBy, onGrou
           ${showDone ? 'bg-td-green dark:bg-tn-green border-td-green dark:border-tn-green' : 'border-td-muted/50 dark:border-tn-muted/50'}`}>
           {showDone && <span className="text-[8px] text-white font-bold">✓</span>}
         </span>
-        Show done
+        Completed only
       </button>
 
       <div className="h-3.5 w-px bg-td-border dark:bg-tn-border" />
@@ -332,7 +332,7 @@ function FilterSheet({ showDone, onToggleDone, sortBy, onSortBy, groupBy, onGrou
                 ? 'bg-td-surface dark:bg-tn-surface border-td-border dark:border-tn-border text-td-fg dark:text-tn-fg'
                 : 'border-td-border/40 dark:border-tn-border/40 bg-transparent text-td-muted dark:text-tn-muted'}`}
           >
-            <span className="text-sm">Show completed tasks</span>
+            <span className="text-sm">Completed only</span>
             <span className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors
               ${showDone ? 'bg-td-green dark:bg-tn-green border-td-green dark:border-tn-green' : 'border-td-muted/50 dark:border-tn-muted/50'}`}>
               {showDone && <span className="text-[8px] text-white font-bold">✓</span>}
@@ -491,9 +491,11 @@ export function MainContent() {
     // Board view owns its own done toggle — always include done tasks so KanbanBoard can filter
     const skipDoneFilter = viewMode === 'board'
     // If searching across all tasks, start from full task list instead of view-filtered baseTasks
-    const pool = (searchQuery.trim() && searchScope === 'all')
-      ? (showDone || skipDoneFilter ? tasks : tasks.filter(t => t.status !== 'done'))
-      : (showDone || skipDoneFilter ? baseTasks : baseTasks.filter(t => t.status !== 'done'))
+    const source = (searchQuery.trim() && searchScope === 'all') ? tasks : baseTasks
+    let pool
+    if (skipDoneFilter)      pool = source                                   // board filters itself
+    else if (showDone)       pool = source.filter(t => t.status === 'done')  // only completed
+    else                     pool = source.filter(t => t.status !== 'done')  // default: hide completed
     let result = sortBy !== 'status' ? sortTasks(pool, sortBy, projects) : pool
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase()
@@ -504,7 +506,7 @@ export function MainContent() {
       )
     }
     return result
-  }, [baseTasks, tasks, showDone, sortBy, projects, searchQuery, searchScope])
+  }, [baseTasks, tasks, showDone, sortBy, projects, searchQuery, searchScope, viewMode])
 
   const activeCount = useMemo(() =>
     baseTasks.filter(t => t.status !== 'done').length, [baseTasks])
