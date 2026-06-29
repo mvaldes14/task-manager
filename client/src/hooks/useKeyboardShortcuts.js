@@ -25,6 +25,7 @@ export function useKeyboardShortcuts() {
           if (state.showShortcuts) dispatch({ type: 'TOGGLE_SHORTCUTS' })
           else if (state.searchOpen) dispatch({ type: 'SET_SEARCH_OPEN', payload: false })
           else if (state.fabOpen) dispatch({ type: 'SET_FAB', payload: { open: false } })
+          else if (state.selectedTaskId) dispatch({ type: 'SELECT_TASK', payload: null })
           break
         case 'q':
           e.preventDefault()
@@ -65,5 +66,5 @@ export function useKeyboardShortcuts() {
 
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [state.fabOpen, state.sidebarOpen, state.showShortcuts, state.searchOpen, dispatch])
+  }, [state.fabOpen, state.sidebarOpen, state.showShortcuts, state.searchOpen, state.selectedTaskId, dispatch])
 }

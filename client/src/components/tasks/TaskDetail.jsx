@@ -417,6 +417,7 @@ export function TaskDetail() {
   const subtaskDebounce = useRef(null)
   const inFlight = useRef(0)
   const saveTimer = useRef(null)
+  const swipeStart = useRef(null)
 
   const autoSave = useCallback(async (id, data) => {
     inFlight.current++
@@ -497,13 +498,27 @@ export function TaskDetail() {
   return (
     <>
       {/* Mobile backdrop */}
-      <div className="md:hidden fixed inset-0 z-[60] bg-black/40 animate-fade-in" onClick={close} />
+      <div className="md:hidden fixed inset-0 z-[96] bg-black/40 animate-fade-in" onClick={close} />
 
-      <aside className={`
-        fixed inset-x-0 bottom-0 z-[61] w-full max-w-md ml-auto
-        md:relative md:inset-auto md:w-80 md:z-auto md:border-l md:border-td-border dark:border-tn-border
+      <aside className="
+        fixed inset-0 z-[97] animate-slide-up
+        md:relative md:inset-auto md:animate-none md:w-80 md:z-auto md:border-l md:border-td-border dark:border-tn-border
         bg-td-bg2 dark:bg-tn-bg2 flex flex-col overflow-hidden
-        `} style={{ top: 'env(safe-area-inset-top, 0px)' }}>
+      ">
+        {/* Safe-area top + grabber — mobile only */}
+        <div className="md:hidden shrink-0" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
+          <div
+            onTouchStart={e => { swipeStart.current = e.touches[0].clientY }}
+            onTouchEnd={e => {
+              const delta = e.changedTouches[0].clientY - (swipeStart.current ?? 0)
+              swipeStart.current = null
+              if (delta > 80) close()
+            }}
+            className="flex justify-center py-2.5 cursor-grab active:cursor-grabbing"
+          >
+            <div className="w-10 h-1 rounded-full bg-td-border dark:bg-tn-border" />
+          </div>
+        </div>
 
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3.5 border-b border-td-border/50 dark:border-tn-border/50 shrink-0">
