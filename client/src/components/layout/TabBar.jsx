@@ -1,13 +1,14 @@
 import { useMemo } from 'react'
 import { useApp } from '../../context/AppContext'
 import { isToday, isOverdue } from '../../utils'
-import { Inbox, Sun, LayoutList, Menu } from 'lucide-react'
+import { Inbox, Sun, CalendarDays, LayoutList, Menu } from 'lucide-react'
 
 const TABS = [
-  { key: 'inbox',  icon: Inbox,      label: 'Inbox' },
-  { key: 'today',  icon: Sun,        label: 'Today' },
-  { key: 'all',    icon: LayoutList, label: 'All'   },
-  { key: 'browse', icon: Menu,       label: 'Browse' },
+  { key: 'inbox',    icon: Inbox,        label: 'Inbox' },
+  { key: 'today',    icon: Sun,          label: 'Today' },
+  { key: 'calendar', icon: CalendarDays, label: 'Calendar' },
+  { key: 'all',      icon: LayoutList,   label: 'All'   },
+  { key: 'browse',   icon: Menu,         label: 'Browse' },
 ]
 
 export function TabBar() {
@@ -23,6 +24,11 @@ export function TabBar() {
   const handleTab = (key) => {
     if (key === 'browse') {
       dispatch({ type: 'SET_SIDEBAR', payload: true })
+    } else if (key === 'calendar') {
+      const now = new Date()
+      dispatch({ type: 'SET_CAL', payload: { year: now.getFullYear(), month: now.getMonth(), day: now.getDate() } })
+      dispatch({ type: 'SET_CAL_VIEW', payload: 'day' })
+      dispatch({ type: 'SET_VIEW', payload: 'calendar' })
     } else {
       dispatch({ type: 'SET_VIEW', payload: key })
     }
