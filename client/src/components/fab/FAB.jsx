@@ -118,9 +118,16 @@ export function FAB() {
 
   useEffect(() => {
     if (open) {
+      const draft = state.fabDraft || ''
+      if (draft) {
+        setText(draft)
+        clearTimeout(timerRef.current)
+        timerRef.current = setTimeout(() => parseNlp(draft), 400)
+      }
       setTimeout(() => inputRef.current?.focus(), 80)
       api.getTags().then(t => { if (t) setAllTags(t) }).catch(() => {})
     } else { setText(''); setChips([]); setKeyboardHeight(0) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
   // Track keyboard height via visualViewport (mobile)
