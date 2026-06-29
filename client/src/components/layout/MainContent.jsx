@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback, useRef } from 'react'
+import { useMemo, useState, useCallback, useRef, useEffect } from 'react'
 import { useApp } from '../../context/AppContext'
 import { useTasks } from '../../hooks/useTasks'
 import { usePullToRefresh } from '../../hooks/usePullToRefresh'
@@ -7,7 +7,7 @@ import { TaskList } from '../tasks/TaskList'
 import { KanbanBoard } from '../tasks/KanbanBoard'
 import { CalendarView } from '../calendar/CalendarView'
 import { DashboardView } from '../dashboard/DashboardView'
-import { LayoutList, Columns, Menu, Search, X, ChevronDown, Inbox, Sun, Layers, CalendarDays, AlertCircle } from 'lucide-react'
+import { LayoutList, Columns, Menu, Search, X, ChevronDown, Inbox, Sun, Layers, CalendarDays, AlertCircle, SlidersHorizontal } from 'lucide-react'
 import { ProjectIcon } from '../shared/ProjectIcon'
 import { PriorityTodayView } from '../tasks/PriorityTodayView'
 
@@ -278,6 +278,110 @@ function ListToolbar({ showDone, onToggleDone, sortBy, onSortBy, groupBy, onGrou
   )
 }
 
+function FilterSheet({ showDone, onToggleDone, sortBy, onSortBy, groupBy, onGroupBy, onClose }) {
+  const swipeStart = useRef(null)
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div className="fixed inset-0 z-[96] bg-black/40 animate-fade-in" onClick={onClose} />
+
+      {/* Sheet */}
+      <div
+        className="fixed inset-x-0 bottom-0 z-[97] animate-slide-up rounded-t-2xl shadow-e3 flex flex-col overflow-hidden
+          bg-td-bg2 dark:bg-tn-bg2 border-t border-td-border dark:border-tn-border"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+      >
+        {/* Grabber */}
+        <div
+          onTouchStart={e => { swipeStart.current = e.touches[0].clientY }}
+          onTouchEnd={e => {
+            const delta = e.changedTouches[0].clientY - (swipeStart.current ?? 0)
+            swipeStart.current = null
+            if (delta > 80) onClose()
+          }}
+          className="flex justify-center pt-3 pb-2 shrink-0 cursor-grab active:cursor-grabbing"
+        >
+          <div className="w-10 h-1 rounded-full bg-td-border dark:bg-tn-border" />
+        </div>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 pb-3 shrink-0">
+          <span className="text-sm font-semibold text-td-fg dark:text-tn-fg">Filters &amp; Sort</span>
+          <button
+            onClick={onClose}
+            className="p-2 -mr-2 text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg transition-colors"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Controls */}
+        <div className="px-4 pb-6 space-y-5">
+          {/* Show done */}
+          <button
+            onClick={onToggleDone}
+            className={`w-full flex items-center justify-between px-3 py-3 rounded-xl transition-colors border
+              ${showDone
+                ? 'bg-td-surface dark:bg-tn-surface border-td-border dark:border-tn-border text-td-fg dark:text-tn-fg'
+                : 'border-td-border/40 dark:border-tn-border/40 bg-transparent text-td-muted dark:text-tn-muted'}`}
+          >
+            <span className="text-sm">Show completed tasks</span>
+            <span className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors
+              ${showDone ? 'bg-td-green dark:bg-tn-green border-td-green dark:border-tn-green' : 'border-td-muted/50 dark:border-tn-muted/50'}`}>
+              {showDone && <span className="text-[8px] text-white font-bold">✓</span>}
+            </span>
+          </button>
+
+          {/* Group by */}
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-td-muted dark:text-tn-muted block">Group by</label>
+            <div className="flex gap-2">
+              {GROUP_OPTIONS.map(o => (
+                <button
+                  key={o.value}
+                  onClick={() => onGroupBy(o.value)}
+                  className={`flex-1 py-2 px-3 text-xs font-medium rounded-lg transition-colors border
+                    ${groupBy === o.value
+                      ? 'bg-td-blue/10 dark:bg-tn-blue/10 text-td-blue dark:text-tn-blue border-td-blue/30 dark:border-tn-blue/30'
+                      : 'bg-td-surface dark:bg-tn-surface text-td-muted dark:text-tn-muted border-td-border/50 dark:border-tn-border/50'}`}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Sort by */}
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-td-muted dark:text-tn-muted block">Sort by</label>
+            <div className="flex flex-wrap gap-2">
+              {SORT_OPTIONS.map(o => (
+                <button
+                  key={o.value}
+                  onClick={() => onSortBy(o.value)}
+                  className={`py-2 px-3 text-xs font-medium rounded-lg transition-colors border
+                    ${sortBy === o.value
+                      ? 'bg-td-blue/10 dark:bg-tn-blue/10 text-td-blue dark:text-tn-blue border-td-blue/30 dark:border-tn-blue/30'
+                      : 'bg-td-surface dark:bg-tn-surface text-td-muted dark:text-tn-muted border-td-border/50 dark:border-tn-border/50'}`}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  )
+}
+
 function sortTasks(tasks, sortBy, projects) {
   const sorted = [...tasks]
   switch (sortBy) {
@@ -326,6 +430,7 @@ export function MainContent() {
     prevGlobal.current = globalSearchOpen
   }
   const [groupBy, setGroupBy] = useState(() => localStorage.getItem('td-group-by') || 'status')
+  const [filterSheetOpen, setFilterSheetOpen] = useState(false)
 
   const handleRefresh = useCallback(async () => { await loadAll() }, [loadAll])
   const { indicatorEl, onTouchStart, onTouchMove, onTouchEnd } = usePullToRefresh(handleRefresh)
@@ -405,6 +510,7 @@ export function MainContent() {
     baseTasks.filter(t => t.status !== 'done').length, [baseTasks])
 
   const showToolbar = viewMode === 'list' && view !== 'overdue' && view !== 'calendar' && view !== 'dashboard' && view !== 'today'
+  const hasActiveFilters = !showDone || sortBy !== 'status' || groupBy !== 'status'
   const isCalendar = view === 'calendar'
   const isDashboard = view === 'dashboard'
 
@@ -428,13 +534,47 @@ export function MainContent() {
       )}
 
       {showToolbar && (
-        <ListToolbar
+        <>
+          {/* Desktop: inline toolbar */}
+          <div className="hidden md:block">
+            <ListToolbar
+              showDone={showDone}
+              onToggleDone={toggleShowDone}
+              sortBy={sortBy}
+              onSortBy={handleSortBy}
+              groupBy={groupBy}
+              onGroupBy={handleGroupBy}
+            />
+          </div>
+
+          {/* Mobile: compact filter trigger */}
+          <div className="md:hidden flex items-center gap-2 px-4 py-2 border-b border-td-border/30 dark:border-tn-border/30 bg-td-bg dark:bg-tn-bg">
+            <button
+              onClick={() => setFilterSheetOpen(true)}
+              className={`flex items-center gap-1.5 text-xs px-2.5 min-h-[36px] rounded-lg transition-colors border
+                ${hasActiveFilters
+                  ? 'bg-td-blue/10 dark:bg-tn-blue/10 text-td-blue dark:text-tn-blue border-td-blue/30 dark:border-tn-blue/30'
+                  : 'bg-td-surface dark:bg-tn-surface text-td-muted dark:text-tn-muted border-td-border/50 dark:border-tn-border/50'}`}
+            >
+              <SlidersHorizontal size={13} />
+              <span>Filter</span>
+              {hasActiveFilters && (
+                <span className="w-1.5 h-1.5 rounded-full bg-td-blue dark:bg-tn-blue shrink-0" />
+              )}
+            </button>
+          </div>
+        </>
+      )}
+
+      {filterSheetOpen && (
+        <FilterSheet
           showDone={showDone}
           onToggleDone={toggleShowDone}
           sortBy={sortBy}
           onSortBy={handleSortBy}
           groupBy={groupBy}
           onGroupBy={handleGroupBy}
+          onClose={() => setFilterSheetOpen(false)}
         />
       )}
 
