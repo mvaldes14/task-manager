@@ -414,8 +414,11 @@ export function MainContent() {
   const { loadAll } = useTasks()
   const { view, tasks, projects, viewMode, searchOpen: globalSearchOpen } = state
   const [showDone, setShowDone] = useState(() => {
-    const saved = localStorage.getItem('td-show-done')
-    return saved === null ? true : saved === 'true'
+    // 'td-show-done' was written under the old "show all completed" meaning (now inverted).
+    // Use a new key so stale values don't flip the filter; clean up the old key on load.
+    localStorage.removeItem('td-show-done')
+    const saved = localStorage.getItem('td-filter-completed-only')
+    return saved === null ? false : saved === 'true'
   })
   const [sortBy, setSortBy] = useState(() => localStorage.getItem('td-sort-by') || 'status')
   const [searchQuery, setSearchQuery] = useState('')
@@ -436,7 +439,7 @@ export function MainContent() {
   const { indicatorEl, onTouchStart, onTouchMove, onTouchEnd } = usePullToRefresh(handleRefresh)
 
   const toggleShowDone = () => setShowDone(v => {
-    localStorage.setItem('td-show-done', String(!v))
+    localStorage.setItem('td-filter-completed-only', String(!v))
     return !v
   })
   const handleSortBy = (v) => {
