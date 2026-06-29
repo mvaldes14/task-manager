@@ -4,6 +4,7 @@ import { useApp } from '../../context/AppContext'
 import { useTasks } from '../../hooks/useTasks'
 import { useInlineAutocomplete } from '../../hooks/useInlineAutocomplete'
 import { api } from '../../api'
+import { Button, Input, Chip } from '../ui'
 
 const SUGGESTION_COLORS = {
   tag:     { color: '#bb9af7' },
@@ -17,7 +18,7 @@ function SuggestionDropdown({ suggestions, onSelect }) {
     <div className="absolute left-0 right-0 bottom-full mb-1 z-[99] rounded-xl border border-td-border dark:border-tn-border bg-white dark:bg-tn-bg2 shadow-xl overflow-hidden max-h-48 overflow-y-auto">
       {suggestions.map((s, i) => (
         <button key={i} onMouseDown={e => { e.preventDefault(); onSelect(s) }}
-          className="w-full text-left text-xs px-3 py-2.5 hover:bg-td-surface dark:hover:bg-tn-surface transition-colors flex items-center gap-2"
+          className="w-full text-left text-xs px-3 py-2.5 hover:bg-td-surface dark:hover:bg-tn-surface transition-colors duration-fast ease-standard flex items-center gap-2"
           style={{ color: SUGGESTION_COLORS[s.type]?.color }}>
           {s.label}
         </button>
@@ -32,15 +33,6 @@ const CHIP_COLORS = {
   tag:      { color: '#bb9af7', bg: 'rgba(187,154,247,0.15)' },
   user:     { color: '#4ade80', bg: 'rgba(74,222,128,0.15)' },
   link:     { color: '#38bdf8', bg: 'rgba(56,189,248,0.15)' },
-}
-
-function NlpChip({ label, color, bg }) {
-  return (
-    <span className="text-xs font-medium px-2.5 py-1 rounded-lg whitespace-nowrap shrink-0"
-      style={{ color, background: bg }}>
-      {label}
-    </span>
-  )
 }
 
 // Quick-insert shelf helpers
@@ -68,19 +60,19 @@ function SmartShelf({ projects, tags, onInsert }) {
   const shownProjects = projects.slice(0, 4)
   const shownTags = tags.slice(0, 4)
 
-  const Row = ({ label, items, color }) => (
+  const Row = ({ label, items }) => (
     <div className="flex items-center gap-2 px-4 py-1.5 overflow-x-auto no-scrollbar">
       <span className="text-[10px] font-semibold tracking-wider text-tn-muted/60 shrink-0 w-8 uppercase">{label}</span>
       {items.map(item => (
-        <button
+        <Chip
           key={item.text}
+          label={item.label}
+          color={item.color || undefined}
+          bg={item.color ? item.color + '15' : undefined}
           onMouseDown={e => { e.preventDefault(); onInsert(item.text) }}
           onTouchStart={e => { e.preventDefault(); onInsert(item.text) }}
-          className="text-xs px-3 py-1.5 rounded-full shrink-0 border border-tn-border bg-tn-surface text-tn-fg active:scale-95 transition-transform"
-          style={item.color ? { color: item.color, borderColor: item.color + '40', background: item.color + '15' } : {}}
-        >
-          {item.label}
-        </button>
+          className={!item.color ? 'border border-tn-border bg-tn-surface text-tn-fg' : ''}
+        />
       ))}
     </div>
   )
@@ -239,7 +231,7 @@ export function FAB() {
         <button
           onClick={() => dispatch({ type: 'SET_FAB', payload: { open: true } })}
           className="md:hidden fixed z-40 right-4 flex items-center justify-center
-            w-14 h-14 rounded-full shadow-lg transition-all active:scale-95 bg-tn-red dark:bg-tn-red"
+            w-14 h-14 rounded-full shadow-lg transition-all duration-fast ease-standard active:scale-[0.97] bg-tn-red dark:bg-tn-red"
           style={{ bottom: 'calc(64px + env(safe-area-inset-bottom, 0px) + 12px)' }}
           aria-label="Add task"
         >
@@ -252,7 +244,7 @@ export function FAB() {
         <button
           onClick={() => dispatch({ type: 'SET_FAB', payload: { open: true } })}
           className="hidden md:flex fixed bottom-6 right-6 z-40 items-center justify-center
-            w-14 h-14 rounded-full shadow-lg transition-all hover:scale-105 active:scale-95
+            w-14 h-14 rounded-full shadow-lg transition-all duration-fast ease-standard hover:scale-105 active:scale-[0.97]
             bg-tn-red dark:bg-tn-red"
           aria-label="Add task"
         >
@@ -280,22 +272,21 @@ export function FAB() {
           {/* Task input */}
           <div className="relative px-4 pt-2 pb-2">
             <SuggestionDropdown suggestions={suggestions} onSelect={acOnSelect} />
-            <input
+            <Input
               ref={inputRef}
               type="text"
               value={text}
               onChange={handleChange}
               onKeyDown={handleKeyDown}
               placeholder="What needs to be done?"
-              className="w-full bg-transparent text-td-fg dark:text-tn-fg text-xl font-semibold
-                outline-none leading-snug placeholder-td-muted/30 dark:placeholder-tn-muted/30"
+              className="text-xl font-semibold leading-snug placeholder-td-muted/30 dark:placeholder-tn-muted/30"
             />
           </div>
 
           {/* NLP chips */}
           {chips.length > 0 && (
             <div className="flex flex-wrap gap-2 px-4 pb-2">
-              {chips.map((c, i) => <NlpChip key={i} {...c} />)}
+              {chips.map((c, i) => <Chip key={i} {...c} />)}
             </div>
           )}
 
@@ -308,23 +299,19 @@ export function FAB() {
 
           {/* Action row */}
           <div className="flex items-center justify-between px-4 py-3 border-t border-td-border/40 dark:border-tn-border/40">
-            <button
-              onClick={close}
-              className="text-sm font-medium text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg transition-colors px-1"
-            >
+            <Button variant="ghost" size="sm" onClick={close} className="px-1">
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
               onClick={submit}
-              disabled={!text.trim() || loading}
-              className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold
-                bg-td-blue dark:bg-tn-blue text-white disabled:opacity-30 active:scale-95 transition-all"
+              disabled={!text.trim()}
+              loading={loading}
+              className="px-5 py-2 rounded-xl"
             >
-              {loading
-                ? <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                : <>Add task <ArrowRight size={14} strokeWidth={2.5} /></>
-              }
-            </button>
+              {!loading && <>Add task <ArrowRight size={14} strokeWidth={2.5} /></>}
+            </Button>
           </div>
         </div>
       )}
@@ -339,33 +326,34 @@ export function FAB() {
           >
             <div className="relative px-5 pt-6 pb-3">
               <SuggestionDropdown suggestions={suggestions} onSelect={acOnSelect} />
-              <input
+              <Input
                 ref={inputRef}
                 type="text"
                 value={text}
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
                 placeholder="What needs to be done?"
-                className="w-full bg-transparent text-td-fg dark:text-tn-fg text-xl font-medium
-                  outline-none leading-snug placeholder-td-muted/40 dark:placeholder-tn-muted/40"
+                className="text-xl font-medium leading-snug"
               />
             </div>
             {chips.length > 0 && (
               <div className="flex flex-wrap gap-2 px-5 py-2">
-                {chips.map((c, i) => <NlpChip key={i} {...c} />)}
+                {chips.map((c, i) => <Chip key={i} {...c} />)}
               </div>
             )}
             <div className="flex items-center justify-between px-5 py-4 mt-1">
-              <button onClick={close} className="text-sm font-medium text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg transition-colors">
+              <Button variant="ghost" size="sm" onClick={close}>
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="primary"
+                size="md"
                 onClick={submit}
-                disabled={!text.trim() || loading}
-                className="px-6 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-40 active:scale-95 bg-td-blue dark:bg-tn-blue text-white"
+                disabled={!text.trim()}
+                loading={loading}
               >
-                {loading ? 'Adding…' : 'Add Task'}
-              </button>
+                {!loading && 'Add Task'}
+              </Button>
             </div>
           </div>
         </div>

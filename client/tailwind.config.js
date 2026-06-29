@@ -53,7 +53,21 @@ export default {
         slideUp:  { from: { transform: 'translateY(100%)' }, to: { transform: 'translateY(0)' } },
         fadeIn:   { from: { opacity: 0 }, to: { opacity: 1 } },
         toastIn:  { from: { opacity: 0, transform: 'translateY(12px) scale(0.95)' }, to: { opacity: 1, transform: 'translateY(0) scale(1)' } },
-      }
+      },
+      // Motion tokens — every interactive element picks one of these durations + easings.
+      // Convention: hover/focus → duration-fast, entry animations → duration-base/slow.
+      // Press feedback: active:scale-[0.97]. Hover lift only where it already exists.
+      transitionDuration: {
+        fast: '150ms',
+        base: '250ms',
+        slow: '320ms',
+      },
+      transitionTimingFunction: {
+        // reuses the slide-up curve — smooth deceleration
+        standard: 'cubic-bezier(0.32,0.72,0,1)',
+        // reuses the toast curve — slight overshoot for interactive pop
+        spring:   'cubic-bezier(0.34,1.56,0.64,1)',
+      },
     },
   },
   plugins: [
