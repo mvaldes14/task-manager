@@ -27,13 +27,14 @@ export function TaskCard({ task }) {
   return (
     <div
       className={`group flex items-start gap-3 px-4 py-3 cursor-pointer transition-colors duration-fast
-        hover:bg-td-surface/50 dark:hover:bg-tn-surface/50 border-b border-td-border/50 dark:border-tn-border/50 last:border-0
+        hover:bg-td-surface/50 dark:hover:bg-tn-surface/50 active:bg-td-surface/70 dark:active:bg-tn-surface/70
+        border-b border-td-border/50 dark:border-tn-border/50 last:border-0
         ${done ? 'opacity-50' : ''}`}
       onClick={() => dispatch({ type: 'SELECT_TASK', payload: task.id })}
     >
-      {/* Checkbox */}
+      {/* Checkbox — hit area expanded to ~44px via padding+negative-margin without changing visual size */}
       <button
-        className="mt-0.5 shrink-0"
+        className="p-3 -mx-3 mt-0.5 shrink-0 relative z-10 motion-safe:active:scale-90 transition-transform duration-fast"
         onClick={e => { e.stopPropagation(); toggleTask(task.id, task.status) }}
         aria-label="Toggle task"
       >
@@ -92,7 +93,7 @@ export function TaskCard({ task }) {
               icon={<Sparkles size={9} />}
               label="AI"
               onClick={e => { e.stopPropagation(); setAiOpen(true) }}
-              className="px-1.5 py-0.5 rounded-md hover:bg-td-border/50 dark:hover:bg-tn-border/50"
+              className="px-1.5 py-0.5 rounded-md hover:bg-td-border/50 dark:hover:bg-tn-border/50 active:bg-td-border/70 dark:active:bg-tn-border/70"
             />
           )}
 
@@ -141,9 +142,10 @@ export function TaskCard({ task }) {
               <button
                 key={label}
                 onClick={() => updateTask(task.id, { due_date: isoDate })}
-                className="text-[10px] font-medium px-2 py-0.5 rounded-full border
+                className="inline-flex items-center min-h-[40px] text-[10px] font-medium px-2 rounded-full border
                   border-td-red/40 dark:border-tn-red/40 text-td-red dark:text-tn-red
-                  hover:bg-td-red/10 dark:hover:bg-tn-red/10 transition-colors duration-fast"
+                  hover:bg-td-red/10 dark:hover:bg-tn-red/10 active:bg-td-red/20 dark:active:bg-tn-red/20
+                  motion-safe:active:scale-95 transition-all duration-fast"
               >
                 {label}
               </button>
