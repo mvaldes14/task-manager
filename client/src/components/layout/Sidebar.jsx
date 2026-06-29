@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect, useRef } from 'react'
 import { useApp } from '../../context/AppContext'
 import { isOverdue, isToday } from '../../utils'
 import { Plus, LogOut, Sun, Moon, Settings, Trash2, CheckCircle2, RefreshCw, Calendar, Inbox, Layers, AlertCircle, PanelLeftClose, PanelLeftOpen, LayoutDashboard, Users } from 'lucide-react'
@@ -199,6 +199,75 @@ export function Sidebar() {
     }
   }
 
+  const asideRef = useRef(null)
+
+  // Prevent background scroll while drawer is open on mobile
+  useEffect(() => {
+    if (state.sidebarOpen) {
+      document.body.classList.add('overflow-hidden')
+    }
+    return () => document.body.classList.remove('overflow-hidden')
+  }, [state.sidebarOpen])
+
+  // Swipe-left to dismiss (mobile only, direct DOM manipulation to avoid re-render jank)
+  useEffect(() => {
+    const el = asideRef.current
+    if (!el || !state.sidebarOpen) return
+
+    let touch = null
+
+    const onStart = (e) => {
+      if (window.innerWidth >= 768) return
+      const t = e.touches[0]
+      touch = { x: t.clientX, y: t.clientY, time: Date.now(), locked: null }
+    }
+
+    const onMove = (e) => {
+      if (!touch || window.innerWidth >= 768) return
+      const t = e.touches[0]
+      const dx = t.clientX - touch.x
+      const dy = t.clientY - touch.y
+      if (touch.locked === null) {
+        if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return
+        touch.locked = Math.abs(dx) > Math.abs(dy) * 1.3 ? 'h' : 'v'
+      }
+      if (touch.locked !== 'h') return
+      if (dx > 0) return
+      e.preventDefault()
+      el.style.transform = `translateX(${dx}px)`
+      el.style.transition = 'none'
+    }
+
+    const onEnd = (e) => {
+      if (!touch) return
+      const locked = touch.locked
+      const dx = e.changedTouches[0].clientX - touch.x
+      const elapsed = Math.max(1, Date.now() - touch.time)
+      const velocity = Math.abs(dx) / elapsed * 1000
+      touch = null
+      el.style.transform = ''
+      el.style.transition = ''
+      if (locked !== 'h') return
+      if (dx < -48 || (dx < 0 && velocity > 400)) {
+        dispatch({ type: 'SET_SIDEBAR', payload: false })
+      }
+    }
+
+    el.addEventListener('touchstart', onStart, { passive: true })
+    el.addEventListener('touchmove', onMove, { passive: false })
+    el.addEventListener('touchend', onEnd, { passive: true })
+    el.addEventListener('touchcancel', onEnd, { passive: true })
+
+    return () => {
+      el.removeEventListener('touchstart', onStart)
+      el.removeEventListener('touchmove', onMove)
+      el.removeEventListener('touchend', onEnd)
+      el.removeEventListener('touchcancel', onEnd)
+      el.style.transform = ''
+      el.style.transition = ''
+    }
+  }, [state.sidebarOpen, dispatch])
+
   const collapsed = state.sidebarCollapsed
   const toggle = () => dispatch({ type: 'TOGGLE_SIDEBAR_COLLAPSED' })
 
@@ -214,15 +283,24 @@ export function Sidebar() {
   }
 
   return (
-    <aside
-      className={`
-        fixed left-0 top-0 z-50 bg-td-bg2 dark:bg-tn-bg2 border-r border-td-border dark:border-tn-border
-        flex flex-col transition-all duration-200 [bottom:calc(56px+env(safe-area-inset-bottom,0px))]
-        md:relative md:inset-y-0 md:translate-x-0 md:flex md:bottom-0
-        ${collapsed ? 'w-[56px]' : 'w-64'}
-        ${state.sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
-      `}
-      style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
+    <>
+      {/* Backdrop scrim — mobile only, fades in/out with the drawer */}
+      <div
+        className={`fixed inset-0 z-40 bg-black/50 md:hidden transition-opacity duration-base ease-standard
+          ${state.sidebarOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+        onClick={() => dispatch({ type: 'SET_SIDEBAR', payload: false })}
+        aria-hidden="true"
+      />
+      <aside
+        ref={asideRef}
+        className={`
+          fixed left-0 top-0 bottom-0 z-50 bg-td-bg2 dark:bg-tn-bg2 border-r border-td-border dark:border-tn-border
+          flex flex-col transition-transform duration-base ease-standard
+          md:relative md:inset-y-0 md:translate-x-0 md:flex md:bottom-0
+          ${collapsed ? 'w-[56px]' : 'w-64'}
+          ${state.sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+        `}
+        style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
 
       {/* Header */}
       <div className={`flex items-center py-4 ${collapsed ? 'justify-center px-0' : 'justify-between px-4'}`}>
@@ -405,6 +483,7 @@ export function Sidebar() {
       {editingProject && <ProjectFormModal project={editingProject} onClose={() => setEditingProject(null)} />}
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
     </aside>
+    </>
   )
 }
 

@@ -23,7 +23,7 @@ export function TabBar() {
 
   const handleTab = (key) => {
     if (key === 'browse') {
-      dispatch({ type: 'SET_SIDEBAR', payload: true })
+      dispatch({ type: 'SET_SIDEBAR', payload: !state.sidebarOpen })
     } else if (key === 'calendar') {
       const now = new Date()
       dispatch({ type: 'SET_CAL', payload: { year: now.getFullYear(), month: now.getMonth(), day: now.getDate() } })
