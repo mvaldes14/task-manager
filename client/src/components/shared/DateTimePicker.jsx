@@ -119,7 +119,7 @@ export function DateTimePicker({ date, time, onChange, onClear, placeholder = 'S
       {open && (
         <div className="absolute z-50 top-full mt-1.5 left-0 w-64
           bg-td-surface dark:bg-tn-surface border border-td-border dark:border-tn-border
-          rounded-xl shadow-xl animate-fade-in select-none">
+          rounded-xl shadow-e2 animate-fade-in select-none">
 
           {/* Month navigation */}
           <div className="flex items-center justify-between px-3 pt-3 pb-2">

@@ -5,10 +5,67 @@ import { api } from '../../api'
 import { isOverdue, isToday, fmtTime } from '../../utils'
 import { CompletionTrendChart } from './CompletionTrendChart'
 import { StatusDonutChart } from './StatusDonutChart'
+import { Skeleton } from '../ui'
 import {
   Sun, Flame, ChevronDown, ChevronUp, ArrowRight, Plus, Clock,
   CheckCircle2, ListTodo, Target,
 } from 'lucide-react'
+
+function DashboardSkeleton() {
+  return (
+    <div className="flex-1 overflow-y-auto">
+      <div className="max-w-4xl mx-auto p-6 space-y-4">
+        <div className="mb-6 space-y-2">
+          <Skeleton className="h-3 w-32" />
+          <Skeleton className="h-7 w-56 mt-1" />
+          <Skeleton className="h-4 w-44 mt-2" />
+        </div>
+        <div className="rounded-xl border border-td-border/50 dark:border-tn-border/50 overflow-hidden">
+          <div className="flex items-center gap-2 px-4 py-3.5 border-b border-td-border/30 dark:border-tn-border/30">
+            <Skeleton className="w-4 h-4 rounded" />
+            <Skeleton className="h-4 w-16" />
+          </div>
+          {[0, 1, 2].map(i => (
+            <div key={i} className="flex items-center gap-3 px-4 py-3 border-b border-td-border/30 dark:border-tn-border/30 last:border-0">
+              <Skeleton className="w-5 h-5 rounded-full shrink-0" />
+              <Skeleton className="h-4 flex-1" />
+              <Skeleton className="h-3 w-16 shrink-0" />
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-[1.4fr_1fr] gap-4">
+          <div className="rounded-xl border border-td-border/50 dark:border-tn-border/50 overflow-hidden">
+            <div className="px-4 py-3.5 border-b border-td-border/30 dark:border-tn-border/30">
+              <Skeleton className="h-4 w-20" />
+            </div>
+            {[0, 1, 2].map(i => (
+              <div key={i} className="px-4 py-2.5 border-b border-td-border/20 dark:border-tn-border/20 last:border-0">
+                <Skeleton className="h-4 w-full" />
+              </div>
+            ))}
+          </div>
+          <div className="rounded-xl border border-td-border/50 dark:border-tn-border/50 overflow-hidden">
+            <div className="px-4 py-3.5 border-b border-td-border/30 dark:border-tn-border/30">
+              <Skeleton className="h-4 w-24" />
+            </div>
+            <div className="p-4 space-y-3">
+              <Skeleton className="h-8 w-20" />
+              <Skeleton className="h-3 w-32" />
+              <Skeleton className="h-5 w-full" />
+              <Skeleton className="h-5 w-full" />
+            </div>
+          </div>
+        </div>
+        <div className="rounded-xl border border-td-border/40 dark:border-tn-border/40 overflow-hidden">
+          <div className="px-4 py-3 flex items-center gap-2">
+            <Skeleton className="h-3 w-3" />
+            <Skeleton className="h-3 w-16" />
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function getGreeting(name) {
   const h = new Date().getHours()
@@ -203,6 +260,8 @@ export function DashboardView() {
   const remaining = todayTasks.length + pendingOverdue.length
   const displayName = state.currentUser?.display_name || state.currentUser?.username || ''
 
+  if (!state.tasksLoaded) return <DashboardSkeleton />
+
   return (
     <div className="flex-1 overflow-y-auto">
       <div className="max-w-4xl mx-auto p-6 space-y-4">
@@ -341,8 +400,11 @@ export function DashboardView() {
               <span className="text-xs text-td-muted dark:text-tn-muted">Last 2 weeks</span>
             </div>
             {statsLoading ? (
-              <div className="p-4 text-center text-td-muted dark:text-tn-muted text-sm animate-pulse">
-                Loading…
+              <div className="p-4 space-y-3">
+                <Skeleton className="h-8 w-20" />
+                <Skeleton className="h-3 w-32" />
+                <Skeleton className="h-5 w-full" />
+                <Skeleton className="h-5 w-full" />
               </div>
             ) : (
               <MomentumPace

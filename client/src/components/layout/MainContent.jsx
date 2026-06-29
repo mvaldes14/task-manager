@@ -297,6 +297,8 @@ function sortTasks(tasks, sortBy, projects) {
 }
 
 import { TaskCard } from '../tasks/TaskCard'
+import { TaskListSkeleton } from '../tasks/TaskList'
+import { KanbanSkeleton } from '../tasks/KanbanBoard'
 
 export function MainContent() {
   const { state, dispatch } = useApp()
@@ -455,6 +457,8 @@ export function MainContent() {
           <DashboardView />
         ) : isCalendar ? (
           <CalendarView tasks={tasks} />
+        ) : !state.tasksLoaded ? (
+          viewMode === 'board' ? <KanbanSkeleton /> : <TaskListSkeleton />
         ) : view === 'overdue' ? (
           <OverdueView tasks={visibleTasks} />
         ) : view === 'today' && viewMode !== 'board' ? (

@@ -5,7 +5,7 @@ export function Toast() {
   if (!state.toast) return null
   return (
     <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[200] pointer-events-none animate-toast-in">
-      <div className="bg-td-surface dark:bg-tn-surface border border-td-border dark:border-tn-border text-td-fg dark:text-tn-fg text-sm px-4 py-2.5 rounded-xl shadow-xl whitespace-nowrap">
+      <div className="bg-td-surface dark:bg-tn-surface border border-td-border dark:border-tn-border text-td-fg dark:text-tn-fg text-sm px-4 py-2.5 rounded-xl shadow-e2 whitespace-nowrap">
         {state.toast}
       </div>
     </div>

@@ -2,7 +2,35 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { useApp } from '../../context/AppContext'
 import { useTasks } from '../../hooks/useTasks'
 import { TaskCard } from './TaskCard'
+import { Skeleton } from '../ui'
 import { Plus, Eye, EyeOff } from 'lucide-react'
+
+function KanbanColumnSkeleton({ color }) {
+  return (
+    <div className="flex-1 min-w-[260px] max-w-[320px] flex flex-col">
+      <div className="flex items-center gap-2 mb-3 px-1">
+        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
+        <Skeleton className="h-3 w-20" />
+      </div>
+      <div className="flex-1 rounded-xl bg-td-bg3/50 dark:bg-tn-bg3/50 p-2 space-y-2">
+        {[0, 1, 2].map(i => (
+          <div key={i} className="px-4 py-3 space-y-2">
+            <Skeleton className="h-4 w-4/5" />
+            <Skeleton className="h-3 w-2/5" />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+export function KanbanSkeleton() {
+  return (
+    <div className="flex gap-3 px-4 pb-6 overflow-x-auto flex-1 min-h-0">
+      {COLUMNS.map(({ status, color }) => <KanbanColumnSkeleton key={status} color={color} />)}
+    </div>
+  )
+}
 
 const COLUMNS = [
   { status: 'todo',    label: 'To Do',      color: '#565f89' },

@@ -15,7 +15,7 @@ const SUGGESTION_COLORS = {
 function SuggestionDropdown({ suggestions, onSelect }) {
   if (!suggestions.length) return null
   return (
-    <div className="absolute left-0 right-0 bottom-full mb-1 z-[99] rounded-xl border border-td-border dark:border-tn-border bg-white dark:bg-tn-bg2 shadow-xl overflow-hidden max-h-48 overflow-y-auto">
+    <div className="absolute left-0 right-0 bottom-full mb-1 z-[99] rounded-xl border border-td-border dark:border-tn-border bg-white dark:bg-tn-bg2 shadow-e2 overflow-hidden max-h-48 overflow-y-auto">
       {suggestions.map((s, i) => (
         <button key={i} onMouseDown={e => { e.preventDefault(); onSelect(s) }}
           className="w-full text-left text-xs px-3 py-2.5 hover:bg-td-surface dark:hover:bg-tn-surface transition-colors duration-fast ease-standard flex items-center gap-2"
@@ -258,7 +258,7 @@ export function FAB() {
       {/* ── Mobile: bottom sheet — pinned above keyboard ── */}
       {open && (
         <div
-          className="md:hidden fixed inset-x-0 z-[96] rounded-t-2xl shadow-2xl
+          className="md:hidden fixed inset-x-0 z-[96] rounded-t-2xl shadow-e3
             bg-white dark:bg-tn-bg2 border-t border-td-border dark:border-tn-border
             animate-slide-up"
           style={{ bottom: keyboardHeight }}
@@ -320,7 +320,7 @@ export function FAB() {
       {open && (
         <div className="hidden md:flex fixed inset-0 z-[89] items-center justify-center px-4 pointer-events-none">
           <div
-            className="w-full max-w-lg rounded-2xl shadow-2xl animate-fade-in pointer-events-auto
+            className="w-full max-w-lg rounded-2xl shadow-e3 animate-fade-in pointer-events-auto
               bg-white dark:bg-tn-bg2 border border-td-border dark:border-tn-border"
             onClick={e => e.stopPropagation()}
           >

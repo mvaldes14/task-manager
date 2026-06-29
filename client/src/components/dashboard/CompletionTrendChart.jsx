@@ -26,7 +26,7 @@ export function CompletionTrendChart({ data }) {
     if (!active || !payload || !payload.length) return null
 
     return (
-      <div className="bg-td-bg2 dark:bg-tn-bg2 border border-td-border dark:border-tn-border rounded-lg p-3 shadow-xl">
+      <div className="bg-td-bg2 dark:bg-tn-bg2 border border-td-border dark:border-tn-border rounded-lg p-3 shadow-e2">
         <p className="text-xs text-td-muted dark:text-tn-muted mb-2">{payload[0].payload.date}</p>
         <div className="space-y-1">
           {payload.map((entry, index) => (
