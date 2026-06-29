@@ -62,7 +62,7 @@ export function ActivityHeatmap({ data, period }) {
 
   const getColor = (count, isInRange) => {
     if (!isInRange || count === 0) {
-      return isDark ? '#1a1b26' : '#e5e7eb'
+      return isDark ? '#08090c' : '#e5e7eb'
     }
     const intensity = count / maxCount
     if (isDark) {

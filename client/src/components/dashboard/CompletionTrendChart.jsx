@@ -9,10 +9,10 @@ export function CompletionTrendChart({ data }) {
   // Theme colors
   const colors = {
     completed: isDark ? '#9ece6a' : '#9ece6a',
-    created: isDark ? '#7aa2f7' : '#7aa2f7',
-    grid: isDark ? '#414868' : '#e0e7ff',
-    text: isDark ? '#c0caf5' : '#24283b',
-    bg: isDark ? '#1a1b26' : '#ffffff',
+    created: isDark ? '#89b4fa' : '#7aa2f7',
+    grid: isDark ? '#20222a' : '#e0e7ff',
+    text: isDark ? '#e6e8eb' : '#24283b',
+    bg: isDark ? '#08090c' : '#ffffff',
   }
 
   const chartData = useMemo(() => {
