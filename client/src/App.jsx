@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { AppProvider, useApp } from './context/AppContext'
 import { useTasks } from './hooks/useTasks'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
+import { useShareIntake } from './hooks/useShareIntake'
 import { Sidebar } from './components/layout/Sidebar'
 import { TabBar } from './components/layout/TabBar'
 import { MainContent } from './components/layout/MainContent'
@@ -16,6 +17,7 @@ function AppShell() {
   const { state, dispatch } = useApp()
   const { loadAll, loadSettings } = useTasks()
   useKeyboardShortcuts()
+  useShareIntake()
   const [authed, setAuthed] = useState(null)
 
   useEffect(() => {

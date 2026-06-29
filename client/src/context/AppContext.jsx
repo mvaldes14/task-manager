@@ -21,6 +21,7 @@ const initialState = {
   searchOpen: false,
   fabOpen: false,
   fabTargetStatus: 'todo',
+  fabDraft: null,
   toast: null,
   confirm: null,            // { message, onOk }
   // Calendar
@@ -61,7 +62,7 @@ function reducer(state, action) {
       localStorage.setItem('td-sidebar-collapsed', String(next))
       return { ...state, sidebarCollapsed: next }
     }
-    case 'SET_FAB':         return { ...state, fabOpen: action.payload.open, fabTargetStatus: action.payload.status || state.fabTargetStatus }
+    case 'SET_FAB':         return { ...state, fabOpen: action.payload.open, fabTargetStatus: action.payload.status || state.fabTargetStatus, fabDraft: action.payload.open ? (action.payload.draft ?? null) : null }
     case 'SET_TOAST':       return { ...state, toast: action.payload }
     case 'SET_CONFIRM':     return { ...state, confirm: action.payload }
     case 'SET_THEME':       return { ...state, theme: action.payload }

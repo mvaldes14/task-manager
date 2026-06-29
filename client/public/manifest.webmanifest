@@ -1,0 +1,39 @@
+{
+  "name": "Doit",
+  "short_name": "Doit",
+  "description": "Smart task manager with natural language input",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#1a1b26",
+  "theme_color": "#1a1b26",
+  "orientation": "any",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "share_target": {
+    "action": "/share",
+    "method": "GET",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  },
+  "shortcuts": [
+    {
+      "name": "New Task",
+      "short_name": "New Task",
+      "description": "Quickly add a new task",
+      "url": "/?action=new-task"
+    },
+    {
+      "name": "Today",
+      "short_name": "Today",
+      "description": "View today's tasks",
+      "url": "/?view=today"
+    }
+  ]
+}
