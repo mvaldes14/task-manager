@@ -20,7 +20,7 @@ export function AiResultModal({ taskId, onClose }) {
       <div className="fixed inset-0 z-[301] flex items-center justify-center p-4 pointer-events-none">
         <div
           className="pointer-events-auto w-full max-w-2xl bg-td-bg2 dark:bg-tn-bg2 rounded-2xl
-            border border-td-border dark:border-tn-border shadow-2xl flex flex-col max-h-[80vh]"
+            border border-td-border dark:border-tn-border shadow-e3 flex flex-col max-h-[80vh]"
           style={{ animation: 'slideUp 0.18s ease-out' }}
         >
           {/* Header */}

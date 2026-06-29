@@ -29,6 +29,8 @@ const initialState = {
   calMonth: new Date().getMonth(),
   calDay: new Date().getDate(),
   calView: localStorage.getItem('td-cal-view') || 'month',
+  // Loading
+  tasksLoaded: false,
   // Settings
   theme: localStorage.getItem('td-theme') || 'dark',
   otelEndpoint: '',
@@ -72,6 +74,7 @@ function reducer(state, action) {
       return { ...state, calView: action.payload }
     }
     case 'SET_SETTINGS':    return { ...state, gcalEnabled: action.payload.gcal_enabled || false, otelEndpoint: action.payload.otel_frontend_endpoint || '', aiWebhookUrl: action.payload.ai_webhook_url || '' }
+    case 'SET_TASKS_LOADED': return { ...state, tasksLoaded: true }
     default:                return state
   }
 }

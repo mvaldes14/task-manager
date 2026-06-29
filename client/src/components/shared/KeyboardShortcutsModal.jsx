@@ -40,7 +40,7 @@ export function KeyboardShortcutsModal({ onClose }) {
           className="pointer-events-auto w-full max-w-sm rounded-2xl
             bg-td-bg2 dark:bg-tn-bg2
             border border-td-border dark:border-tn-border
-            shadow-2xl overflow-hidden"
+            shadow-e3 overflow-hidden"
           style={{ animation: 'slideUp 0.18s ease-out' }}
         >
           {/* Header */}

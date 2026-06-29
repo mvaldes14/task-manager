@@ -1,4 +1,25 @@
 import { TaskCard } from './TaskCard'
+import { Skeleton } from '../ui'
+
+function TaskRowSkeleton() {
+  return (
+    <div className="flex items-start gap-3 px-4 py-3 border-b border-td-border/30 dark:border-tn-border/30 last:border-0">
+      <Skeleton className="w-5 h-5 rounded-full shrink-0 mt-0.5" />
+      <div className="flex-1 min-w-0 space-y-2 pt-0.5">
+        <Skeleton className="h-4 w-3/4" />
+        <Skeleton className="h-3 w-2/5" />
+      </div>
+    </div>
+  )
+}
+
+export function TaskListSkeleton({ count = 7 }) {
+  return (
+    <div>
+      {Array.from({ length: count }, (_, i) => <TaskRowSkeleton key={i} />)}
+    </div>
+  )
+}
 
 const STATUS_LABELS = { todo: 'TO DO', doing: 'IN PROGRESS', blocked: 'BLOCKED', done: 'DONE' }
 const STATUS_ORDER = ['todo', 'doing', 'blocked', 'done']

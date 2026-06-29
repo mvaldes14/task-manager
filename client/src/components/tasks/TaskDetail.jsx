@@ -113,7 +113,7 @@ function RecurrenceEditor({ recurrence, recurrenceEnd, onChange }) {
         </button>
 
         {open && (
-          <div className="absolute left-0 right-0 top-full mt-1 z-20 rounded-xl border border-td-border dark:border-tn-border bg-white dark:bg-tn-bg2 shadow-xl overflow-hidden">
+          <div className="absolute left-0 right-0 top-full mt-1 z-20 rounded-xl border border-td-border dark:border-tn-border bg-white dark:bg-tn-bg2 shadow-e2 overflow-hidden">
             {RECUR_PRESETS.map(opt => (
               <button
                 key={opt.label}
@@ -380,7 +380,7 @@ function TagCombobox({ tags, onChange }) {
           </button>
         </div>
         {open && suggestions.length > 0 && (
-          <div className="absolute left-0 right-10 top-full mt-1 z-20 rounded-xl border border-td-border dark:border-tn-border bg-white dark:bg-tn-bg2 shadow-xl overflow-hidden max-h-40 overflow-y-auto">
+          <div className="absolute left-0 right-10 top-full mt-1 z-20 rounded-xl border border-td-border dark:border-tn-border bg-white dark:bg-tn-bg2 shadow-e2 overflow-hidden max-h-40 overflow-y-auto">
             {suggestions.map(t => (
               <button key={t} onMouseDown={() => addTag(t)}
                 className="w-full text-left text-xs px-3 py-2 hover:bg-td-surface dark:hover:bg-tn-surface text-td-purple dark:text-tn-purple transition-colors">
@@ -688,7 +688,7 @@ export function TaskDetail() {
             </div>
             <div className="relative">
               {subtaskResults.length > 0 && (
-                <div className="absolute bottom-full left-0 right-0 mb-1 z-20 rounded-xl border border-td-border dark:border-tn-border bg-white dark:bg-tn-bg2 shadow-xl overflow-hidden max-h-40 overflow-y-auto">
+                <div className="absolute bottom-full left-0 right-0 mb-1 z-20 rounded-xl border border-td-border dark:border-tn-border bg-white dark:bg-tn-bg2 shadow-e2 overflow-hidden max-h-40 overflow-y-auto">
                   {subtaskResults.map(t => (
                     <button key={t.id} onMouseDown={() => linkSubtask(t.id)}
                       className="w-full text-left text-xs px-3 py-2 hover:bg-td-surface dark:hover:bg-tn-surface flex items-center gap-2 transition-colors">

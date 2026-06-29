@@ -561,7 +561,7 @@ export function SettingsModal({ onClose }) {
       <div className="fixed inset-0 z-[201] flex items-center justify-center p-4 pointer-events-none">
         <div
           className="pointer-events-auto w-full max-w-lg bg-td-bg2 dark:bg-tn-bg2 rounded-2xl
-            border border-td-border dark:border-tn-border shadow-2xl flex flex-col max-h-[88vh] overflow-hidden"
+            border border-td-border dark:border-tn-border shadow-e3 flex flex-col max-h-[88vh] overflow-hidden"
           style={{ animation: 'slideUp 0.18s ease-out' }}
         >
 

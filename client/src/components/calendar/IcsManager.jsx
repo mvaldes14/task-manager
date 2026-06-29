@@ -49,7 +49,7 @@ export function IcsManager({ onClose }) {
     <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className="relative w-full max-w-md bg-td-bg2 dark:bg-tn-bg2 rounded-t-2xl sm:rounded-2xl
-        border border-td-border dark:border-tn-border shadow-2xl flex flex-col max-h-[85vh]"
+        border border-td-border dark:border-tn-border shadow-e3 flex flex-col max-h-[85vh]"
         style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
 
         {/* Header */}

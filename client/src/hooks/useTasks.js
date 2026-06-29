@@ -12,6 +12,7 @@ export function useTasks() {
     ])
     if (projects) dispatch({ type: 'SET_PROJECTS', payload: projects })
     if (tasks)    dispatch({ type: 'SET_TASKS',    payload: tasks })
+    dispatch({ type: 'SET_TASKS_LOADED' })
   }, [dispatch])
 
   const loadSettings = useCallback(async () => {

@@ -36,7 +36,7 @@ export function StatusDonutChart({ data }) {
     const percentage = ((data.value / total) * 100).toFixed(1)
 
     return (
-      <div className="bg-td-bg2 dark:bg-tn-bg2 border border-td-border dark:border-tn-border rounded-lg p-3 shadow-xl">
+      <div className="bg-td-bg2 dark:bg-tn-bg2 border border-td-border dark:border-tn-border rounded-lg p-3 shadow-e2">
         <div className="flex items-center gap-2 mb-1">
           <div className="w-3 h-3 rounded-full" style={{ background: data.color }} />
           <span className="text-sm text-td-fg dark:text-tn-fg font-medium">
