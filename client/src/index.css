@@ -4,8 +4,12 @@
 @tailwind utilities;
 
 @layer base {
-  html { -webkit-tap-highlight-color: transparent; }
-  body { -webkit-font-smoothing: antialiased; }
+  html {
+    -webkit-tap-highlight-color: transparent;
+    background-color: #e1e2e7; /* td-bg: fills overscroll + status bar strip in light mode */
+  }
+  html.dark { background-color: #08090c; } /* tn-bg: near-black in dark mode */
+  body { -webkit-font-smoothing: antialiased; margin: 0; background-color: inherit; }
 
   /* PWA safe areas — covers notch, Dynamic Island, status bar */
   body {
