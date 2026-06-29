@@ -5,17 +5,17 @@ export default {
   theme: {
     extend: {
       colors: {
-        // dark (Tokyo Night)
+        // dark (Linear near-black)
         tn: {
-          bg:      '#1a1b26',
-          bg2:     '#16161e',
-          bg3:     '#1f2335',
-          surface: '#24283b',
-          border:  '#292e42',
-          muted:   '#565f89',
-          nav:     '#9aa5ce',   // readable sidebar text (between muted and fg)
-          fg:      '#c0caf5',
-          blue:    '#7aa2f7',
+          bg:      '#08090c',
+          bg2:     '#050507',
+          bg3:     '#0e0f13',
+          surface: '#131419',
+          border:  '#20222a',
+          muted:   '#8a8f98',
+          nav:     '#b4b9c2',
+          fg:      '#e6e8eb',
+          blue:    '#89b4fa',
           purple:  '#bb9af7',
           green:   '#9ece6a',
           teal:    '#73daca',
@@ -62,9 +62,9 @@ export default {
       //             modals / bottom sheets → e3.
       //             Never use shadow-xl / shadow-2xl after this PR.
       boxShadow: {
-        e1: '0 1px 2px 0 rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.03)',
-        e2: '0 4px 12px -2px rgba(0,0,0,0.12), 0 2px 4px -1px rgba(0,0,0,0.08)',
-        e3: '0 12px 32px -4px rgba(0,0,0,0.20), 0 4px 10px -2px rgba(0,0,0,0.10)',
+        e1: '0 1px 2px rgba(0,0,0,0.50), 0 0 0 1px rgba(255,255,255,0.04)',
+        e2: '0 4px 12px rgba(0,0,0,0.50), 0 0 0 1px rgba(255,255,255,0.06)',
+        e3: '0 12px 32px -4px rgba(0,0,0,0.60), 0 4px 10px rgba(0,0,0,0.30), 0 0 0 1px rgba(255,255,255,0.08)',
       },
       // Motion tokens — every interactive element picks one of these durations + easings.
       // Convention: hover/focus → duration-fast, entry animations → duration-base/slow.
