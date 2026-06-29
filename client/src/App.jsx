@@ -47,8 +47,6 @@ function AppShell() {
     if (meta) meta.setAttribute('content', dark ? '#08090c' : '#f7f8fa')
   }, [state.theme])
 
-  const closeSidebar = () => dispatch({ type: 'SET_SIDEBAR', payload: false })
-
   if (authed === null) return (
     <div className="min-h-screen bg-td-bg dark:bg-tn-bg flex items-center justify-center">
       <div className="text-td-muted dark:text-tn-muted text-sm animate-pulse">Loading…</div>
@@ -59,9 +57,6 @@ function AppShell() {
 
   return (
     <div className="flex h-screen bg-td-bg dark:bg-tn-bg text-td-fg dark:text-tn-fg overflow-hidden font-sans">
-      {state.sidebarOpen && (
-        <div className="fixed inset-0 z-40 bg-black/40 md:hidden" onClick={closeSidebar} />
-      )}
       <Sidebar />
       <div className="flex flex-1 min-w-0 h-full">
         <MainContent />
