@@ -44,7 +44,7 @@ function AppShell() {
     const dark = state.theme === 'dark'
     document.documentElement.classList.toggle('dark', dark)
     const meta = document.querySelector('meta[name="theme-color"]')
-    if (meta) meta.setAttribute('content', dark ? '#08090c' : '#e1e2e7')
+    if (meta) meta.setAttribute('content', dark ? '#08090c' : '#f7f8fa')
   }, [state.theme])
 
   const closeSidebar = () => dispatch({ type: 'SET_SIDEBAR', payload: false })
