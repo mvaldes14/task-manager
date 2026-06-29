@@ -2,9 +2,10 @@ import { useState } from 'react'
 import { useApp } from '../../context/AppContext'
 import { ProjectIcon } from '../shared/ProjectIcon'
 import { useTasks } from '../../hooks/useTasks'
-import { formatDate, isOverdue, priorityColor, recurrenceLabel, fmtTime, getLinkLabel, getLinkStyle, rescheduleOptions } from '../../utils'
+import { formatDate, isOverdue, priorityColor, recurrenceLabel, fmtTime, getLinkLabel, rescheduleOptions } from '../../utils'
 import { Paperclip, GitBranch, Link2, Sparkles } from 'lucide-react'
 import { AiResultModal } from './AiResultModal'
+import { Chip } from '../ui'
 
 function LinkIcon({ url }) {
   if (url.startsWith('obsidian://')) return <Paperclip size={10} />
@@ -17,7 +18,6 @@ export function TaskCard({ task }) {
   const { toggleTask, updateTask } = useTasks()
   const [aiOpen, setAiOpen] = useState(false)
   const project = state.projects.find(p => p.id === task.project_id)
-  const isDark = state.theme === 'dark'
   const overdue = isOverdue(task)
   const done = task.status === 'done'
 
@@ -26,8 +26,8 @@ export function TaskCard({ task }) {
 
   return (
     <div
-      className={`group flex items-start gap-3 px-4 py-3 cursor-pointer transition-colors
-        hover:bg-td-surface/50 dark:bg-tn-surface/50 border-b border-td-border/50 dark:border-tn-border/50 last:border-0
+      className={`group flex items-start gap-3 px-4 py-3 cursor-pointer transition-colors duration-fast
+        hover:bg-td-surface/50 dark:hover:bg-tn-surface/50 border-b border-td-border/50 dark:border-tn-border/50 last:border-0
         ${done ? 'opacity-50' : ''}`}
       onClick={() => dispatch({ type: 'SELECT_TASK', payload: task.id })}
     >
@@ -37,10 +37,10 @@ export function TaskCard({ task }) {
         onClick={e => { e.stopPropagation(); toggleTask(task.id, task.status) }}
         aria-label="Toggle task"
       >
-        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all
+        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors duration-fast
           ${done
             ? 'border-td-green dark:border-tn-green bg-td-green/20 dark:bg-tn-green/20'
-            : 'border-td-muted/50 dark:border-tn-muted/50 hover:border-td-blue dark:border-tn-blue'
+            : 'border-td-muted/50 dark:border-tn-muted/50 hover:border-td-blue dark:hover:border-tn-blue'
           }`}
         >
           {done && (
@@ -53,99 +53,97 @@ export function TaskCard({ task }) {
 
       {/* Content */}
       <div className="flex-1 min-w-0">
-        <p className={`text-xl md:text-sm leading-snug ${done ? 'line-through text-td-muted dark:text-tn-muted' : 'text-td-fg dark:text-tn-fg'}`}>
+        <p className={`text-sm leading-snug ${done ? 'line-through text-td-muted dark:text-tn-muted' : 'text-td-fg dark:text-tn-fg'}`}>
           {task.title}
         </p>
 
         {/* Meta row */}
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5">
-          {/* Priority dot */}
+          {/* Priority dot — keeps saturated color as a signal */}
           {task.priority && task.priority !== 'low' && (
             <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: priorityColor(task.priority) }} />
           )}
 
-          {/* Due date */}
+          {/* Due date — red only when overdue (signal), muted otherwise */}
           {task.due_date && (
-            <span className={`text-xs md:text-[11px] font-medium ${overdue ? 'text-td-red dark:text-tn-red' : 'text-td-muted dark:text-tn-muted'}`}>
+            <span className={`text-xs font-medium ${overdue ? 'text-td-red dark:text-tn-red' : 'text-td-muted dark:text-tn-muted'}`}>
               {formatDate(task.due_date)}{task.due_time ? ' · ' + fmtTime(task.due_time) : ''}
             </span>
           )}
 
-          {/* Project */}
+          {/* Project — color dot for identity, muted name so it doesn't shout */}
           {project && (
-            <span className="text-xs md:text-[11px] px-1.5 py-0.5 rounded-md font-medium flex items-center gap-1"
-              style={{ color: project.color, background: project.color + '20' }}>
+            <span className="flex items-center gap-1 text-xs text-td-muted dark:text-tn-muted">
+              <span className="w-2 h-2 rounded-full shrink-0" style={{ background: project.color }} />
               <ProjectIcon icon={project.icon} size={10} />
               {project.name}
             </span>
           )}
 
-          {/* Tags */}
+          {/* Tags — neutral chips */}
           {(task.tags || []).map(tag => (
-            <span key={tag} className="text-xs md:text-[11px] text-td-purple dark:text-tn-purple bg-td-purple/10 dark:bg-tn-purple/10 px-1.5 py-0.5 rounded-md">
-              @{tag}
-            </span>
+            <Chip key={tag} variant="neutral" label={`@${tag}`} className="px-1.5 py-0.5 rounded-md" />
           ))}
 
-          {/* AI result chip */}
+          {/* AI result chip — neutral at rest, slightly interactive */}
           {task.has_ai_result && (
-            <button
+            <Chip
+              variant="neutral"
+              icon={<Sparkles size={9} />}
+              label="AI"
               onClick={e => { e.stopPropagation(); setAiOpen(true) }}
-              className="flex items-center gap-1 text-xs md:text-[11px] text-td-red dark:text-tn-red bg-td-red/10 dark:bg-tn-red/10 px-1.5 py-0.5 rounded-md hover:bg-td-red/20 dark:hover:bg-tn-red/20 transition-colors"
-            >
-              <Sparkles size={9} />
-              AI
-            </button>
+              className="px-1.5 py-0.5 rounded-md hover:bg-td-border/50 dark:hover:bg-tn-border/50"
+            />
           )}
 
-          {/* Recurrence */}
+          {/* Recurrence — neutral chip */}
           {recurrenceLabel(task.recurrence) && (
-            <span className="text-xs md:text-[11px] text-td-teal dark:text-tn-teal">{recurrenceLabel(task.recurrence)}</span>
+            <Chip variant="neutral" label={recurrenceLabel(task.recurrence)} className="px-1.5 py-0.5 rounded-md" />
           )}
 
-          {/* Links */}
-          {(task.links || []).map((link, i) => {
-            const s = getLinkStyle(link.url, isDark)
-            return (
-              <a key={i} href={link.url} target="_blank" rel="noopener noreferrer"
-                onClick={e => e.stopPropagation()}
-                className="flex items-center gap-1 text-xs md:text-[11px] font-medium px-1.5 py-0.5 rounded-md transition-opacity hover:opacity-80"
-                style={{ color: s.color, background: s.bg }}>
-                <LinkIcon url={link.url} />
-                {getLinkLabel(link.url)}
-              </a>
-            )
-          })}
+          {/* Links — neutral chips; stop propagation so row click doesn't fire */}
+          {(task.links || []).map((link, i) => (
+            <Chip
+              key={i}
+              variant="neutral"
+              icon={<LinkIcon url={link.url} />}
+              label={getLinkLabel(link.url)}
+              href={link.url}
+              onClick={e => e.stopPropagation()}
+              className="px-1.5 py-0.5 rounded-md"
+            />
+          ))}
 
-          {/* Assignee — only shown when assigned to someone else */}
+          {/* Assignee — neutral chip, only shown when assigned to someone else */}
           {task.assigned_to && task.assigned_to !== state.currentUser?.id && (() => {
             const u = state.users.find(u => u.id === task.assigned_to)
             if (!u) return null
             return (
-              <span className="text-xs md:text-[11px] text-td-green dark:text-tn-green bg-td-green/10 dark:bg-tn-green/10 px-1.5 py-0.5 rounded-md">
-                +{u.display_name || u.username}
-              </span>
+              <Chip key="assignee" variant="neutral" label={`+${u.display_name || u.username}`} className="px-1.5 py-0.5 rounded-md" />
             )
           })()}
 
-          {/* Subtasks */}
+          {/* Subtask progress */}
           {subtasksTotal > 0 && (
-            <span className="text-xs md:text-[11px] text-td-muted dark:text-tn-muted">
+            <span className="text-xs text-td-muted dark:text-tn-muted">
               ◦ {subtasksDone}/{subtasksTotal}
             </span>
           )}
         </div>
 
-        {/* Reschedule pills — only for overdue tasks */}
+        {/* Reschedule pills — always visible on touch, revealed on hover for pointer devices */}
         {overdue && !done && (
-          <div className="flex flex-wrap gap-1.5 mt-2" onClick={e => e.stopPropagation()}>
+          <div
+            className="flex flex-wrap gap-1.5 mt-2 transition-opacity duration-fast [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100"
+            onClick={e => e.stopPropagation()}
+          >
             {rescheduleOptions().map(({ label, isoDate }) => (
               <button
                 key={label}
                 onClick={() => updateTask(task.id, { due_date: isoDate })}
-                className="text-[10px] md:text-[10px] font-medium px-2 py-0.5 rounded-full border
+                className="text-[10px] font-medium px-2 py-0.5 rounded-full border
                   border-td-red/40 dark:border-tn-red/40 text-td-red dark:text-tn-red
-                  hover:bg-td-red/10 dark:hover:bg-tn-red/10 transition-colors"
+                  hover:bg-td-red/10 dark:hover:bg-tn-red/10 transition-colors duration-fast"
               >
                 {label}
               </button>
@@ -154,9 +152,11 @@ export function TaskCard({ task }) {
         )}
       </div>
 
-      {/* Chevron */}
-      <svg className="w-4 h-4 text-td-muted/40 dark:text-tn-muted/40 shrink-0 mt-0.5 group-hover:text-td-muted dark:text-tn-muted transition-colors"
-        fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      {/* Chevron — hidden at rest, revealed on row hover */}
+      <svg
+        className="w-4 h-4 text-td-muted dark:text-tn-muted shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-fast"
+        fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+      >
         <path strokeLinecap="round" strokeLinejoin="round" d="M9 18l6-6-6-6" />
       </svg>
 
