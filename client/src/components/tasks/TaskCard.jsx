@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useApp } from '../../context/AppContext'
 import { ProjectIcon } from '../shared/ProjectIcon'
 import { useTasks } from '../../hooks/useTasks'
+import { useSwipeRow } from '../../hooks/useSwipeRow'
 import { formatDate, isOverdue, priorityColor, recurrenceLabel, fmtTime, getLinkLabel, rescheduleOptions } from '../../utils'
-import { Paperclip, GitBranch, Link2, Sparkles } from 'lucide-react'
+import { Paperclip, GitBranch, Link2, Sparkles, Check, CalendarClock, Trash2 } from 'lucide-react'
 import { AiResultModal } from './AiResultModal'
 import { Chip } from '../ui'
 
@@ -14,9 +15,11 @@ function LinkIcon({ url }) {
 }
 
 export function TaskCard({ task }) {
-  const { state, dispatch } = useApp()
-  const { toggleTask, updateTask } = useTasks()
+  const { state, dispatch, confirm } = useApp()
+  const { toggleTask, updateTask, deleteTask } = useTasks()
   const [aiOpen, setAiOpen] = useState(false)
+  const [rescheduleOpen, setRescheduleOpen] = useState(false)
+
   const project = state.projects.find(p => p.id === task.project_id)
   const overdue = isOverdue(task)
   const done = task.status === 'done'
@@ -24,145 +27,281 @@ export function TaskCard({ task }) {
   const subtasksDone = (task.subtasks || []).filter(s => s.completed).length
   const subtasksTotal = (task.subtasks || []).length
 
+  const handleComplete = useCallback(() => {
+    toggleTask(task.id, task.status)
+  }, [task.id, task.status, toggleTask])
+
+  const handleDelete = useCallback(() => {
+    confirm('Delete this task?', () => deleteTask(task.id))
+  }, [task.id, confirm, deleteTask])
+
+  const { containerRef, offset, phase, trayOpen, closeSelf, wasSwipe } = useSwipeRow({
+    onCompleteCommit: handleComplete,
+    onDeleteCommit: handleDelete,
+  })
+
+  const reducedMotion =
+    typeof window !== 'undefined'
+      ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      : false
+
+  // Row slides left/right; snap uses a spring curve, drag tracks finger directly
+  const rowStyle = {
+    transform: `translateX(${offset}px)`,
+    transition:
+      phase === 'dragging' || reducedMotion
+        ? 'none'
+        : 'transform 280ms cubic-bezier(0.32,0.72,0,1)',
+    willChange: 'transform',
+  }
+
+  const showRight = offset > 2   // green complete layer
+  const showLeft  = offset < -2  // amber+red tray layer
+
   return (
     <div
-      className={`group flex items-start gap-3 px-4 py-3 cursor-pointer transition-colors duration-fast
-        hover:bg-td-surface/50 dark:hover:bg-tn-surface/50 active:bg-td-surface/70 dark:active:bg-tn-surface/70
-        border-b border-td-border/50 dark:border-tn-border/50 last:border-0
-        ${done ? 'opacity-50' : ''}`}
-      onClick={() => dispatch({ type: 'SELECT_TASK', payload: task.id })}
+      ref={containerRef}
+      className="relative overflow-hidden border-b border-td-border/50 dark:border-tn-border/50 last:border-0"
+      style={{ touchAction: 'pan-y' }}
     >
-      {/* Checkbox — hit area expanded to ~44px via padding+negative-margin without changing visual size */}
-      <button
-        className="p-3 -mx-3 mt-0.5 shrink-0 relative z-10 motion-safe:active:scale-90 transition-transform duration-fast"
-        onClick={e => { e.stopPropagation(); toggleTask(task.id, task.status) }}
-        aria-label="Toggle task"
+      {/* ── Right reveal layer — green (complete) ──────────────────────────── */}
+      <div
+        aria-hidden="true"
+        className={`absolute inset-0 flex items-center gap-2 pl-5
+          bg-td-green/15 dark:bg-tn-green/15
+          transition-opacity duration-fast
+          ${showRight ? 'opacity-100' : 'opacity-0'}`}
       >
-        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors duration-fast
-          ${done
-            ? 'border-td-green dark:border-tn-green bg-td-green/20 dark:bg-tn-green/20'
-            : 'border-td-muted/50 dark:border-tn-muted/50 hover:border-td-blue dark:hover:border-tn-blue'
-          }`}
-        >
-          {done && (
-            <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-              <path d="M1 4L3.5 6.5L9 1" stroke="#9ece6a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          )}
-        </div>
-      </button>
-
-      {/* Content */}
-      <div className="flex-1 min-w-0">
-        <p className={`text-sm leading-snug ${done ? 'line-through text-td-muted dark:text-tn-muted' : 'text-td-fg dark:text-tn-fg'}`}>
-          {task.title}
-        </p>
-
-        {/* Meta row */}
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5">
-          {/* Priority dot — keeps saturated color as a signal */}
-          {task.priority && task.priority !== 'low' && (
-            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: priorityColor(task.priority) }} />
-          )}
-
-          {/* Due date — red only when overdue (signal), muted otherwise */}
-          {task.due_date && (
-            <span className={`text-xs font-medium ${overdue ? 'text-td-red dark:text-tn-red' : 'text-td-muted dark:text-tn-muted'}`}>
-              {formatDate(task.due_date)}{task.due_time ? ' · ' + fmtTime(task.due_time) : ''}
-            </span>
-          )}
-
-          {/* Project — color dot for identity, muted name so it doesn't shout */}
-          {project && (
-            <span className="flex items-center gap-1 text-xs text-td-muted dark:text-tn-muted">
-              <span className="w-2 h-2 rounded-full shrink-0" style={{ background: project.color }} />
-              <ProjectIcon icon={project.icon} size={10} />
-              {project.name}
-            </span>
-          )}
-
-          {/* Tags — neutral chips */}
-          {(task.tags || []).map(tag => (
-            <Chip key={tag} variant="neutral" label={`@${tag}`} className="px-1.5 py-0.5 rounded-md" />
-          ))}
-
-          {/* AI result chip — neutral at rest, slightly interactive */}
-          {task.has_ai_result && (
-            <Chip
-              variant="neutral"
-              icon={<Sparkles size={9} />}
-              label="AI"
-              onClick={e => { e.stopPropagation(); setAiOpen(true) }}
-              className="px-1.5 py-0.5 rounded-md hover:bg-td-border/50 dark:hover:bg-tn-border/50 active:bg-td-border/70 dark:active:bg-tn-border/70"
-            />
-          )}
-
-          {/* Recurrence — neutral chip */}
-          {recurrenceLabel(task.recurrence) && (
-            <Chip variant="neutral" label={recurrenceLabel(task.recurrence)} className="px-1.5 py-0.5 rounded-md" />
-          )}
-
-          {/* Links — neutral chips; stop propagation so row click doesn't fire */}
-          {(task.links || []).map((link, i) => (
-            <Chip
-              key={i}
-              variant="neutral"
-              icon={<LinkIcon url={link.url} />}
-              label={getLinkLabel(link.url)}
-              href={link.url}
-              onClick={e => e.stopPropagation()}
-              className="px-1.5 py-0.5 rounded-md"
-            />
-          ))}
-
-          {/* Assignee — neutral chip, only shown when assigned to someone else */}
-          {task.assigned_to && task.assigned_to !== state.currentUser?.id && (() => {
-            const u = state.users.find(u => u.id === task.assigned_to)
-            if (!u) return null
-            return (
-              <Chip key="assignee" variant="neutral" label={`+${u.display_name || u.username}`} className="px-1.5 py-0.5 rounded-md" />
-            )
-          })()}
-
-          {/* Subtask progress */}
-          {subtasksTotal > 0 && (
-            <span className="text-xs text-td-muted dark:text-tn-muted">
-              ◦ {subtasksDone}/{subtasksTotal}
-            </span>
-          )}
-        </div>
-
-        {/* Reschedule pills — always visible on touch, revealed on hover for pointer devices */}
-        {overdue && !done && (
-          <div
-            className="flex flex-wrap gap-1.5 mt-2 transition-opacity duration-fast [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100"
-            onClick={e => e.stopPropagation()}
-          >
-            {rescheduleOptions().map(({ label, isoDate }) => (
-              <button
-                key={label}
-                onClick={() => updateTask(task.id, { due_date: isoDate })}
-                className="inline-flex items-center min-h-[40px] text-[10px] font-medium px-2 rounded-full border
-                  border-td-red/40 dark:border-tn-red/40 text-td-red dark:text-tn-red
-                  hover:bg-td-red/10 dark:hover:bg-tn-red/10 active:bg-td-red/20 dark:active:bg-tn-red/20
-                  motion-safe:active:scale-95 transition-all duration-fast"
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        )}
+        <Check size={20} className="text-td-green dark:text-tn-green shrink-0" />
+        <span className="text-td-green dark:text-tn-green text-sm font-medium">Complete</span>
       </div>
 
-      {/* Chevron — hidden at rest, revealed on row hover */}
-      <svg
-        className="w-4 h-4 text-td-muted dark:text-tn-muted shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-fast"
-        fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+      {/* ── Left reveal layer — amber (reschedule) + red (delete) ──────────── */}
+      <div
+        aria-hidden="true"
+        className={`absolute inset-0 flex items-center justify-end gap-2 pr-3
+          transition-opacity duration-fast
+          ${showLeft ? 'opacity-100' : 'opacity-0'}`}
       >
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9 18l6-6-6-6" />
-      </svg>
+        <button
+          data-swipe-action
+          className="flex flex-col items-center gap-1 px-3 py-2 rounded-xl
+            bg-td-amber/15 dark:bg-tn-amber/15
+            text-td-amber dark:text-tn-amber
+            active:bg-td-amber/25 dark:active:bg-tn-amber/25
+            transition-colors duration-fast"
+          onClick={e => { e.stopPropagation(); closeSelf(); setRescheduleOpen(true) }}
+        >
+          <CalendarClock size={16} />
+          <span className="text-[10px] font-medium leading-none">Reschedule</span>
+        </button>
+        <button
+          data-swipe-action
+          className="flex flex-col items-center gap-1 px-3 py-2 rounded-xl
+            bg-td-red/15 dark:bg-tn-red/15
+            text-td-red dark:text-tn-red
+            active:bg-td-red/25 dark:active:bg-tn-red/25
+            transition-colors duration-fast"
+          onClick={e => { e.stopPropagation(); closeSelf(); handleDelete() }}
+        >
+          <Trash2 size={16} />
+          <span className="text-[10px] font-medium leading-none">Delete</span>
+        </button>
+      </div>
 
-      {aiOpen && <AiResultModal taskId={task.id} onClose={() => setAiOpen(false)} />}
+      {/* ── Sliding row content ─────────────────────────────────────────────── */}
+      <div
+        style={rowStyle}
+        className={`group relative z-10 flex items-start gap-3 px-4 py-3 cursor-pointer
+          bg-td-bg dark:bg-tn-bg
+          transition-colors duration-fast
+          hover:bg-td-surface/50 dark:hover:bg-tn-surface/50
+          active:bg-td-surface/70 dark:active:bg-tn-surface/70
+          ${done ? 'opacity-50' : ''}`}
+        onClick={() => {
+          if (wasSwipe()) return
+          // Tap while tray is open → close tray, don't open task detail
+          if (trayOpen) { closeSelf(); return }
+          dispatch({ type: 'SELECT_TASK', payload: task.id })
+        }}
+      >
+        {/* Checkbox — hit area expanded to ~44px via padding+negative-margin */}
+        <button
+          className="p-3 -mx-3 mt-0.5 shrink-0 relative z-10 motion-safe:active:scale-90 transition-transform duration-fast"
+          onClick={e => { e.stopPropagation(); toggleTask(task.id, task.status) }}
+          aria-label="Toggle task"
+        >
+          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors duration-fast
+            ${done
+              ? 'border-td-green dark:border-tn-green bg-td-green/20 dark:bg-tn-green/20'
+              : 'border-td-muted/50 dark:border-tn-muted/50 hover:border-td-blue dark:hover:border-tn-blue'
+            }`}
+          >
+            {done && (
+              <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                <path d="M1 4L3.5 6.5L9 1" stroke="#9ece6a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            )}
+          </div>
+        </button>
+
+        {/* Content */}
+        <div className="flex-1 min-w-0">
+          <p className={`text-sm leading-snug ${done ? 'line-through text-td-muted dark:text-tn-muted' : 'text-td-fg dark:text-tn-fg'}`}>
+            {task.title}
+          </p>
+
+          {/* Meta row */}
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5">
+            {/* Priority dot — keeps saturated color as a signal */}
+            {task.priority && task.priority !== 'low' && (
+              <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: priorityColor(task.priority) }} />
+            )}
+
+            {/* Due date — red only when overdue (signal), muted otherwise */}
+            {task.due_date && (
+              <span className={`text-xs font-medium ${overdue ? 'text-td-red dark:text-tn-red' : 'text-td-muted dark:text-tn-muted'}`}>
+                {formatDate(task.due_date)}{task.due_time ? ' · ' + fmtTime(task.due_time) : ''}
+              </span>
+            )}
+
+            {/* Project — color dot for identity, muted name so it doesn't shout */}
+            {project && (
+              <span className="flex items-center gap-1 text-xs text-td-muted dark:text-tn-muted">
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: project.color }} />
+                <ProjectIcon icon={project.icon} size={10} />
+                {project.name}
+              </span>
+            )}
+
+            {/* Tags — neutral chips */}
+            {(task.tags || []).map(tag => (
+              <Chip key={tag} variant="neutral" label={`@${tag}`} className="px-1.5 py-0.5 rounded-md" />
+            ))}
+
+            {/* AI result chip */}
+            {task.has_ai_result && (
+              <Chip
+                variant="neutral"
+                icon={<Sparkles size={9} />}
+                label="AI"
+                onClick={e => { e.stopPropagation(); setAiOpen(true) }}
+                className="px-1.5 py-0.5 rounded-md hover:bg-td-border/50 dark:hover:bg-tn-border/50 active:bg-td-border/70 dark:active:bg-tn-border/70"
+              />
+            )}
+
+            {/* Recurrence — neutral chip */}
+            {recurrenceLabel(task.recurrence) && (
+              <Chip variant="neutral" label={recurrenceLabel(task.recurrence)} className="px-1.5 py-0.5 rounded-md" />
+            )}
+
+            {/* Links — neutral chips; stop propagation so row click doesn't fire */}
+            {(task.links || []).map((link, i) => (
+              <Chip
+                key={i}
+                variant="neutral"
+                icon={<LinkIcon url={link.url} />}
+                label={getLinkLabel(link.url)}
+                href={link.url}
+                onClick={e => e.stopPropagation()}
+                className="px-1.5 py-0.5 rounded-md"
+              />
+            ))}
+
+            {/* Assignee — neutral chip, only shown when assigned to someone else */}
+            {task.assigned_to && task.assigned_to !== state.currentUser?.id && (() => {
+              const u = state.users.find(u => u.id === task.assigned_to)
+              if (!u) return null
+              return (
+                <Chip key="assignee" variant="neutral" label={`+${u.display_name || u.username}`} className="px-1.5 py-0.5 rounded-md" />
+              )
+            })()}
+
+            {/* Subtask progress */}
+            {subtasksTotal > 0 && (
+              <span className="text-xs text-td-muted dark:text-tn-muted">
+                ◦ {subtasksDone}/{subtasksTotal}
+              </span>
+            )}
+          </div>
+
+          {/* Reschedule pills — always visible on touch, revealed on hover for pointer devices */}
+          {overdue && !done && (
+            <div
+              className="flex flex-wrap gap-1.5 mt-2 transition-opacity duration-fast [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100"
+              onClick={e => e.stopPropagation()}
+            >
+              {rescheduleOptions().map(({ label, isoDate }) => (
+                <button
+                  key={label}
+                  onClick={() => updateTask(task.id, { due_date: isoDate })}
+                  className="inline-flex items-center min-h-[40px] text-[10px] font-medium px-2 rounded-full border
+                    border-td-red/40 dark:border-tn-red/40 text-td-red dark:text-tn-red
+                    hover:bg-td-red/10 dark:hover:bg-tn-red/10 active:bg-td-red/20 dark:active:bg-tn-red/20
+                    motion-safe:active:scale-95 transition-all duration-fast"
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Chevron — hidden at rest, revealed on row hover */}
+        <svg
+          className="w-4 h-4 text-td-muted dark:text-tn-muted shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-fast"
+          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 18l6-6-6-6" />
+        </svg>
+
+        {aiOpen && <AiResultModal taskId={task.id} onClose={() => setAiOpen(false)} />}
+      </div>
+
+      {/* ── Reschedule bottom sheet (fixed — not clipped by overflow-hidden) ── */}
+      {rescheduleOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-[150] bg-black/50"
+            onClick={() => setRescheduleOpen(false)}
+          />
+          <div className="fixed bottom-0 left-0 right-0 z-[151] bg-td-bg2 dark:bg-tn-bg2 rounded-t-2xl p-5 pb-10 animate-slide-up">
+            <p className="text-td-fg dark:text-tn-fg text-center mb-4 text-sm font-medium">
+              Reschedule to…
+            </p>
+            <div className="flex flex-col gap-2">
+              {rescheduleOptions().map(({ label, isoDate }) => (
+                <button
+                  key={label}
+                  onClick={() => {
+                    updateTask(task.id, { due_date: isoDate })
+                    setRescheduleOpen(false)
+                  }}
+                  className="w-full py-3 rounded-xl
+                    bg-td-amber/10 dark:bg-tn-amber/10
+                    text-td-amber dark:text-tn-amber
+                    font-medium text-sm
+                    active:bg-td-amber/20 dark:active:bg-tn-amber/20
+                    transition-colors duration-fast"
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setRescheduleOpen(false)}
+              className="w-full py-3 mt-3 rounded-xl
+                bg-td-surface dark:bg-tn-surface
+                text-td-muted dark:text-tn-muted
+                font-medium text-sm
+                active:bg-td-border/50 dark:active:bg-tn-border/50
+                transition-colors duration-fast"
+            >
+              Cancel
+            </button>
+          </div>
+        </>
+      )}
     </div>
   )
 }
