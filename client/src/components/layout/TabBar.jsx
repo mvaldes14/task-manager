@@ -47,7 +47,8 @@ export function TabBar() {
           <button
             key={key}
             onClick={() => handleTab(key)}
-            className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors relative
+            className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-all duration-fast relative
+              motion-safe:active:scale-[0.92]
               ${active ? 'text-td-blue dark:text-tn-blue' : 'text-td-muted/60 dark:text-tn-nav'}`}
           >
             <div className="relative">

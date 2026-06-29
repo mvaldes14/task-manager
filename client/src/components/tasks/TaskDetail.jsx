@@ -522,7 +522,7 @@ export function TaskDetail() {
         </div>
 
         {/* Scrollable content */}
-        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5"
+        <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 space-y-5"
           style={{ paddingBottom: 'calc(32px + env(safe-area-inset-bottom, 0px))' }}>
 
           {/* Title */}

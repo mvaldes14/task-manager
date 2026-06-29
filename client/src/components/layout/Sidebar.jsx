@@ -250,7 +250,7 @@ export function Sidebar() {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
+      <nav className="flex-1 overflow-y-auto overscroll-contain px-2 py-3 space-y-0.5">
         <NavItem icon={LayoutDashboard} label="Dashboard" viewKey="dashboard" collapsed={collapsed} />
         <NavItem icon={Inbox}       label="Inbox"     viewKey="inbox"    badge={inboxCount} collapsed={collapsed} />
         <NavItem icon={Sun}         label="Today"     viewKey="today"    badge={todayCount} collapsed={collapsed} />

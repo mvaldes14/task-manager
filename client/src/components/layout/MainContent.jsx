@@ -55,7 +55,9 @@ function ViewHeader({ title, icon: Icon, count, onSearch, searchOpen, setSearchO
       {!searchOpen && (
         <button
           onClick={() => dispatch({ type: 'SET_SIDEBAR', payload: true })}
-          className="md:hidden text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg mr-1 transition-colors shrink-0"
+          className="md:hidden min-h-[44px] min-w-[44px] flex items-center justify-center -ml-2.5 mr-1
+            text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg active:text-td-fg dark:active:text-tn-fg
+            transition-colors shrink-0"
         >
           <Menu size={20} />
         </button>
@@ -86,7 +88,7 @@ function ViewHeader({ title, icon: Icon, count, onSearch, searchOpen, setSearchO
               {searchScope === 'all' ? 'All tasks' : 'This view'}
             </button>
           )}
-          <button onClick={closeSearch} className="text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg transition-colors shrink-0">
+          <button onClick={closeSearch} className="p-3 -my-3 -mr-1 text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg active:text-td-fg dark:active:text-tn-fg transition-colors shrink-0">
             <X size={14} />
           </button>
         </div>
@@ -113,7 +115,10 @@ function ViewHeader({ title, icon: Icon, count, onSearch, searchOpen, setSearchO
         {!searchOpen && (
           <button
             onClick={openSearch}
-            className="p-1.5 rounded-lg text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg hover:bg-td-surface dark:hover:bg-tn-surface transition-colors"
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg
+              text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg
+              hover:bg-td-surface dark:hover:bg-tn-surface active:bg-td-surface dark:active:bg-tn-surface
+              transition-colors"
             title="Search tasks (/)"
           >
             <Search size={16} />
@@ -126,10 +131,10 @@ function ViewHeader({ title, icon: Icon, count, onSearch, searchOpen, setSearchO
               <button
                 key={v}
                 onClick={() => dispatch({ type: 'SET_CAL_VIEW', payload: v })}
-                className={`px-2 py-1 rounded-md text-[11px] font-medium transition-colors capitalize
+                className={`min-h-[40px] px-2 flex items-center rounded-md text-[11px] font-medium transition-colors capitalize
                   ${state.calView === v
                     ? 'bg-td-bg2 dark:bg-tn-bg2 text-td-fg dark:text-tn-fg shadow-sm'
-                    : 'text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg'}`}
+                    : 'text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg active:text-td-fg dark:active:text-tn-fg'}`}
               >
                 {v.charAt(0).toUpperCase() + v.slice(1)}
               </button>
@@ -137,22 +142,22 @@ function ViewHeader({ title, icon: Icon, count, onSearch, searchOpen, setSearchO
           </div>
         )}
         {state.view !== 'calendar' && !searchOpen && (
-          <div className="flex items-center gap-1 bg-td-surface dark:bg-tn-surface rounded-lg p-0.5">
+          <div className="flex items-center gap-0.5 bg-td-surface dark:bg-tn-surface rounded-lg p-0.5">
             <button
               onClick={() => dispatch({ type: 'SET_VIEW_MODE', payload: 'list' })}
-              className={`p-1.5 rounded-md transition-colors
+              className={`min-h-[40px] min-w-[40px] flex items-center justify-center rounded-md transition-colors
                 ${state.viewMode === 'list'
                   ? 'bg-td-bg2 dark:bg-tn-bg2 text-td-fg dark:text-tn-fg shadow-sm'
-                  : 'text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg'}`}
+                  : 'text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg active:text-td-fg dark:active:text-tn-fg'}`}
             >
               <LayoutList size={15} />
             </button>
             <button
               onClick={() => dispatch({ type: 'SET_VIEW_MODE', payload: 'board' })}
-              className={`p-1.5 rounded-md transition-colors
+              className={`min-h-[40px] min-w-[40px] flex items-center justify-center rounded-md transition-colors
                 ${state.viewMode === 'board'
                   ? 'bg-td-bg2 dark:bg-tn-bg2 text-td-fg dark:text-tn-fg shadow-sm'
-                  : 'text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg'}`}
+                  : 'text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg active:text-td-fg dark:active:text-tn-fg'}`}
             >
               <Columns size={15} />
             </button>
@@ -220,10 +225,10 @@ function ListToolbar({ showDone, onToggleDone, sortBy, onSortBy, groupBy, onGrou
       {/* Hide/show done */}
       <button
         onClick={onToggleDone}
-        className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg transition-colors
+        className={`flex items-center gap-1.5 text-xs px-2.5 min-h-[40px] rounded-lg transition-colors
           ${showDone
             ? 'bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg'
-            : 'text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg'}`}
+            : 'text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg active:text-td-fg dark:active:text-tn-fg'}`}
       >
         <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-colors
           ${showDone ? 'bg-td-green dark:bg-tn-green border-td-green dark:border-tn-green' : 'border-td-muted/50 dark:border-tn-muted/50'}`}>
@@ -242,7 +247,7 @@ function ListToolbar({ showDone, onToggleDone, sortBy, onSortBy, groupBy, onGrou
             value={groupBy}
             onChange={e => onGroupBy(e.target.value)}
             className="appearance-none bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg
-              text-xs pl-2.5 pr-6 py-1 rounded-lg outline-none cursor-pointer
+              text-xs pl-2.5 pr-6 min-h-[40px] rounded-lg outline-none cursor-pointer
               border border-td-border/50 dark:border-tn-border/50"
           >
             {GROUP_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -261,7 +266,7 @@ function ListToolbar({ showDone, onToggleDone, sortBy, onSortBy, groupBy, onGrou
             value={sortBy}
             onChange={e => onSortBy(e.target.value)}
             className="appearance-none bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg
-              text-xs pl-2.5 pr-6 py-1 rounded-lg outline-none cursor-pointer
+              text-xs pl-2.5 pr-6 min-h-[40px] rounded-lg outline-none cursor-pointer
               border border-td-border/50 dark:border-tn-border/50"
           >
             {SORT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -434,7 +439,7 @@ export function MainContent() {
       )}
 
       <div
-        className={`flex-1 min-h-0 ${(isCalendar || isDashboard || viewMode === 'board') ? 'overflow-hidden flex flex-col' : 'overflow-y-auto'}`}
+        className={`flex-1 min-h-0 ${(isCalendar || isDashboard || viewMode === 'board') ? 'overflow-hidden flex flex-col' : 'overflow-y-auto overscroll-contain'}`}
         style={!(isCalendar || isDashboard || viewMode === 'board') ? { paddingBottom: 'calc(80px + env(safe-area-inset-bottom, 0px))' } : undefined}
         onTouchStart={!(isCalendar || isDashboard || viewMode === 'board') ? onTouchStart : undefined}
         onTouchMove={!(isCalendar || isDashboard || viewMode === 'board') ? onTouchMove : undefined}
