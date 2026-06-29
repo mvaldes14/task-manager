@@ -37,8 +37,13 @@ export function TabBar() {
 
   return (
     <nav
-      className="md:hidden fixed bottom-0 left-0 right-0 z-[95] bg-td-bg2/95 dark:bg-tn-bg2/95 backdrop-blur-md border-t border-td-border dark:border-tn-border flex"
-      style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)', height: 'calc(56px + env(safe-area-inset-bottom, 0px))' }}
+      className="md:hidden fixed left-1/2 -translate-x-1/2 z-[95]
+        inline-flex items-center gap-1 p-1.5
+        rounded-full
+        bg-td-surface/95 dark:bg-tn-surface/95 backdrop-blur-md
+        border border-td-border dark:border-tn-border
+        shadow-e2"
+      style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}
     >
       {TABS.map(({ key, icon: Icon, label }) => {
         const active = isActive(key)
@@ -47,20 +52,22 @@ export function TabBar() {
           <button
             key={key}
             onClick={() => handleTab(key)}
-            className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-all duration-fast relative
-              motion-safe:active:scale-[0.92]
-              ${active ? 'text-td-blue dark:text-tn-blue' : 'text-td-muted/60 dark:text-tn-nav'}`}
+            aria-label={label}
+            className={`relative flex items-center justify-center
+              min-w-[44px] min-h-[44px] rounded-full
+              transition-all duration-fast ease-spring
+              motion-safe:active:scale-[0.88]
+              ${active
+                ? 'bg-td-blue/15 dark:bg-tn-blue/15 text-td-blue dark:text-tn-blue'
+                : 'text-td-muted/60 dark:text-tn-nav hover:bg-td-border/30 dark:hover:bg-tn-border/30 hover:text-td-muted dark:hover:text-tn-fg'}`}
           >
-            <div className="relative">
-              <Icon size={22} strokeWidth={active ? 2.5 : 1.8} />
-              {badge > 0 && (
-                <span className="absolute -top-1 -right-1.5 min-w-[16px] h-4 rounded-full bg-td-red dark:bg-tn-red
-                  text-[9px] font-bold text-white flex items-center justify-center px-0.5">
-                  {badge}
-                </span>
-              )}
-            </div>
-            <span className="text-sm font-medium">{label}</span>
+            <Icon size={20} strokeWidth={active ? 2.5 : 1.8} />
+            {badge > 0 && (
+              <span className="absolute top-1.5 right-1.5 min-w-[14px] h-3.5 rounded-full bg-td-red dark:bg-tn-red
+                text-[8px] font-bold text-white flex items-center justify-center px-0.5">
+                {badge}
+              </span>
+            )}
           </button>
         )
       })}

@@ -580,7 +580,7 @@ export function MainContent() {
 
       <div
         className={`flex-1 min-h-0 ${(isCalendar || isDashboard || viewMode === 'board') ? 'overflow-hidden flex flex-col' : 'overflow-y-auto overscroll-contain'}`}
-        style={!(isCalendar || isDashboard || viewMode === 'board') ? { paddingBottom: 'calc(80px + env(safe-area-inset-bottom, 0px))' } : undefined}
+        style={!(isCalendar || isDashboard || viewMode === 'board') ? { paddingBottom: 'calc(76px + env(safe-area-inset-bottom, 0px))' } : undefined}
         onTouchStart={!(isCalendar || isDashboard || viewMode === 'board') ? onTouchStart : undefined}
         onTouchMove={!(isCalendar || isDashboard || viewMode === 'board') ? onTouchMove : undefined}
         onTouchEnd={!(isCalendar || isDashboard || viewMode === 'board') ? onTouchEnd : undefined}
