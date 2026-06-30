@@ -7,7 +7,7 @@ import { TaskList } from '../tasks/TaskList'
 import { KanbanBoard } from '../tasks/KanbanBoard'
 import { CalendarView } from '../calendar/CalendarView'
 import { DashboardView } from '../dashboard/DashboardView'
-import { LayoutList, Columns, Menu, Search, X, ChevronDown, Inbox, Sun, Layers, CalendarDays, AlertCircle, SlidersHorizontal } from 'lucide-react'
+import { LayoutList, Columns, Search, X, ChevronDown, Inbox, Sun, Layers, CalendarDays, AlertCircle, SlidersHorizontal } from 'lucide-react'
 import { ProjectIcon } from '../shared/ProjectIcon'
 import { PriorityTodayView } from '../tasks/PriorityTodayView'
 
@@ -52,17 +52,6 @@ function ViewHeader({ title, icon: Icon, count, onSearch, searchOpen, setSearchO
 
   return (
     <div className="flex items-center justify-between px-4 py-3.5 border-b border-td-border/50 dark:border-tn-border/50 shrink-0 gap-2">
-      {!searchOpen && (
-        <button
-          onClick={() => dispatch({ type: 'SET_SIDEBAR', payload: true })}
-          className="md:hidden min-h-[44px] min-w-[44px] flex items-center justify-center -ml-2.5 mr-1
-            text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg active:text-td-fg dark:active:text-tn-fg
-            transition-colors shrink-0"
-        >
-          <Menu size={20} />
-        </button>
-      )}
-
       {searchOpen ? (
         /* Expanded search bar */
         <div className="flex-1 flex items-center gap-2 bg-td-surface dark:bg-tn-surface rounded-lg px-3 py-1.5">
