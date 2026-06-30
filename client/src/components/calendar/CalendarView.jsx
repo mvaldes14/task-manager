@@ -14,8 +14,9 @@ function toDateStr(date) {
 }
 
 function TaskPill({ task, onDragStart, onTouchStart }) {
-  const { dispatch } = useApp()
+  const { state, dispatch } = useApp()
   const done = task.status === 'done'
+  const isDark = state.theme === 'dark'
   return (
     <div
       draggable
@@ -25,8 +26,12 @@ function TaskPill({ task, onDragStart, onTouchStart }) {
       className="w-full text-left text-[10px] px-1.5 py-0.5 rounded truncate font-medium
         cursor-grab active:cursor-grabbing touch-none select-none hover:opacity-80 transition-opacity"
       style={{
-        background: done ? 'rgba(86,95,137,0.15)' : 'rgba(122,162,247,0.15)',
-        color: done ? '#565f89' : '#7aa2f7',
+        background: done
+          ? (isDark ? 'rgba(138,143,152,0.15)' : 'rgba(107,114,128,0.15)')
+          : (isDark ? 'rgba(137,180,250,0.15)' : 'rgba(46,125,233,0.15)'),
+        color: done
+          ? (isDark ? '#8a8f98' : '#6b7280')
+          : (isDark ? '#89b4fa' : '#2e7de9'),
         textDecoration: done ? 'line-through' : 'none',
       }}
     >

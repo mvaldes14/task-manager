@@ -8,7 +8,7 @@ import { Button, Input, Chip } from '../ui'
 
 const SUGGESTION_COLORS = {
   tag:     { color: '#bb9af7' },
-  project: { color: '#7aa2f7' },
+  project: { color: '#89b4fa' },
   user:    { color: '#4ade80' },
 }
 
@@ -27,13 +27,6 @@ function SuggestionDropdown({ suggestions, onSelect }) {
   )
 }
 
-// Hardcoded chip colors for dark — light mode uses same values (readable on both)
-const CHIP_COLORS = {
-  date:     { color: '#7aa2f7', bg: 'rgba(122,162,247,0.15)' },
-  tag:      { color: '#bb9af7', bg: 'rgba(187,154,247,0.15)' },
-  user:     { color: '#4ade80', bg: 'rgba(74,222,128,0.15)' },
-  link:     { color: '#38bdf8', bg: 'rgba(56,189,248,0.15)' },
-}
 
 // Quick-insert shelf helpers
 function toIso(date) {
@@ -101,6 +94,14 @@ export function FAB() {
   const [keyboardHeight, setKeyboardHeight] = useState(0)
   const inputRef = useRef(null)
   const timerRef = useRef(null)
+  const chipColorsRef = useRef({})
+  const isDark = state.theme === 'dark'
+  chipColorsRef.current = {
+    date: { color: isDark ? '#89b4fa' : '#2e7de9', bg: isDark ? 'rgba(137,180,250,0.15)' : 'rgba(46,125,233,0.15)' },
+    tag:  { color: '#bb9af7', bg: 'rgba(187,154,247,0.15)' },
+    user: { color: '#4ade80', bg: 'rgba(74,222,128,0.15)' },
+    link: { color: '#38bdf8', bg: 'rgba(56,189,248,0.15)' },
+  }
   const open = state.fabOpen
   const taskOpen = !!state.selectedTaskId
 
@@ -163,6 +164,7 @@ export function FAB() {
     try {
       const result = await api.parseNlp(val)
       if (!result) return
+      const CHIP_COLORS = chipColorsRef.current
       const next = []
       if (result.due_date) {
         const d = new Date(result.due_date + 'T00:00:00')

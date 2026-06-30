@@ -5,6 +5,7 @@ import { Plus, LogOut, Sun, Moon, Settings, Trash2, CheckCircle2, RefreshCw, Cal
 import { api } from '../../api'
 import { ProjectIcon, PROJECT_ICON_OPTIONS } from '../shared/ProjectIcon'
 import { SettingsModal } from '../settings/SettingsModal'
+import { Logo } from '../ui'
 
 const PROJECT_COLORS = ['#f7768e','#ff9e64','#e0af68','#9ece6a','#73daca','#7dcfff','#7aa2f7','#bb9af7','#c0caf5']
 
@@ -306,19 +307,11 @@ export function Sidebar() {
       <div className={`flex items-center py-4 ${collapsed ? 'justify-center px-0' : 'justify-between px-4'}`}>
         {!collapsed && (
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-[10px] flex items-center justify-center shrink-0 text-white font-bold text-lg select-none"
-              style={{ background: '#7aa2f7', boxShadow: '0 2px 8px rgba(122,162,247,0.45)' }}>
-              ✓
-            </div>
+            <Logo size={32} />
             <span className="text-td-fg dark:text-tn-fg font-bold text-base tracking-tight">Doit</span>
           </div>
         )}
-        {collapsed && (
-          <div className="w-8 h-8 rounded-[10px] flex items-center justify-center text-white font-bold text-lg select-none"
-            style={{ background: '#7aa2f7', boxShadow: '0 2px 8px rgba(122,162,247,0.45)' }}>
-            ✓
-          </div>
-        )}
+        {collapsed && <Logo size={32} />}
         {!collapsed && (
           <button onClick={toggleTheme}
             className="text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg transition-colors p-1">

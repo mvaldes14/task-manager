@@ -12,7 +12,8 @@ function FocusCard({ task }) {
   const done = task.status === 'done'
   const subtasksDone = (task.subtasks || []).filter(s => s.completed).length
   const subtasksTotal = (task.subtasks || []).length
-  const accentColor = project?.color || '#7aa2f7'
+  const isDark = state.theme === 'dark'
+  const accentColor = project?.color || (isDark ? '#89b4fa' : '#2e7de9')
 
   const handleSubtaskToggle = async (e, sub) => {
     e.stopPropagation()
