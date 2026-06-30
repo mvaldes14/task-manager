@@ -2,10 +2,10 @@ import { useState, useCallback } from 'react'
 import { useApp } from '../../context/AppContext'
 import { ProjectIcon } from '../shared/ProjectIcon'
 import { useTasks } from '../../hooks/useTasks'
-import { useSwipeRow } from '../../hooks/useSwipeRow'
 import { formatDate, isOverdue, priorityColor, recurrenceLabel, fmtTime, getLinkLabel, rescheduleOptions } from '../../utils'
-import { Paperclip, GitBranch, Link2, Sparkles, Check, CalendarClock, Trash2 } from 'lucide-react'
+import { Paperclip, GitBranch, Link2, Sparkles } from 'lucide-react'
 import { AiResultModal } from './AiResultModal'
+import { SwipeableRow } from './SwipeableRow'
 import { Chip } from '../ui'
 
 function LinkIcon({ url }) {
@@ -35,84 +35,17 @@ export function TaskCard({ task }) {
     confirm('Delete this task?', () => deleteTask(task.id))
   }, [task.id, confirm, deleteTask])
 
-  const { containerRef, offset, phase, trayOpen, closeSelf, wasSwipe } = useSwipeRow({
-    onCompleteCommit: handleComplete,
-    onDeleteCommit: handleDelete,
-  })
-
-  const reducedMotion =
-    typeof window !== 'undefined'
-      ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
-      : false
-
-  // Row slides left/right; snap uses a spring curve, drag tracks finger directly
-  const rowStyle = {
-    transform: `translateX(${offset}px)`,
-    transition:
-      phase === 'dragging' || reducedMotion
-        ? 'none'
-        : 'transform 280ms cubic-bezier(0.32,0.72,0,1)',
-    willChange: 'transform',
-  }
-
-  const showRight = offset > 2   // green complete layer
-  const showLeft  = offset < -2  // amber+red tray layer
-
   return (
-    <div
-      ref={containerRef}
-      className="relative overflow-hidden border-b border-td-border/50 dark:border-tn-border/50 last:border-0"
-      style={{ touchAction: 'pan-y' }}
+    <>
+    <SwipeableRow
+      onComplete={handleComplete}
+      onDelete={handleDelete}
+      onReschedule={() => setRescheduleOpen(true)}
+      className="border-b border-td-border/50 dark:border-tn-border/50 last:border-0"
     >
-      {/* ── Right reveal layer — green (complete) ──────────────────────────── */}
+      {({ wasSwipe, closeSelf, trayOpen }) => (
       <div
-        aria-hidden="true"
-        className={`absolute inset-0 flex items-center gap-2 pl-5
-          bg-td-green/15 dark:bg-tn-green/15
-          transition-opacity duration-fast
-          ${showRight ? 'opacity-100' : 'opacity-0'}`}
-      >
-        <Check size={20} className="text-td-green dark:text-tn-green shrink-0" />
-        <span className="text-td-green dark:text-tn-green text-sm font-medium">Complete</span>
-      </div>
-
-      {/* ── Left reveal layer — amber (reschedule) + red (delete) ──────────── */}
-      <div
-        aria-hidden="true"
-        className={`absolute inset-0 flex items-center justify-end gap-2 pr-3
-          transition-opacity duration-fast
-          ${showLeft ? 'opacity-100' : 'opacity-0'}`}
-      >
-        <button
-          data-swipe-action
-          className="flex flex-col items-center gap-1 px-3 py-2 rounded-xl
-            bg-td-amber/15 dark:bg-tn-amber/15
-            text-td-amber dark:text-tn-amber
-            active:bg-td-amber/25 dark:active:bg-tn-amber/25
-            transition-colors duration-fast"
-          onClick={e => { e.stopPropagation(); closeSelf(); setRescheduleOpen(true) }}
-        >
-          <CalendarClock size={16} />
-          <span className="text-[10px] font-medium leading-none">Reschedule</span>
-        </button>
-        <button
-          data-swipe-action
-          className="flex flex-col items-center gap-1 px-3 py-2 rounded-xl
-            bg-td-red/15 dark:bg-tn-red/15
-            text-td-red dark:text-tn-red
-            active:bg-td-red/25 dark:active:bg-tn-red/25
-            transition-colors duration-fast"
-          onClick={e => { e.stopPropagation(); closeSelf(); handleDelete() }}
-        >
-          <Trash2 size={16} />
-          <span className="text-[10px] font-medium leading-none">Delete</span>
-        </button>
-      </div>
-
-      {/* ── Sliding row content ─────────────────────────────────────────────── */}
-      <div
-        style={rowStyle}
-        className={`group relative z-10 flex items-start gap-3 px-4 py-3 cursor-pointer
+        className={`group flex items-start gap-3 px-4 py-3 cursor-pointer
           bg-td-bg dark:bg-tn-bg
           transition-colors duration-fast
           hover:bg-td-surface/50 dark:hover:bg-tn-surface/50
@@ -257,51 +190,53 @@ export function TaskCard({ task }) {
 
         {aiOpen && <AiResultModal taskId={task.id} onClose={() => setAiOpen(false)} />}
       </div>
-
-      {/* ── Reschedule bottom sheet (fixed — not clipped by overflow-hidden) ── */}
-      {rescheduleOpen && (
-        <>
-          <div
-            className="fixed inset-0 z-[150] bg-black/50"
-            onClick={() => setRescheduleOpen(false)}
-          />
-          <div className="fixed bottom-0 left-0 right-0 z-[151] bg-td-bg2 dark:bg-tn-bg2 rounded-t-2xl p-5 pb-10 animate-slide-up">
-            <p className="text-td-fg dark:text-tn-fg text-center mb-4 text-sm font-medium">
-              Reschedule to…
-            </p>
-            <div className="flex flex-col gap-2">
-              {rescheduleOptions().map(({ label, isoDate }) => (
-                <button
-                  key={label}
-                  onClick={() => {
-                    updateTask(task.id, { due_date: isoDate })
-                    setRescheduleOpen(false)
-                  }}
-                  className="w-full py-3 rounded-xl
-                    bg-td-amber/10 dark:bg-tn-amber/10
-                    text-td-amber dark:text-tn-amber
-                    font-medium text-sm
-                    active:bg-td-amber/20 dark:active:bg-tn-amber/20
-                    transition-colors duration-fast"
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            <button
-              onClick={() => setRescheduleOpen(false)}
-              className="w-full py-3 mt-3 rounded-xl
-                bg-td-surface dark:bg-tn-surface
-                text-td-muted dark:text-tn-muted
-                font-medium text-sm
-                active:bg-td-border/50 dark:active:bg-tn-border/50
-                transition-colors duration-fast"
-            >
-              Cancel
-            </button>
-          </div>
-        </>
       )}
-    </div>
+    </SwipeableRow>
+
+    {/* ── Reschedule bottom sheet (fixed — not clipped by overflow-hidden) ── */}
+    {rescheduleOpen && (
+      <>
+        <div
+          className="fixed inset-0 z-[150] bg-black/50"
+          onClick={() => setRescheduleOpen(false)}
+        />
+        <div className="fixed bottom-0 left-0 right-0 z-[151] bg-td-bg2 dark:bg-tn-bg2 rounded-t-2xl p-5 pb-10 animate-slide-up">
+          <p className="text-td-fg dark:text-tn-fg text-center mb-4 text-sm font-medium">
+            Reschedule to…
+          </p>
+          <div className="flex flex-col gap-2">
+            {rescheduleOptions().map(({ label, isoDate }) => (
+              <button
+                key={label}
+                onClick={() => {
+                  updateTask(task.id, { due_date: isoDate })
+                  setRescheduleOpen(false)
+                }}
+                className="w-full py-3 rounded-xl
+                  bg-td-amber/10 dark:bg-tn-amber/10
+                  text-td-amber dark:text-tn-amber
+                  font-medium text-sm
+                  active:bg-td-amber/20 dark:active:bg-tn-amber/20
+                  transition-colors duration-fast"
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => setRescheduleOpen(false)}
+            className="w-full py-3 mt-3 rounded-xl
+              bg-td-surface dark:bg-tn-surface
+              text-td-muted dark:text-tn-muted
+              font-medium text-sm
+              active:bg-td-border/50 dark:active:bg-tn-border/50
+              transition-colors duration-fast"
+          >
+            Cancel
+          </button>
+        </div>
+      </>
+    )}
+    </>
   )
 }
