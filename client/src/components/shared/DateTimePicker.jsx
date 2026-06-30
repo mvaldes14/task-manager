@@ -33,7 +33,7 @@ function parseIso(iso) {
 //   onChange — ({ date, time }) => void  (only changed key is passed)
 //   onClear  — () => void  (renders an × button when provided)
 //   placeholder — string  (button label when no date set)
-export function DateTimePicker({ date, time, onChange, onClear, placeholder = 'Set date' }) {
+export function DateTimePicker({ date, time, onChange, onClear, placeholder = 'Set date', renderTrigger }) {
   const parsed = parseIso(date)
   const today  = new Date()
 
@@ -93,27 +93,29 @@ export function DateTimePicker({ date, time, onChange, onClear, placeholder = 'S
   return (
     <div className="relative" ref={ref}>
       {/* Trigger */}
-      <div className="flex items-center gap-1">
-        <button
-          type="button"
-          onClick={() => setOpen(o => !o)}
-          className={`flex-1 text-left text-xs rounded-lg px-2.5 py-2 border transition-colors
-            bg-td-surface dark:bg-tn-surface border-td-border/50 dark:border-tn-border/50
-            hover:border-td-blue/60 dark:hover:border-tn-blue/60
-            ${date ? 'text-td-fg dark:text-tn-fg' : 'text-td-muted dark:text-tn-muted'}`}
-        >
-          {triggerLabel}
-        </button>
-        {onClear && date && (
+      {renderTrigger ? renderTrigger({ open, setOpen }) : (
+        <div className="flex items-center gap-1">
           <button
             type="button"
-            onClick={(e) => { e.stopPropagation(); onClear() }}
-            className="p-1.5 rounded-lg text-td-muted dark:text-tn-muted hover:text-td-red dark:hover:text-tn-red hover:bg-td-red/10 dark:hover:bg-tn-red/10 transition-colors"
+            onClick={() => setOpen(o => !o)}
+            className={`flex-1 text-left text-xs rounded-lg px-2.5 py-2 border transition-colors
+              bg-td-surface dark:bg-tn-surface border-td-border/50 dark:border-tn-border/50
+              hover:border-td-blue/60 dark:hover:border-tn-blue/60
+              ${date ? 'text-td-fg dark:text-tn-fg' : 'text-td-muted dark:text-tn-muted'}`}
           >
-            <X size={12} />
+            {triggerLabel}
           </button>
-        )}
-      </div>
+          {onClear && date && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onClear() }}
+              className="p-1.5 rounded-lg text-td-muted dark:text-tn-muted hover:text-td-red dark:hover:text-tn-red hover:bg-td-red/10 dark:hover:bg-tn-red/10 transition-colors"
+            >
+              <X size={12} />
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Popover */}
       {open && (
