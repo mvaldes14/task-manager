@@ -2,8 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useApp } from '../../context/AppContext'
 import { useTasks } from '../../hooks/useTasks'
 import { api } from '../../api'
-import { formatDate, fmtTime, recurrenceLabel, getLinkLabel, getLinkStyle, priorityColor } from '../../utils'
-import { X, Trash2, Plus, Check, ChevronRight, Paperclip, GitBranch, Link2, Repeat2, ExternalLink, Sparkles } from 'lucide-react'
+import { formatDate, fmtTime, isOverdue, recurrenceLabel, getLinkLabel, getLinkStyle, priorityColor } from '../../utils'
+import { X, Trash2, Plus, Check, ChevronRight, Paperclip, GitBranch, Link2, ExternalLink, Sparkles } from 'lucide-react'
 import { DateTimePicker } from '../shared/DateTimePicker'
 import { AiResultModal } from './AiResultModal'
 
@@ -16,6 +16,11 @@ const STATUS_DOT = {
   done:    'bg-td-green dark:bg-tn-green',
   blocked: 'bg-td-red dark:bg-tn-red',
 }
+
+// Unified micro-label for all section headers
+const MICRO_LABEL = 'text-[10px] font-semibold tracking-wider uppercase text-td-muted dark:text-tn-muted'
+// Fixed-width label span for property rows — ensures all values align at the same x-position
+const PROP_LABEL = `${MICRO_LABEL} w-20 shrink-0`
 
 const RECUR_PRESETS = [
   { label: 'None',               value: null },
@@ -42,6 +47,24 @@ function _rruleProps(str) {
   return Object.fromEntries(src.split(';').map(p => p.split('=')))
 }
 
+// ── PropertyRow ───────────────────────────────────────────────────────────────
+// Single horizontal row in the property sheet: label-left (fixed width),
+// value-right (flexible). Wrapping div is `relative` so overlay <select>
+// children can use `absolute inset-0` to make the whole row tappable.
+function PropertyRow({ label, children }) {
+  return (
+    <div className="relative flex items-center min-h-[44px] px-3.5 gap-3">
+      <span className={PROP_LABEL}>{label}</span>
+      <div className="flex-1 flex items-center justify-end gap-1.5 min-w-0 text-sm text-td-fg dark:text-tn-fg">
+        {children}
+      </div>
+    </div>
+  )
+}
+
+// ── RecurrenceEditor ──────────────────────────────────────────────────────────
+// Renders as a property-row style trigger + inline accordion panel.
+// No outer label wrapper — the trigger row IS the label.
 function RecurrenceEditor({ recurrence, recurrenceEnd, onChange }) {
   const [open, setOpen] = useState(false)
   const [domInput, setDomInput] = useState('')
@@ -61,12 +84,9 @@ function RecurrenceEditor({ recurrence, recurrenceEnd, onChange }) {
       setOpen(false)
     } else if (value === '__monthly_dom__') {
       setShowMonthlyPicker(true)
-      // stay open so user can pick the day
     } else if (value === 'RRULE:FREQ=WEEKLY') {
-      // enter weekly mode but keep existing BYDAY if already weekly
       if (!isWeekly) onChange({ recurrence: value })
       setShowMonthlyPicker(false)
-      // don't close — show day picker
     } else {
       onChange({ recurrence: value })
       setShowMonthlyPicker(false)
@@ -89,7 +109,6 @@ function RecurrenceEditor({ recurrence, recurrenceEnd, onChange }) {
     setOpen(false)
   }
 
-  // preset is "active" if it exactly matches, or if weekly and we're in weekly mode with custom days
   const isPresetActive = (opt) => {
     if (!opt.value) return !recurrence
     if (opt.value === '__monthly_dom__') return false
@@ -98,58 +117,65 @@ function RecurrenceEditor({ recurrence, recurrenceEnd, onChange }) {
   }
 
   return (
-    <div className="space-y-1.5">
-      <label className="text-xs font-bold text-td-muted dark:text-tn-muted">Recurrence</label>
-      <div className="relative">
-        <button
-          onClick={() => { setOpen(o => { if (o) setShowMonthlyPicker(false); return !o }) }}
-          className="flex items-center gap-2 w-full text-xs px-3 py-2 rounded-lg transition-colors text-left
-            bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg
-            hover:bg-td-border/30 dark:hover:bg-tn-border/30 border border-td-border/50 dark:border-tn-border/50"
-        >
-          <Repeat2 size={13} />
-          <span>{label || 'None'}</span>
-          {recurrenceEnd && <span className="ml-auto opacity-60 text-[10px]">until {recurrenceEnd}</span>}
-        </button>
+    <div>
+      {/* Trigger — property-row style */}
+      <button
+        onClick={() => { setOpen(o => { if (o) setShowMonthlyPicker(false); return !o }) }}
+        className="flex items-center min-h-[44px] w-full text-left px-3.5 gap-3"
+      >
+        <span className={PROP_LABEL}>Repeat</span>
+        <div className="flex-1 flex items-center justify-end gap-1.5 text-sm text-td-fg dark:text-tn-fg">
+          <span className={recurrence ? '' : 'text-td-muted/40 dark:text-tn-muted/40'}>
+            {label || 'None'}
+          </span>
+          <ChevronRight
+            size={12}
+            className={`text-td-muted/30 dark:text-tn-muted/30 shrink-0 transition-transform duration-fast ${open ? 'rotate-90' : ''}`}
+          />
+        </div>
+      </button>
 
-        {open && (
-          <div className="absolute left-0 right-0 top-full mt-1 z-20 rounded-xl border border-td-border dark:border-tn-border bg-white dark:bg-tn-bg2 shadow-e2 overflow-hidden">
+      {/* Inline accordion — preset list */}
+      {open && (
+        <div className="border-t border-td-border/30 dark:border-tn-border/30">
+          <div className="px-3 py-1.5 space-y-0.5">
             {RECUR_PRESETS.map(opt => (
               <button
                 key={opt.label}
                 onClick={() => selectPreset(opt.value)}
-                className={`w-full text-left text-xs px-3 py-2.5 transition-colors
-                  hover:bg-td-surface dark:hover:bg-tn-surface
+                className={`w-full text-left text-xs px-2.5 py-2 rounded-lg transition-colors duration-fast
                   ${isPresetActive(opt)
                     ? 'text-td-teal dark:text-tn-teal font-semibold bg-td-teal/5 dark:bg-tn-teal/5'
-                    : 'text-td-fg dark:text-tn-fg'}`}
+                    : 'text-td-fg dark:text-tn-fg hover:bg-td-border/30 dark:hover:bg-tn-border/30'}`}
               >
                 {opt.label}
               </button>
             ))}
+          </div>
 
-            {isWeekly && (
-              <div className="border-t border-td-border dark:border-tn-border px-3 py-2.5 space-y-1.5">
-                <label className="block text-[10px] text-td-muted dark:text-tn-muted">Repeat on</label>
-                <div className="flex gap-1">
-                  {WEEK_DAYS.map(({ code, label: lbl }) => (
-                    <button
-                      key={code}
-                      onClick={() => toggleDay(code)}
-                      className={`flex-1 py-1 rounded text-[11px] font-medium transition-colors
-                        ${activeDays.has(code)
-                          ? 'bg-td-teal dark:bg-tn-teal text-white'
-                          : 'bg-td-surface dark:bg-tn-surface text-td-muted dark:text-tn-muted hover:bg-td-border/40 dark:hover:bg-tn-border/40'}`}
-                    >
-                      {lbl}
-                    </button>
-                  ))}
-                </div>
+          {isWeekly && (
+            <div className="border-t border-td-border/30 dark:border-tn-border/30 px-3.5 py-2.5 space-y-1.5">
+              <label className={`block ${MICRO_LABEL}`}>Repeat on</label>
+              <div className="flex gap-1">
+                {WEEK_DAYS.map(({ code, label: lbl }) => (
+                  <button
+                    key={code}
+                    onClick={() => toggleDay(code)}
+                    className={`flex-1 py-1 rounded text-[11px] font-medium transition-colors duration-fast
+                      ${activeDays.has(code)
+                        ? 'bg-td-teal dark:bg-tn-teal text-white'
+                        : 'bg-td-border/20 dark:bg-tn-border/20 text-td-muted dark:text-tn-muted hover:bg-td-border/40 dark:hover:bg-tn-border/40'}`}
+                  >
+                    {lbl}
+                  </button>
+                ))}
               </div>
-            )}
+            </div>
+          )}
 
-            {(showMonthlyPicker || isMonthlyDom) && <div className="border-t border-td-border dark:border-tn-border px-3 py-2.5 space-y-1.5">
-              <label className="block text-[10px] text-td-muted dark:text-tn-muted">Monthly on day</label>
+          {(showMonthlyPicker || isMonthlyDom) && (
+            <div className="border-t border-td-border/30 dark:border-tn-border/30 px-3.5 py-2.5 space-y-1.5">
+              <label className={`block ${MICRO_LABEL}`}>Monthly on day</label>
               <div className="flex gap-2">
                 <input
                   type="number" min="1" max="31"
@@ -165,14 +191,15 @@ function RecurrenceEditor({ recurrence, recurrenceEnd, onChange }) {
                   Set
                 </button>
               </div>
-            </div>}
-          </div>
-        )}
-      </div>
+            </div>
+          )}
+        </div>
+      )}
 
+      {/* Stop repeating on — shown when any recurrence is active */}
       {recurrence && (
-        <div className="space-y-1">
-          <label className="text-[10px] font-semibold tracking-wider text-td-muted/60 dark:text-tn-muted/60 uppercase">Stop repeating on</label>
+        <div className="border-t border-td-border/30 dark:border-tn-border/30 px-3.5 py-2.5 space-y-1.5">
+          <label className={`block ${MICRO_LABEL}`}>Stop repeating on</label>
           <DateTimePicker
             date={recurrenceEnd || ''}
             placeholder="No end date"
@@ -270,7 +297,7 @@ function LinksSection({ task, onUpdate }) {
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
-        <label className="text-xs font-bold text-td-muted dark:text-tn-muted">Links</label>
+        <label className={MICRO_LABEL}>Links</label>
         {!adding && (
           <button onClick={() => setAdding(true)}
             className="text-[10px] text-td-muted/50 dark:text-tn-muted/50 hover:text-td-amber dark:hover:text-tn-amber transition-colors">
@@ -434,7 +461,6 @@ export function TaskDetail() {
     }
   }, [updateTask])
 
-  // Load task into local state when selected task changes
   useEffect(() => {
     if (!task) return
     setTitle(task.title || '')
@@ -495,6 +521,12 @@ export function TaskDetail() {
     } catch { toast('Failed to link task') }
   }
 
+  // Derived display values for property rows
+  const projectName   = state.projects.find(p => p.id === projectId)?.name || 'No project'
+  const assigneeUser  = state.users.find(u => u.id === assignedTo)
+  const assigneeName  = assigneeUser?.display_name || assigneeUser?.username || 'Unassigned'
+  const dueDateOverdue = isOverdue({ due_date: dueDate, status })
+
   return (
     <>
       {/* Mobile backdrop */}
@@ -531,31 +563,31 @@ export function TaskDetail() {
               ? <span className="text-td-muted dark:text-tn-muted">Saving…</span>
               : <span className="text-td-green dark:text-tn-green">Saved ✓</span>}
           </span>
-          <button onClick={handleDelete} className="text-td-muted/50 dark:text-tn-muted/50 hover:text-td-red dark:text-tn-red transition-colors p-1">
+          <button onClick={handleDelete} className="text-td-muted/50 dark:text-tn-muted/50 hover:text-td-red dark:hover:text-tn-red transition-colors p-1">
             <Trash2 size={16} />
           </button>
         </div>
 
         {/* Scrollable content */}
-        <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 space-y-5"
+        <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 space-y-4"
           style={{ paddingBottom: 'calc(32px + env(safe-area-inset-bottom, 0px))' }}>
 
           {/* Title */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-td-muted dark:text-tn-muted">Task Name</label>
-          <textarea
-            value={title}
-            onChange={e => setTitle(e.target.value)}
-            onBlur={() => { if (title !== task.title) autoSave(task.id, { title }) }}
-            rows={2}
-            className="w-full bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-base font-medium resize-none outline-none leading-snug rounded-lg px-3 py-2.5 border border-td-border/50 dark:border-tn-border/50 placeholder-td-muted/40 dark:placeholder-tn-muted/40"
-            placeholder="Task title"
-          />
+          <div className="space-y-1">
+            <label className={MICRO_LABEL}>Task Name</label>
+            <textarea
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              onBlur={() => { if (title !== task.title) autoSave(task.id, { title }) }}
+              rows={2}
+              className="w-full bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-base font-medium resize-none outline-none leading-snug rounded-lg px-3 py-2.5 border border-td-border/50 dark:border-tn-border/50 placeholder-td-muted/40 dark:placeholder-tn-muted/40"
+              placeholder="Task title"
+            />
           </div>
 
           {/* Description */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-td-muted dark:text-tn-muted">Description</label>
+          <div className="space-y-1">
+            <label className={MICRO_LABEL}>Description</label>
             <textarea
               value={description}
               onChange={e => setDescription(e.target.value)}
@@ -579,21 +611,123 @@ export function TaskDetail() {
             </button>
           )}
 
-          {/* Status */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-td-muted dark:text-tn-muted">Status</label>
-            <select
-              value={status}
-              onChange={e => { const v = e.target.value; setStatus(v); autoSave(task.id, { status: v }) }}
-              className="w-full bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-xs rounded-lg px-2.5 py-2 outline-none border border-td-border/50 dark:border-tn-border/50 appearance-none cursor-pointer"
-            >
-              {STATUSES.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
-            </select>
-          </div>
+          {/* ── Property sheet card ────────────────────────────────────── */}
+          {/* No overflow-hidden so absolute popover (DateTimePicker) isn't clipped */}
+          <div className="rounded-xl border border-td-border/50 dark:border-tn-border/50 divide-y divide-td-border/30 dark:divide-tn-border/30 bg-td-surface dark:bg-tn-surface">
 
-          {/* Priority */}
+            {/* Status — overlay <select> makes the whole row tappable */}
+            <PropertyRow label="Status">
+              <span className={`w-2 h-2 rounded-full shrink-0 ${STATUS_DOT[status]}`} />
+              <span className="capitalize">{status}</span>
+              <ChevronRight size={12} className="text-td-muted/30 dark:text-tn-muted/30 shrink-0" />
+              <select
+                value={status}
+                onChange={e => { const v = e.target.value; setStatus(v); autoSave(task.id, { status: v }) }}
+                className="absolute inset-0 opacity-0 cursor-pointer w-full"
+              >
+                {STATUSES.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
+              </select>
+            </PropertyRow>
+
+            {/* Due Date — renderTrigger gives DateTimePicker a property-row trigger */}
+            <DateTimePicker
+              date={dueDate}
+              time={dueTime}
+              onChange={({ date: d, time: t }) => {
+                if (d !== undefined) { setDueDate(d); autoSave(task.id, { due_date: d || null }) }
+                if (t !== undefined) { setDueTime(t); autoSave(task.id, { due_time: t || null }) }
+              }}
+              renderTrigger={({ open, setOpen }) => (
+                <div className="flex items-center min-h-[44px] px-3.5 gap-3">
+                  <span className={PROP_LABEL}>Due</span>
+                  <button
+                    type="button"
+                    onClick={() => setOpen(o => !o)}
+                    className="flex-1 flex items-center justify-end gap-1.5 text-sm min-w-0 text-left"
+                  >
+                    {dueDate ? (
+                      <span className={dueDateOverdue ? 'text-td-red dark:text-tn-red' : 'text-td-fg dark:text-tn-fg'}>
+                        {formatDate(dueDate)}{dueTime ? ` · ${fmtTime(dueTime)}` : ''}
+                      </span>
+                    ) : (
+                      <span className="text-td-muted/40 dark:text-tn-muted/40">Set date</span>
+                    )}
+                    <ChevronRight
+                      size={12}
+                      className={`text-td-muted/30 dark:text-tn-muted/30 shrink-0 transition-transform duration-fast ${open ? 'rotate-90' : ''}`}
+                    />
+                  </button>
+                  {dueDate && (
+                    <button
+                      type="button"
+                      onClick={() => { setDueDate(''); setDueTime(''); autoSave(task.id, { due_date: null, due_time: null }) }}
+                      className="shrink-0 p-1 text-td-muted/40 dark:text-tn-muted/40 hover:text-td-red dark:hover:text-tn-red transition-colors"
+                    >
+                      <X size={12} />
+                    </button>
+                  )}
+                </div>
+              )}
+            />
+
+            {/* Recurrence — inline accordion */}
+            <RecurrenceEditor
+              recurrence={recurrence}
+              recurrenceEnd={recurrenceEnd}
+              onChange={({ recurrence: r, recurrence_end: re }) => {
+                const overrides = {}
+                if (r !== undefined) { setRecurrence(r); overrides.recurrence = r || null }
+                if (re !== undefined) { setRecurrenceEnd(re || ''); overrides.recurrence_end = re || null }
+                if (Object.keys(overrides).length) autoSave(task.id, overrides)
+              }}
+            />
+
+            {/* Project — overlay <select> */}
+            <PropertyRow label="Project">
+              <span className="truncate text-td-fg dark:text-tn-fg">{projectName}</span>
+              <ChevronRight size={12} className="text-td-muted/30 dark:text-tn-muted/30 shrink-0" />
+              <select
+                value={projectId}
+                onChange={e => { const v = e.target.value; setProjectId(v); autoSave(task.id, { project_id: v || null }) }}
+                className="absolute inset-0 opacity-0 cursor-pointer w-full"
+              >
+                <option value="">No project</option>
+                {state.projects.filter(p => p.id !== 'inbox').map(p => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </PropertyRow>
+
+            {/* Assignee — overlay <select> */}
+            <PropertyRow label="Assignee">
+              <span className={`truncate ${assignedTo ? 'text-td-fg dark:text-tn-fg' : 'text-td-muted/40 dark:text-tn-muted/40'}`}>
+                {assigneeName}
+              </span>
+              <ChevronRight size={12} className="text-td-muted/30 dark:text-tn-muted/30 shrink-0" />
+              <select
+                value={assignedTo}
+                onChange={e => {
+                  const v = e.target.value || null
+                  setAssignedTo(v || '')
+                  autoSave(task.id, { assigned_to: v })
+                }}
+                className="absolute inset-0 opacity-0 cursor-pointer w-full"
+              >
+                <option value="">Unassigned</option>
+                {state.users.map(u => (
+                  <option key={u.id} value={u.id}>
+                    {u.display_name || u.username}
+                  </option>
+                ))}
+              </select>
+            </PropertyRow>
+
+          </div>
+          {/* ── End property sheet card ───────────────────────────────── */}
+
+          {/* Priority — segmented buttons, kept full-width */}
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-td-muted dark:text-tn-muted">Priority</label>
+            <label className={MICRO_LABEL}>Priority</label>
             <div className="flex gap-1">
               {PRIORITIES.map(p => {
                 const active = priority === p
@@ -616,76 +750,13 @@ export function TaskDetail() {
             </div>
           </div>
 
-          {/* Due date + time */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-td-muted dark:text-tn-muted">Due Date</label>
-            <DateTimePicker
-              date={dueDate}
-              time={dueTime}
-              placeholder="Set due date"
-              onClear={() => { setDueDate(''); setDueTime(''); autoSave(task.id, { due_date: null, due_time: null }) }}
-              onChange={({ date: d, time: t }) => {
-                if (d !== undefined) { setDueDate(d); autoSave(task.id, { due_date: d || null }) }
-                if (t !== undefined) { setDueTime(t); autoSave(task.id, { due_time: t || null }) }
-              }}
-            />
-          </div>
-
-          {/* Recurrence */}
-          <RecurrenceEditor
-            recurrence={recurrence}
-            recurrenceEnd={recurrenceEnd}
-            onChange={({ recurrence: r, recurrence_end: re }) => {
-              const overrides = {}
-              if (r !== undefined) { setRecurrence(r); overrides.recurrence = r || null }
-              if (re !== undefined) { setRecurrenceEnd(re || ''); overrides.recurrence_end = re || null }
-              if (Object.keys(overrides).length) autoSave(task.id, overrides)
-            }}
-          />
-
-          {/* Project */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-td-muted dark:text-tn-muted">Project</label>
-            <select
-              value={projectId}
-              onChange={e => { const v = e.target.value; setProjectId(v); autoSave(task.id, { project_id: v || null }) }}
-              className="w-full bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-xs rounded-lg px-2.5 py-2 outline-none border border-td-border/50 dark:border-tn-border/50"
-            >
-              <option value="">No project</option>
-              {state.projects.filter(p => p.id !== 'inbox').map(p => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
-          </div>
-
           {/* Tags */}
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-td-muted dark:text-tn-muted">Tags</label>
+            <label className={MICRO_LABEL}>Tags</label>
             <TagCombobox
               tags={tags}
               onChange={next => { setTags(next); autoSave(task.id, { tags: next }) }}
             />
-          </div>
-
-          {/* Assignee */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-td-muted dark:text-tn-muted">Assigned To</label>
-            <select
-              value={assignedTo}
-              onChange={e => {
-                const v = e.target.value || null
-                setAssignedTo(v || '')
-                autoSave(task.id, { assigned_to: v })
-              }}
-              className="w-full bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-xs rounded-lg px-2.5 py-2 outline-none border border-td-border/50 dark:border-tn-border/50"
-            >
-              <option value="">Unassigned</option>
-              {state.users.map(u => (
-                <option key={u.id} value={u.id}>
-                  {u.display_name || u.username}
-                </option>
-              ))}
-            </select>
           </div>
 
           {/* Links */}
@@ -693,7 +764,7 @@ export function TaskDetail() {
 
           {/* Subtasks */}
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-td-muted dark:text-tn-muted">
+            <label className={MICRO_LABEL}>
               Subtasks {task.subtasks?.length > 0 && `(${task.subtasks.filter(s => s.completed).length}/${task.subtasks.length})`}
             </label>
             <div className="divide-y divide-td-border/30 dark:divide-tn-border/30">
