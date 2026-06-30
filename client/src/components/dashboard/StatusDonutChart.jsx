@@ -9,7 +9,7 @@ export function StatusDonutChart({ data }) {
   // Status colors matching Tokyo Night theme
   const STATUS_COLORS = {
     todo: isDark ? '#565f89' : '#a9b1d6',
-    doing: isDark ? '#7aa2f7' : '#7aa2f7',
+    doing: isDark ? '#89b4fa' : '#2e7de9',
     blocked: isDark ? '#f7768e' : '#f7768e',
     done: isDark ? '#9ece6a' : '#9ece6a',
   }

@@ -34,14 +34,15 @@ export function KanbanSkeleton() {
 
 const COLUMNS = [
   { status: 'todo',    label: 'To Do',      color: '#565f89' },
-  { status: 'doing',  label: 'In Progress', color: '#7aa2f7' },
+  { status: 'doing',  label: 'In Progress', color: '#89b4fa' },
   { status: 'blocked', label: 'Blocked',    color: '#f7768e' },
   { status: 'done',   label: 'Done',        color: '#9ece6a' },
 ]
 
 export function KanbanBoard({ tasks }) {
-  const { dispatch } = useApp()
+  const { state, dispatch } = useApp()
   const { updateTask } = useTasks()
+  const isDark = state.theme === 'dark'
   const [overColumn, setOverColumn] = useState(null)
   const [showDone, setShowDone] = useState(false)
 
@@ -173,11 +174,12 @@ export function KanbanBoard({ tasks }) {
       {COLUMNS.map(({ status, label, color }) => {
         const items = filteredTasks.filter(t => t.status === status)
         const isOver = overColumn === status
+        const themedColor = status === 'doing' ? (isDark ? '#89b4fa' : '#2e7de9') : color
         return (
           <div key={status} className="flex-1 min-w-[260px] max-w-[320px] flex flex-col">
             {/* Column header */}
             <div className="flex items-center gap-2 mb-3 px-1">
-              <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
+              <span className="w-2 h-2 rounded-full shrink-0" style={{ background: themedColor }} />
               <span className="text-[11px] font-semibold tracking-wider uppercase text-td-muted dark:text-tn-muted">
                 {label}
               </span>
