@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect, useRef } from 'react'
 import { useApp } from '../../context/AppContext'
 import { isOverdue, isToday } from '../../utils'
-import { Plus, LogOut, Sun, Moon, Settings, Trash2, CheckCircle2, RefreshCw, Calendar, Inbox, Layers, AlertCircle, PanelLeftClose, PanelLeftOpen, LayoutDashboard, Users } from 'lucide-react'
+import { Plus, LogOut, Sun, Moon, Settings, Trash2, CheckCircle2, RefreshCw, CalendarDays, Inbox, Layers, AlertCircle, PanelLeftClose, PanelLeftOpen, LayoutDashboard, Users } from 'lucide-react'
 import { api } from '../../api'
 import { ProjectIcon, PROJECT_ICON_OPTIONS } from '../shared/ProjectIcon'
 import { SettingsModal } from '../settings/SettingsModal'
@@ -326,7 +326,7 @@ export function Sidebar() {
         <NavItem icon={Inbox}       label="Inbox"     viewKey="inbox"    badge={inboxCount} collapsed={collapsed} />
         <NavItem icon={Sun}         label="Today"     viewKey="today"    badge={todayCount} collapsed={collapsed} />
         <NavItem icon={Layers}      label="All"       viewKey="all"      collapsed={collapsed} />
-        <NavItem icon={Calendar}    label="Calendar"  viewKey="calendar" collapsed={collapsed} />
+        <NavItem icon={CalendarDays} label="Calendar" viewKey="calendar" collapsed={collapsed} />
         {overdueCount > 0 && (
           <NavItem icon={AlertCircle} label="Overdue"   viewKey="overdue"
             badge={overdueCount} badgeColor="bg-td-red dark:bg-tn-red" collapsed={collapsed} />
