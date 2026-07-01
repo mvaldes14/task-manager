@@ -16,7 +16,7 @@ function NavItem({ icon: Icon, label, viewKey, badge, badgeColor = 'bg-td-blue d
     <button
       onClick={() => dispatch({ type: 'SET_VIEW', payload: viewKey })}
       title={collapsed ? label : undefined}
-      className={`relative w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors
+      className={`relative w-full flex items-center gap-3 px-3 py-2.5 md:py-2 min-h-[44px] md:min-h-0 rounded-lg text-sm transition-colors
         ${collapsed ? 'justify-center' : ''}
         ${active
           ? 'bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg font-semibold'
@@ -270,6 +270,10 @@ export function Sidebar() {
   }, [state.sidebarOpen, dispatch])
 
   const collapsed = state.sidebarCollapsed
+  const isTouch = useMemo(
+    () => typeof window !== 'undefined' && window.matchMedia('(hover: none) and (pointer: coarse)').matches,
+    []
+  )
   const toggle = () => dispatch({ type: 'TOGGLE_SIDEBAR_COLLAPSED' })
 
   const overdueCount = useMemo(() => state.tasks.filter(t => isOverdue(t)).length, [state.tasks])
@@ -298,7 +302,7 @@ export function Sidebar() {
           fixed left-0 top-0 bottom-0 z-50 bg-td-bg2 dark:bg-tn-bg2 border-r border-td-border dark:border-tn-border
           flex flex-col transition-transform duration-base ease-standard
           md:relative md:inset-y-0 md:translate-x-0 md:flex md:bottom-0
-          ${collapsed ? 'w-[56px]' : 'w-64'}
+          ${collapsed ? 'w-[56px]' : 'w-[85vw] max-w-[330px] md:w-64'}
           ${state.sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
         `}
         style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
@@ -377,14 +381,14 @@ export function Sidebar() {
             </button>
           ) : (
             <button key={p.id}
-              draggable
-              onDragStart={e => { setDragProjectId(p.id); e.dataTransfer.effectAllowed = 'move' }}
-              onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (dragProjectId && dragProjectId !== p.id) setDropTargetId(p.id) }}
-              onDragLeave={() => { if (dropTargetId === p.id) setDropTargetId(null) }}
-              onDrop={e => { e.preventDefault(); handleProjectDrop(p.id) }}
-              onDragEnd={() => { setDragProjectId(null); setDropTargetId(null) }}
+              draggable={!isTouch}
+              onDragStart={!isTouch ? (e => { setDragProjectId(p.id); e.dataTransfer.effectAllowed = 'move' }) : undefined}
+              onDragOver={!isTouch ? (e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (dragProjectId && dragProjectId !== p.id) setDropTargetId(p.id) }) : undefined}
+              onDragLeave={!isTouch ? (() => { if (dropTargetId === p.id) setDropTargetId(null) }) : undefined}
+              onDrop={!isTouch ? (e => { e.preventDefault(); handleProjectDrop(p.id) }) : undefined}
+              onDragEnd={!isTouch ? (() => { setDragProjectId(null); setDropTargetId(null) }) : undefined}
               onClick={() => dispatch({ type: 'SET_VIEW', payload: `project:${p.id}` })}
-              className={`group w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors
+              className={`group w-full flex items-center gap-2.5 px-3 py-2.5 md:py-2 min-h-[44px] md:min-h-0 rounded-lg text-sm transition-colors
                 ${dragProjectId === p.id ? 'opacity-40' : ''}
                 ${dropTargetId === p.id ? 'ring-1 ring-td-blue/60 dark:ring-tn-blue/60' : ''}
                 ${active
