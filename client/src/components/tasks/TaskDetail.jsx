@@ -233,11 +233,14 @@ function SubtaskRow({ sub, taskId }) {
   }
 
   return (
-    <div className="flex items-center gap-2 py-1.5 group">
-      <button onClick={toggle}
-        className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-all
+    <div className="flex items-center gap-1 group">
+      {/* 44px hit target on touch; compact bubble on desktop */}
+      <button onClick={toggle} aria-label={sub.completed ? 'Mark subtask incomplete' : 'Mark subtask complete'}
+        className="shrink-0 flex items-center justify-center w-11 h-11 md:w-5 md:h-5">
+        <span className={`w-5 h-5 md:w-4 md:h-4 rounded-full border-2 flex items-center justify-center transition-all
           ${sub.completed ? 'bg-td-green/20 dark:bg-tn-green/20 border-td-green dark:border-tn-green' : 'border-td-muted/40 dark:border-tn-muted/40 hover:border-td-blue dark:border-tn-blue'}`}>
-        {sub.completed && <Check size={8} color="#9ece6a" strokeWidth={3} />}
+          {sub.completed && <Check size={10} color="#9ece6a" strokeWidth={3} />}
+        </span>
       </button>
 
       {sub.linked_task_id ? (
@@ -257,8 +260,12 @@ function SubtaskRow({ sub, taskId }) {
         </span>
       )}
 
-      <button onClick={del} className="opacity-0 group-hover:opacity-100 text-td-muted/50 dark:text-tn-muted/50 hover:text-td-red dark:text-tn-red p-0.5">
-        <X size={12} />
+      {/* Always visible on touch (no hover); hover-reveal on desktop. 44px hit target on mobile. */}
+      <button onClick={del} aria-label="Delete subtask"
+        className="shrink-0 flex items-center justify-center w-11 h-11 md:w-6 md:h-6
+          opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity
+          text-td-muted/50 dark:text-tn-muted/50 hover:text-td-red dark:hover:text-tn-red">
+        <X size={16} className="md:w-3 md:h-3" />
       </button>
     </div>
   )
@@ -442,6 +449,7 @@ export function TaskDetail() {
   const [aiOpen, setAiOpen] = useState(false)
   const [saveIndicator, setSaveIndicator] = useState('idle') // 'idle' | 'saving' | 'saved'
   const subtaskDebounce = useRef(null)
+  const subtaskInputRef = useRef(null)
   const inFlight = useRef(0)
   const saveTimer = useRef(null)
   const swipeStart = useRef(null)
@@ -509,6 +517,8 @@ export function TaskDetail() {
       if (updated) dispatch({ type: 'UPDATE_TASK', payload: updated })
       setSubtaskInput('')
       setSubtaskResults([])
+      // Keep focus so several subtasks can be added in a row without re-tapping the field
+      subtaskInputRef.current?.focus()
     } catch { toast('Failed to add subtask') }
   }
 
@@ -777,7 +787,7 @@ export function TaskDetail() {
                 <div className="absolute bottom-full left-0 right-0 mb-1 z-20 rounded-xl border border-td-border dark:border-tn-border bg-white dark:bg-tn-bg2 shadow-e2 overflow-hidden max-h-40 overflow-y-auto">
                   {subtaskResults.map(t => (
                     <button key={t.id} onMouseDown={() => linkSubtask(t.id)}
-                      className="w-full text-left text-xs px-3 py-2 hover:bg-td-surface dark:hover:bg-tn-surface flex items-center gap-2 transition-colors">
+                      className="w-full text-left text-sm px-3 min-h-11 hover:bg-td-surface dark:hover:bg-tn-surface flex items-center gap-2 transition-colors">
                       <span className={`w-2 h-2 rounded-full shrink-0 ${STATUS_DOT[t.status] || STATUS_DOT.todo}`} />
                       <span className="text-td-fg dark:text-tn-fg truncate">{t.title}</span>
                     </button>
@@ -786,6 +796,7 @@ export function TaskDetail() {
               )}
               <div className="flex gap-2">
                 <input
+                  ref={subtaskInputRef}
                   type="text" value={subtaskInput}
                   onChange={handleSubtaskInput}
                   onKeyDown={e => {
@@ -794,10 +805,12 @@ export function TaskDetail() {
                   }}
                   onBlur={() => setTimeout(() => setSubtaskResults([]), 150)}
                   placeholder="Add subtask or search tasks…"
-                  className="flex-1 bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-xs rounded-lg px-2.5 py-2 outline-none border border-td-border/50 dark:border-tn-border/50 placeholder-td-muted/40 dark:placeholder-tn-muted/40"
+                  className="flex-1 bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-sm rounded-lg px-3 min-h-11 outline-none border border-td-border/50 dark:border-tn-border/50 placeholder-td-muted/40 dark:placeholder-tn-muted/40"
                 />
-                <button onClick={addSubtask} className="px-3 py-2 bg-td-surface dark:bg-tn-surface text-td-muted dark:text-tn-muted hover:text-td-blue dark:text-tn-blue rounded-lg text-xs border border-td-border/50 dark:border-tn-border/50">
-                  <Plus size={12} />
+                {/* preventDefault keeps focus in the input so the mobile keyboard stays up for the next subtask */}
+                <button onMouseDown={e => e.preventDefault()} onClick={addSubtask} aria-label="Add subtask"
+                  className="shrink-0 flex items-center justify-center px-4 min-h-11 bg-td-surface dark:bg-tn-surface text-td-muted dark:text-tn-muted hover:text-td-blue dark:hover:text-tn-blue rounded-lg border border-td-border/50 dark:border-tn-border/50">
+                  <Plus size={16} />
                 </button>
               </div>
             </div>
