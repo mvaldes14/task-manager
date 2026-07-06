@@ -207,6 +207,7 @@ const SORT_OPTIONS = [
 const GROUP_OPTIONS = [
   { value: 'status', label: 'Status' },
   { value: 'tags', label: 'Tags' },
+  { value: 'project', label: 'Project' },
   { value: 'none', label: 'None' },
 ]
 
@@ -534,7 +535,7 @@ export function MainContent() {
   const showToolbar = viewMode === 'list' && view !== 'overdue' && view !== 'calendar' && view !== 'dashboard' && view !== 'today'
   const hasActiveFilters = !showDone || sortBy !== 'status' || groupBy !== 'status'
   const effectiveGroupBy = groupBy === 'none' ? 'flat' : groupBy
-  const groupKeys = useMemo(() => getGroupKeys(effectiveGroupBy, visibleTasks), [effectiveGroupBy, visibleTasks])
+  const groupKeys = useMemo(() => getGroupKeys(effectiveGroupBy, visibleTasks, projects), [effectiveGroupBy, visibleTasks, projects])
   const allCollapsed = groupKeys.length > 0 && groupKeys.every(isCollapsed)
   const toggleCollapseAll = useCallback(
     () => allCollapsed ? expandAll() : collapseAll(groupKeys),
@@ -649,6 +650,7 @@ export function MainContent() {
           <TaskList
             tasks={visibleTasks}
             groupBy={effectiveGroupBy}
+            projects={projects}
             emptyMessage={emptyMessage}
             isCollapsed={isCollapsed}
             toggle={toggle}

@@ -10,8 +10,15 @@ export function groupKey(groupBy, label) {
 
 // Ordered list of collapsible group keys for a given grouping.
 // Kept in sync with the rendering logic in TaskList.
-export function getGroupKeys(groupBy, tasks) {
+export function getGroupKeys(groupBy, tasks, projects = []) {
   if (!tasks?.length) return []
+  if (groupBy === 'project') {
+    const keys = projects
+      .filter(p => tasks.some(t => t.project_id === p.id))
+      .map(p => groupKey('project', p.id))
+    if (tasks.some(t => !t.project_id)) keys.push(groupKey('project', 'none'))
+    return keys
+  }
   if (groupBy === 'status') {
     return STATUS_ORDER
       .filter(status => tasks.some(t => t.status === status))

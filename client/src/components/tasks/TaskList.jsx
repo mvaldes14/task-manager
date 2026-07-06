@@ -59,7 +59,7 @@ function GroupSection({ label, count, children, isCollapsed, onToggle }) {
   )
 }
 
-export function TaskList({ tasks, groupBy = 'status', emptyMessage = 'No tasks here', isCollapsed = () => false, toggle = () => {} }) {
+export function TaskList({ tasks, groupBy = 'status', projects = [], emptyMessage = 'No tasks here', isCollapsed = () => false, toggle = () => {} }) {
   if (!tasks.length) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-td-muted dark:text-tn-muted">
@@ -91,6 +91,33 @@ export function TaskList({ tasks, groupBy = 'status', emptyMessage = 'No tasks h
               </GroupSection>
             )
           })}
+        </div>
+      </div>
+    )
+  }
+
+  if (groupBy === 'project') {
+    // Preserve the app's project ordering; append "(no project)" last
+    const groups = projects
+      .map(p => ({ key: groupKey('project', p.id), label: p.name, items: tasks.filter(t => t.project_id === p.id) }))
+      .filter(g => g.items.length > 0)
+    const orphans = tasks.filter(t => !t.project_id)
+    if (orphans.length) groups.push({ key: groupKey('project', 'none'), label: '(no project)', items: orphans })
+
+    return (
+      <div>
+        <div className="divide-y divide-td-border/30 dark:divide-tn-border/30">
+          {groups.map(({ key, label, items }) => (
+            <GroupSection
+              key={key}
+              label={label}
+              count={items.length}
+              isCollapsed={isCollapsed(key)}
+              onToggle={() => toggle(key)}
+            >
+              {items.map(task => <TaskCard key={task.id} task={task} />)}
+            </GroupSection>
+          ))}
         </div>
       </div>
     )
