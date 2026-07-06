@@ -2,7 +2,7 @@ import { useId } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { TaskCard } from './TaskCard'
 import { Skeleton } from '../ui'
-import { useCollapsedGroups } from '../../hooks/useCollapsedGroups'
+import { STATUS_LABELS, STATUS_ORDER, groupKey } from './grouping'
 
 function TaskRowSkeleton() {
   return (
@@ -23,9 +23,6 @@ export function TaskListSkeleton({ count = 7 }) {
     </div>
   )
 }
-
-const STATUS_LABELS = { todo: 'TO DO', doing: 'IN PROGRESS', blocked: 'BLOCKED', done: 'DONE' }
-const STATUS_ORDER = ['todo', 'doing', 'blocked', 'done']
 
 function GroupSection({ label, count, children, isCollapsed, onToggle }) {
   const itemsId = useId()
@@ -62,29 +59,7 @@ function GroupSection({ label, count, children, isCollapsed, onToggle }) {
   )
 }
 
-function groupKey(groupBy, label) {
-  return `${groupBy}:${label}`
-}
-
-function CollapseToggleAll({ groupKeys, isCollapsed, collapseAll, expandAll }) {
-  const allCollapsed = groupKeys.length > 0 && groupKeys.every(isCollapsed)
-
-  return (
-    <div className="flex justify-end px-4 py-1.5">
-      <button
-        type="button"
-        onClick={() => allCollapsed ? expandAll() : collapseAll(groupKeys)}
-        className="text-[10px] font-medium text-td-muted dark:text-tn-muted hover:text-td-text dark:hover:text-tn-text transition-colors duration-fast ease-standard px-2 py-1 min-h-11 flex items-center"
-      >
-        {allCollapsed ? 'Expand all' : 'Collapse all'}
-      </button>
-    </div>
-  )
-}
-
-export function TaskList({ tasks, groupBy = 'status', emptyMessage = 'No tasks here' }) {
-  const { isCollapsed, toggle, collapseAll, expandAll } = useCollapsedGroups()
-
+export function TaskList({ tasks, groupBy = 'status', emptyMessage = 'No tasks here', isCollapsed = () => false, toggle = () => {} }) {
   if (!tasks.length) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-td-muted dark:text-tn-muted">
@@ -98,11 +73,9 @@ export function TaskList({ tasks, groupBy = 'status', emptyMessage = 'No tasks h
     const groups = STATUS_ORDER
       .map(status => ({ status, items: tasks.filter(t => t.status === status) }))
       .filter(g => g.items.length > 0)
-    const groupKeys = groups.map(({ status }) => groupKey('status', STATUS_LABELS[status]))
 
     return (
       <div>
-        <CollapseToggleAll groupKeys={groupKeys} isCollapsed={isCollapsed} collapseAll={collapseAll} expandAll={expandAll} />
         <div className="divide-y divide-td-border/30 dark:divide-tn-border/30">
           {groups.map(({ status, items }) => {
             const key = groupKey('status', STATUS_LABELS[status])
@@ -139,11 +112,9 @@ export function TaskList({ tasks, groupBy = 'status', emptyMessage = 'No tasks h
       if (b === '(no tag)') return -1
       return a.localeCompare(b)
     })
-    const groupKeys = sorted.map(([tag]) => groupKey('tags', tag))
 
     return (
       <div>
-        <CollapseToggleAll groupKeys={groupKeys} isCollapsed={isCollapsed} collapseAll={collapseAll} expandAll={expandAll} />
         <div className="divide-y divide-td-border/30 dark:divide-tn-border/30">
           {sorted.map(([tag, items]) => {
             const key = groupKey('tags', tag)

@@ -2,8 +2,10 @@ import { useMemo, useState, useCallback, useRef, useEffect } from 'react'
 import { useApp } from '../../context/AppContext'
 import { useTasks } from '../../hooks/useTasks'
 import { usePullToRefresh } from '../../hooks/usePullToRefresh'
+import { useCollapsedGroups } from '../../hooks/useCollapsedGroups'
 import { isOverdue, isToday } from '../../utils'
 import { TaskList } from '../tasks/TaskList'
+import { getGroupKeys } from '../tasks/grouping'
 import { KanbanBoard } from '../tasks/KanbanBoard'
 import { CalendarView } from '../calendar/CalendarView'
 import { DashboardView } from '../dashboard/DashboardView'
@@ -208,7 +210,7 @@ const GROUP_OPTIONS = [
   { value: 'none', label: 'None' },
 ]
 
-function ListToolbar({ showDone, onToggleDone, sortBy, onSortBy, groupBy, onGroupBy }) {
+function ListToolbar({ showDone, onToggleDone, sortBy, onSortBy, groupBy, onGroupBy, canCollapse, allCollapsed, onToggleCollapseAll }) {
   return (
     <div className="flex items-center gap-3 px-4 py-2 border-b border-td-border/30 dark:border-tn-border/30 bg-td-bg dark:bg-tn-bg flex-wrap">
       {/* Hide/show done */}
@@ -263,11 +265,25 @@ function ListToolbar({ showDone, onToggleDone, sortBy, onSortBy, groupBy, onGrou
           <ChevronDown size={10} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-td-muted dark:text-tn-muted pointer-events-none" />
         </div>
       </div>
+
+      {/* Collapse / expand all groups */}
+      {canCollapse && (
+        <>
+          <div className="h-3.5 w-px bg-td-border dark:bg-tn-border" />
+          <button
+            onClick={onToggleCollapseAll}
+            className="flex items-center gap-1.5 text-xs px-2.5 min-h-[40px] rounded-lg transition-colors
+              text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg active:text-td-fg dark:active:text-tn-fg"
+          >
+            {allCollapsed ? 'Expand all' : 'Collapse all'}
+          </button>
+        </>
+      )}
     </div>
   )
 }
 
-function FilterSheet({ showDone, onToggleDone, sortBy, onSortBy, groupBy, onGroupBy, onClose }) {
+function FilterSheet({ showDone, onToggleDone, sortBy, onSortBy, groupBy, onGroupBy, canCollapse, allCollapsed, onToggleCollapseAll, onClose }) {
   const swipeStart = useRef(null)
 
   useEffect(() => {
@@ -365,6 +381,17 @@ function FilterSheet({ showDone, onToggleDone, sortBy, onSortBy, groupBy, onGrou
               ))}
             </div>
           </div>
+
+          {/* Collapse / expand all groups */}
+          {canCollapse && (
+            <button
+              onClick={onToggleCollapseAll}
+              className="w-full flex items-center justify-between px-3 py-3 rounded-xl transition-colors border
+                border-td-border/40 dark:border-tn-border/40 bg-transparent text-td-fg dark:text-tn-fg"
+            >
+              <span className="text-sm">{allCollapsed ? 'Expand all groups' : 'Collapse all groups'}</span>
+            </button>
+          )}
         </div>
       </div>
     </>
@@ -423,6 +450,7 @@ export function MainContent() {
   }
   const [groupBy, setGroupBy] = useState(() => localStorage.getItem('td-group-by') || 'status')
   const [filterSheetOpen, setFilterSheetOpen] = useState(false)
+  const { isCollapsed, toggle, collapseAll, expandAll } = useCollapsedGroups()
 
   const handleRefresh = useCallback(async () => { await loadAll() }, [loadAll])
   const { indicatorEl, onTouchStart, onTouchMove, onTouchEnd } = usePullToRefresh(handleRefresh)
@@ -505,6 +533,13 @@ export function MainContent() {
 
   const showToolbar = viewMode === 'list' && view !== 'overdue' && view !== 'calendar' && view !== 'dashboard' && view !== 'today'
   const hasActiveFilters = !showDone || sortBy !== 'status' || groupBy !== 'status'
+  const effectiveGroupBy = groupBy === 'none' ? 'flat' : groupBy
+  const groupKeys = useMemo(() => getGroupKeys(effectiveGroupBy, visibleTasks), [effectiveGroupBy, visibleTasks])
+  const allCollapsed = groupKeys.length > 0 && groupKeys.every(isCollapsed)
+  const toggleCollapseAll = useCallback(
+    () => allCollapsed ? expandAll() : collapseAll(groupKeys),
+    [allCollapsed, expandAll, collapseAll, groupKeys],
+  )
   const isCalendar = view === 'calendar'
   const isDashboard = view === 'dashboard'
 
@@ -538,6 +573,9 @@ export function MainContent() {
               onSortBy={handleSortBy}
               groupBy={groupBy}
               onGroupBy={handleGroupBy}
+              canCollapse={groupKeys.length > 0}
+              allCollapsed={allCollapsed}
+              onToggleCollapseAll={toggleCollapseAll}
             />
           </div>
 
@@ -568,6 +606,9 @@ export function MainContent() {
           onSortBy={handleSortBy}
           groupBy={groupBy}
           onGroupBy={handleGroupBy}
+          canCollapse={groupKeys.length > 0}
+          allCollapsed={allCollapsed}
+          onToggleCollapseAll={toggleCollapseAll}
           onClose={() => setFilterSheetOpen(false)}
         />
       )}
@@ -607,8 +648,10 @@ export function MainContent() {
         ) : (
           <TaskList
             tasks={visibleTasks}
-            groupBy={groupBy === 'none' ? 'flat' : groupBy}
+            groupBy={effectiveGroupBy}
             emptyMessage={emptyMessage}
+            isCollapsed={isCollapsed}
+            toggle={toggle}
           />
         )}
       </div>
