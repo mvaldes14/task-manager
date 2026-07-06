@@ -21,11 +21,14 @@ A self-hosted task manager that runs as a PWA on phone and web. Understands natu
 - **NLP scheduling** — natural language → due date, time, project, tags, recurrence
 - **2 views** — List, Kanban board
 - **Group & sort** — group by Status or Tags; sort by Status, Due Date, Project, Title, or Created
-- **Drag and drop** — Kanban: drag cards between columns; Calendar: drag tasks to reschedule
+- **Drag and drop** — Kanban: drag cards between columns; Calendar: drag tasks to reschedule (disabled on touch)
+- **Swipe actions** — on mobile, swipe a task row right to complete, left to reveal reschedule / delete
+- **Collapsible task groups** — collapse/expand any status or tag group; state persisted, with a collapse-all toggle in the toolbar
+- **Completed filter** — toggle to show only completed tasks (hidden by default)
 - **Pull to refresh** — pull down on mobile to reload
 - **Recurring tasks** — RFC 5545 RRULE format; auto-reschedules on completion
 - **Projects** — custom icon (25 lucide icons) and color; drag to reorder in the sidebar (desktop)
-- **Subtasks** — nested tasks with completion tracking
+- **Subtasks** — nested tasks with completion tracking; each subtask can carry its own due date and labels, or link to an existing task (completing the linked subtask marks the referenced task done)
 - **Links** — attach URLs per task (GitHub, Obsidian, or any URL), auto-labeled; also extractable inline from the task title with `!<url>` (rendered as link chips)
 - **Overdue view** — past-due tasks grouped by date
 - **Google Calendar sync** — tasks with due dates sync automatically; done tasks shown in linked calendar
@@ -34,7 +37,8 @@ A self-hosted task manager that runs as a PWA on phone and web. Understands natu
 - **AI results** — store and retrieve AI-generated content per task (model-agnostic; written by any external client via `PUT /api/tasks/<id>/ai`); tasks with a stored result show an AI badge in the task detail view, and clicking it opens a modal with the rendered markdown content
 - **Settings modal** — Account tab (avatar, display name, password change), Calendars, Integrations (OTel), and Notifications
 - **OpenTelemetry** — backend (Flask + psycopg2) and frontend (fetch + document-load) tracing; opt-in via env vars or Settings UI
-- **PWA** — installable on iOS, Android, and macOS
+- **PWA** — installable on iOS, Android, and macOS; share text/links from other apps straight into a pre-filled new task (share-target intake), plus app shortcuts for New Task and Today
+- **Mobile navigation** — floating icon-only pill bottom nav (TabBar) and a swipeable full-height drawer sidebar; larger tap targets throughout
 - **Collapsible sidebar** — full sidebar or slim icon rail (desktop); persisted preference
 - **Keyboard shortcuts** — full shortcut set on desktop (press `?` to see them)
 - **Theme** — toggle in sidebar
@@ -48,7 +52,7 @@ cp .env.example .env   # edit credentials
 make up                # build and start
 ```
 
-Open [http://localhost:5001](http://localhost:5001).
+Open [http://localhost:3000](http://localhost:3000).
 
 ### Pull pre-built image (no build required)
 
@@ -58,7 +62,7 @@ make pull   # pulls ghcr.io/mvaldes14/doit:latest
 
 ### Install on phone
 
-1. Open `http://<your-ip>:5000` in Safari (iOS) or Chrome (Android)
+1. Open `http://<your-ip>:3000` in Safari (iOS) or Chrome (Android)
 2. Share → **Add to Home Screen**
 
 ---
@@ -132,17 +136,17 @@ fix flaky test p1 +alice
 | View | Description |
 |---|---|
 | **Inbox** | Unassigned tasks |
-| **Today** | Tasks due today |
+| **Today** | Priority focus view — today's tasks with a highlighted focus card, supporting tasks, and overdue rows |
 | **All Tasks** | Everything |
 | **Overdue** | Past-due tasks grouped by date |
 | **Calendar** | Monthly calendar view |
 | **Projects** | Tasks scoped to a project |
 
-Each list view supports 3 display modes:
+Each list view supports 2 display modes:
 
 | Mode | Description |
 |---|---|
-| List | Grouped by status or tags; show/hide done; sortable |
+| List | Grouped by status or tags; collapsible groups; show only-completed toggle; sortable |
 | Board | Kanban with drag-to-reorder between columns |
 
 ---
@@ -193,6 +197,8 @@ All endpoints require either a session cookie (browser login) or a `Bearer` toke
 Authorization: Bearer <TD_API_KEY>
 ```
 
+A full machine-readable spec is available at [`openapi.yaml`](openapi.yaml).
+
 ---
 
 ### NLP
@@ -201,7 +207,7 @@ Authorization: Bearer <TD_API_KEY>
 |---|---|---|
 | `POST` | `/api/nlp/parse` | Parse natural language into task fields |
 
-> If running locally baseurl is localhost:5001, otherwise it is your custom domain.
+> If running locally baseurl is localhost:3000, otherwise it is your custom domain.
 
 ```bash
 curl -X POST http://baseurl/api/nlp/parse \
@@ -284,9 +290,11 @@ curl -s -X POST http://baseurl/api/nlp/parse \
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `POST` | `/api/tasks/<id>/subtasks` | Add subtask |
-| `PATCH` | `/api/tasks/<id>/subtasks/<sid>` | Update subtask (`completed`, `title`) |
+| `POST` | `/api/tasks/<id>/subtasks` | Add subtask (`title`, optional `due_date`, `due_time`, `labels`, `linked_task_id`) |
+| `PATCH` | `/api/tasks/<id>/subtasks/<sid>` | Update subtask (`title`, `due_date`, `due_time`, `completed`, `labels`) |
 | `DELETE` | `/api/tasks/<id>/subtasks/<sid>` | Delete subtask |
+
+Pass `linked_task_id` to make a subtask reference an existing task; completing that subtask sets the linked task's status to `done`. `POST` and `PATCH` both return the full parent task with its subtasks embedded.
 
 ---
 
