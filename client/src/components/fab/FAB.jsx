@@ -29,6 +29,25 @@ function SuggestionDropdown({ suggestions, onSelect }) {
 
 
 // Quick-insert shelf helpers
+// Date keywords the backend NLP parser (server/lib/nlp.py:_DATE_SIGNAL_PATTERNS)
+// recognises. Kept in sync so tapping a date chip can REPLACE an existing date
+// rather than append a second, conflicting one.
+const DATE_TOKEN_RE = new RegExp('\\b(?:' + [
+  'in\\s+\\d+\\s+(?:days?|weeks?)',
+  'next\\s+(?:week|month|monday|tuesday|wednesday|thursday|friday|saturday|sunday)',
+  'this\\s+(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)',
+  'end\\s+of\\s+week',
+  'eow',
+  'weekend',
+  'tonight',
+  'tomorrow',
+  'today',
+  '(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)',
+  '\\d{1,2}/\\d{1,2}(?:/\\d{2,4})?',
+].join('|') + ')\\b', 'gi')
+
+const PRIORITY_TOKEN_RE = /\bp[123]\b/gi
+
 function toIso(date) {
   return date.toISOString().slice(0, 10)
 }
@@ -53,7 +72,7 @@ function SmartShelf({ projects, tags, onInsert }) {
   const shownProjects = projects.slice(0, 4)
   const shownTags = tags.slice(0, 4)
 
-  const Row = ({ label, items }) => (
+  const Row = ({ label, items, type }) => (
     <div className="flex items-center gap-2 px-4 py-1.5 overflow-x-auto no-scrollbar">
       <span className="text-[10px] font-semibold tracking-wider text-tn-muted/60 shrink-0 w-8 uppercase">{label}</span>
       {items.map(item => (
@@ -62,8 +81,8 @@ function SmartShelf({ projects, tags, onInsert }) {
           label={item.label}
           color={item.color || undefined}
           bg={item.color ? item.color + '15' : undefined}
-          onMouseDown={e => { e.preventDefault(); onInsert(item.text) }}
-          onTouchStart={e => { e.preventDefault(); onInsert(item.text) }}
+          onMouseDown={e => { e.preventDefault(); onInsert(item.text, type) }}
+          onTouchStart={e => { e.preventDefault(); onInsert(item.text, type) }}
           className={!item.color ? 'border border-tn-border bg-tn-surface text-tn-fg' : ''}
         />
       ))}
@@ -72,14 +91,14 @@ function SmartShelf({ projects, tags, onInsert }) {
 
   return (
     <div className="border-t border-tn-border/50 py-1">
-      <Row label="Date" items={dates} />
+      <Row label="Date" type="date" items={dates} />
       {shownProjects.length > 0 && (
-        <Row label="Proj" items={shownProjects.map(p => ({ label: p.name, text: '#' + p.name, color: p.color }))} />
+        <Row label="Proj" type="project" items={shownProjects.map(p => ({ label: p.name, text: '#' + p.name, color: p.color }))} />
       )}
       {shownTags.length > 0 && (
-        <Row label="Tag" items={shownTags.map(t => ({ label: '@' + t, text: '@' + t, color: '#bb9af7' }))} />
+        <Row label="Tag" type="tag" items={shownTags.map(t => ({ label: '@' + t, text: '@' + t, color: '#bb9af7' }))} />
       )}
-      <Row label="Pri" items={priorities} />
+      <Row label="Pri" type="priority" items={priorities} />
     </div>
   )
 }
@@ -218,8 +237,15 @@ export function FAB() {
 
   const close = () => dispatch({ type: 'SET_FAB', payload: { open: false } })
 
-  const insertShelfText = useCallback((word) => {
-    const val = text ? text + ' ' + word : word
+  const insertShelfText = useCallback((word, type) => {
+    // Date/priority are single-valued: tapping a chip should replace any existing
+    // one instead of appending a second, conflicting token (which the parser would
+    // leave stranded in the title). Tags/projects can stack, so leave them alone.
+    let base = text
+    if (type === 'date') base = base.replace(DATE_TOKEN_RE, '')
+    else if (type === 'priority') base = base.replace(PRIORITY_TOKEN_RE, '')
+    base = base.replace(/\s+/g, ' ').trim()
+    const val = base ? base + ' ' + word : word
     setText(val)
     inputRef.current?.focus()
     clearTimeout(timerRef.current)
