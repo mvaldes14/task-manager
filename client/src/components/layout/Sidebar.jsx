@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect, useRef } from 'react'
 import { useApp } from '../../context/AppContext'
 import { isOverdue, isToday } from '../../utils'
-import { Plus, LogOut, Sun, Moon, Settings, Trash2, CheckCircle2, RefreshCw, CalendarDays, Inbox, Layers, AlertCircle, PanelLeftClose, PanelLeftOpen, LayoutDashboard, Users } from 'lucide-react'
+import { Plus, LogOut, Sun, Moon, Settings, Trash2, CheckCircle2, RefreshCw, CalendarDays, Inbox, Layers, AlertCircle, PanelLeftClose, PanelLeftOpen, LayoutDashboard, Users, Search } from 'lucide-react'
 import { api } from '../../api'
 import { ProjectIcon, PROJECT_ICON_OPTIONS } from '../shared/ProjectIcon'
 import { SettingsModal } from '../settings/SettingsModal'
@@ -37,6 +37,25 @@ function NavItem({ icon: Icon, label, viewKey, badge, badgeColor = 'bg-td-blue d
           {badge}
         </span>
       )}
+    </button>
+  )
+}
+
+function SearchNavItem({ collapsed }) {
+  const { dispatch } = useApp()
+  return (
+    <button
+      onClick={() => {
+        dispatch({ type: 'SET_SEARCH_OPEN', payload: true })
+        dispatch({ type: 'SET_SIDEBAR', payload: false })
+      }}
+      title={collapsed ? 'Search' : undefined}
+      className={`relative w-full flex items-center gap-3 px-3 py-2.5 md:py-2 min-h-[44px] md:min-h-0 rounded-lg text-sm transition-colors
+        ${collapsed ? 'justify-center' : ''}
+        text-td-muted dark:text-tn-nav font-medium hover:text-td-fg dark:hover:text-tn-fg hover:bg-td-surface/50 dark:hover:bg-tn-surface/50`}
+    >
+      <Search size={16} className="shrink-0" />
+      {!collapsed && <span className="flex-1 text-left">Search</span>}
     </button>
   )
 }
@@ -327,6 +346,7 @@ export function Sidebar() {
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto overscroll-contain px-2 py-3 space-y-0.5">
         <NavItem icon={LayoutDashboard} label="Dashboard" viewKey="dashboard" collapsed={collapsed} />
+        <SearchNavItem collapsed={collapsed} />
         <NavItem icon={Inbox}       label="Inbox"     viewKey="inbox"    badge={inboxCount} collapsed={collapsed} />
         <NavItem icon={Sun}         label="Today"     viewKey="today"    badge={todayCount} collapsed={collapsed} />
         <NavItem icon={Layers}      label="All"       viewKey="all"      collapsed={collapsed} />

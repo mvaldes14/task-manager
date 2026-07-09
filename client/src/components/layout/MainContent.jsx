@@ -13,110 +13,44 @@ import { LayoutList, Columns, Search, X, ChevronDown, Inbox, Sun, Layers, Calend
 import { ProjectIcon } from '../shared/ProjectIcon'
 import { PriorityTodayView } from '../tasks/PriorityTodayView'
 
-function ViewHeader({ title, icon: Icon, count, onSearch, searchOpen, setSearchOpen, searchScope, setSearchScope }) {
+function ViewHeader({ title, icon: Icon, count }) {
   const { state, dispatch } = useApp()
-  const [searchQuery, setSearchQuery] = useState('')
-  const inputRef = useRef(null)
 
   const project = state.view.startsWith('project:')
     ? state.projects.find(p => p.id === state.view.replace('project:', ''))
     : null
 
-  const openSearch = useCallback(() => {
-    setSearchOpen(true)
-    setTimeout(() => inputRef.current?.focus(), 50)
-  }, [setSearchOpen])
-
-  const closeSearch = useCallback(() => {
-    setSearchOpen(false)
-    setSearchQuery('')
-    onSearch('')
-  }, [setSearchOpen, onSearch])
-
-  // When searchOpen flips true externally (keyboard shortcut), focus input
-  const prevOpen = useRef(false)
-  if (searchOpen && !prevOpen.current) {
-    setTimeout(() => inputRef.current?.focus(), 50)
-  }
-  prevOpen.current = searchOpen
-
-  const handleChange = (e) => {
-    setSearchQuery(e.target.value)
-    onSearch(e.target.value)
-  }
-
-  const handleKeyDown = (e) => {
-    if (e.key === 'Escape') closeSearch()
-  }
-
-  // Only show scope toggle when not already in "all" view
-  const showScopeToggle = searchOpen && state.view !== 'all'
-
   return (
     <div className="flex items-center justify-between px-4 py-3.5 border-b border-td-border/50 dark:border-tn-border/50 shrink-0 gap-2">
-      {searchOpen ? (
-        /* Expanded search bar */
-        <div className="flex-1 flex items-center gap-2 bg-td-surface dark:bg-tn-surface rounded-lg px-3 py-1.5">
-          <Search size={14} className="text-td-muted dark:text-tn-muted shrink-0" />
-          <input
-            ref={inputRef}
-            type="text"
-            value={searchQuery}
-            onChange={handleChange}
-            onKeyDown={handleKeyDown}
-            placeholder="Search tasks…"
-            className="flex-1 bg-transparent text-td-fg dark:text-tn-fg text-sm outline-none placeholder-td-muted/40 dark:placeholder-tn-muted/40 min-w-0"
-          />
-          {showScopeToggle && (
-            <button
-              onClick={() => setSearchScope(s => s === 'view' ? 'all' : 'view')}
-              title={searchScope === 'all' ? 'Searching all tasks — click for current view' : 'Searching current view — click for all tasks'}
-              className={`shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-md border transition-colors whitespace-nowrap
-                ${searchScope === 'all'
-                  ? 'bg-td-blue/15 dark:bg-tn-blue/15 text-td-blue dark:text-tn-blue border-td-blue/30 dark:border-tn-blue/30'
-                  : 'text-td-muted dark:text-tn-muted border-td-border dark:border-tn-border hover:text-td-fg dark:hover:text-tn-fg'}`}
-            >
-              {searchScope === 'all' ? 'All tasks' : 'This view'}
-            </button>
-          )}
-          <button onClick={closeSearch} className="p-3 -my-3 -mr-1 text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg active:text-td-fg dark:active:text-tn-fg transition-colors shrink-0">
-            <X size={14} />
-          </button>
-        </div>
-      ) : (
-        /* Normal title */
-        <div className="flex-1 flex items-center gap-2.5 min-w-0">
-          {project ? (
-            <span className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-              style={{ background: project.color + '25' }}>
-              <ProjectIcon icon={project.icon} size={14} />
-            </span>
-          ) : Icon && (
-            <span className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-td-surface dark:bg-tn-surface text-td-muted dark:text-tn-muted">
-              <Icon size={14} />
-            </span>
-          )}
-          <h1 className="text-td-fg dark:text-tn-fg font-semibold text-base truncate">
-            {project ? project.name : title}
-          </h1>
-        </div>
-      )}
+      <div className="flex-1 flex items-center gap-2.5 min-w-0">
+        {project ? (
+          <span className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+            style={{ background: project.color + '25' }}>
+            <ProjectIcon icon={project.icon} size={14} />
+          </span>
+        ) : Icon && (
+          <span className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-td-surface dark:bg-tn-surface text-td-muted dark:text-tn-muted">
+            <Icon size={14} />
+          </span>
+        )}
+        <h1 className="text-td-fg dark:text-tn-fg font-semibold text-base truncate">
+          {project ? project.name : title}
+        </h1>
+      </div>
 
       <div className="flex items-center gap-1 shrink-0">
-        {!searchOpen && (
-          <button
-            onClick={openSearch}
-            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg
-              text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg
-              hover:bg-td-surface dark:hover:bg-tn-surface active:bg-td-surface dark:active:bg-tn-surface
-              transition-colors"
-            title="Search tasks (/)"
-          >
-            <Search size={16} />
-          </button>
-        )}
+        <button
+          onClick={() => dispatch({ type: 'SET_SEARCH_OPEN', payload: true })}
+          className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg
+            text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg
+            hover:bg-td-surface dark:hover:bg-tn-surface active:bg-td-surface dark:active:bg-tn-surface
+            transition-colors"
+          title="Search tasks (/)"
+        >
+          <Search size={16} />
+        </button>
 
-        {state.view === 'calendar' && !searchOpen && (
+        {state.view === 'calendar' && (
           <div className="flex items-center gap-0.5 bg-td-surface dark:bg-tn-surface rounded-lg p-0.5">
             {['month', 'week', 'day'].map(v => (
               <button
@@ -132,7 +66,7 @@ function ViewHeader({ title, icon: Icon, count, onSearch, searchOpen, setSearchO
             ))}
           </div>
         )}
-        {state.view !== 'calendar' && !searchOpen && (
+        {state.view !== 'calendar' && (
           <div className="flex items-center gap-0.5 bg-td-surface dark:bg-tn-surface rounded-lg p-0.5">
             <button
               onClick={() => dispatch({ type: 'SET_VIEW_MODE', payload: 'list' })}
@@ -427,9 +361,9 @@ import { TaskListSkeleton } from '../tasks/TaskList'
 import { KanbanSkeleton } from '../tasks/KanbanBoard'
 
 export function MainContent() {
-  const { state, dispatch } = useApp()
+  const { state } = useApp()
   const { loadAll } = useTasks()
-  const { view, tasks, projects, viewMode, searchOpen: globalSearchOpen } = state
+  const { view, tasks, projects, viewMode } = state
   const [showDone, setShowDone] = useState(() => {
     // 'td-show-done' was written under the old "show all completed" meaning (now inverted).
     // Use a new key so stale values don't flip the filter; clean up the old key on load.
@@ -438,17 +372,6 @@ export function MainContent() {
     return saved === null ? false : saved === 'true'
   })
   const [sortBy, setSortBy] = useState(() => localStorage.getItem('td-sort-by') || 'status')
-  const [searchQuery, setSearchQuery] = useState('')
-  const [searchOpen, setSearchOpen] = useState(false)
-  const [searchScope, setSearchScope] = useState('view') // 'view' | 'all'
-
-  // Sync global keyboard-triggered searchOpen into local state
-  const prevGlobal = useRef(false)
-  if (globalSearchOpen !== prevGlobal.current) {
-    setSearchOpen(globalSearchOpen)
-    if (!globalSearchOpen) setSearchQuery('')
-    prevGlobal.current = globalSearchOpen
-  }
   const [groupBy, setGroupBy] = useState(() => localStorage.getItem('td-group-by') || 'status')
   const [filterSheetOpen, setFilterSheetOpen] = useState(false)
   const { isCollapsed, toggle, collapseAll, expandAll } = useCollapsedGroups()
@@ -507,27 +430,16 @@ export function MainContent() {
     return { title: 'Tasks', icon: null, baseTasks: tasks, emptyMessage: 'No tasks' }
   }, [view, tasks, projects])
 
-  // Apply show/hide done + sort + search
+  // Apply show/hide done + sort
   const visibleTasks = useMemo(() => {
     // Board view owns its own done toggle — always include done tasks so KanbanBoard can filter
     const skipDoneFilter = viewMode === 'board'
-    // If searching across all tasks, start from full task list instead of view-filtered baseTasks
-    const source = (searchQuery.trim() && searchScope === 'all') ? tasks : baseTasks
     let pool
-    if (skipDoneFilter)      pool = source                                   // board filters itself
-    else if (showDone)       pool = source.filter(t => t.status === 'done')  // only completed
-    else                     pool = source.filter(t => t.status !== 'done')  // default: hide completed
-    let result = sortBy !== 'status' ? sortTasks(pool, sortBy, projects) : pool
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase()
-      result = result.filter(t =>
-        t.title?.toLowerCase().includes(q) ||
-        t.description?.toLowerCase().includes(q) ||
-        t.tags?.some(tag => tag.toLowerCase().includes(q))
-      )
-    }
-    return result
-  }, [baseTasks, tasks, showDone, sortBy, projects, searchQuery, searchScope, viewMode])
+    if (skipDoneFilter)      pool = baseTasks                                   // board filters itself
+    else if (showDone)       pool = baseTasks.filter(t => t.status === 'done')  // only completed
+    else                     pool = baseTasks.filter(t => t.status !== 'done')  // default: hide completed
+    return sortBy !== 'status' ? sortTasks(pool, sortBy, projects) : pool
+  }, [baseTasks, showDone, sortBy, projects, viewMode])
 
   const activeCount = useMemo(() =>
     baseTasks.filter(t => t.status !== 'done').length, [baseTasks])
@@ -551,15 +463,6 @@ export function MainContent() {
           title={title}
           icon={icon}
           count={activeCount > 0 ? activeCount : null}
-          onSearch={setSearchQuery}
-          searchOpen={searchOpen}
-          searchScope={searchScope}
-          setSearchScope={setSearchScope}
-          setSearchOpen={(v) => {
-            setSearchOpen(v)
-            dispatch({ type: 'SET_SEARCH_OPEN', payload: v })
-            if (!v) { setSearchQuery(''); setSearchScope('view') }
-          }}
         />
       )}
 
