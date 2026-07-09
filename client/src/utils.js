@@ -24,6 +24,19 @@ export function isToday(task) {
   return due.toDateString() === today.toDateString()
 }
 
+// Same view-membership rules MainContent uses for baseTasks — shared so
+// SearchOverlay's "This view" scope matches what's actually on screen.
+export function tasksForView(view, tasks) {
+  if (view === 'inbox') return tasks.filter(t => t.project_id === 'inbox')
+  if (view === 'today') return tasks.filter(t => isToday(t) || isOverdue(t))
+  if (view === 'overdue') return tasks.filter(t => isOverdue(t))
+  if (view.startsWith('project:')) {
+    const pid = view.replace('project:', '')
+    return tasks.filter(t => t.project_id === pid)
+  }
+  return tasks // 'all', 'calendar', 'dashboard'
+}
+
 export function priorityColor(p) {
   if (p === 'high')   return '#f7768e'
   if (p === 'medium') return '#e0af68'
