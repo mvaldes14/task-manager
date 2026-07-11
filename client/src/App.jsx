@@ -3,6 +3,7 @@ import { AppProvider, useApp } from './context/AppContext'
 import { useTasks } from './hooks/useTasks'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { useShareIntake } from './hooks/useShareIntake'
+import { useRefreshOnFocus } from './hooks/useRefreshOnFocus'
 import { Sidebar } from './components/layout/Sidebar'
 import { TabBar } from './components/layout/TabBar'
 import { MainContent } from './components/layout/MainContent'
@@ -20,6 +21,7 @@ function AppShell() {
   useKeyboardShortcuts()
   useShareIntake()
   const [authed, setAuthed] = useState(null)
+  useRefreshOnFocus(loadAll, authed === true)
 
   useEffect(() => {
     api.authStatus()

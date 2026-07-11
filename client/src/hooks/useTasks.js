@@ -2,6 +2,12 @@ import { useCallback } from 'react'
 import { api } from '../api'
 import { useApp } from '../context/AppContext'
 
+// Number of task mutations currently in flight. Shared across all useTasks
+// consumers so a background refresh (useRefreshOnFocus) can avoid clobbering
+// optimistic writes with a stale full-list refetch.
+let pendingMutations = 0
+export const isMutating = () => pendingMutations > 0
+
 export function useTasks() {
   const { state, dispatch, toast } = useApp()
 
@@ -21,6 +27,7 @@ export function useTasks() {
   }, [dispatch])
 
   const createTask = useCallback(async (data) => {
+    pendingMutations++
     try {
       const task = await api.createTask(data)
       if (task) {
@@ -31,10 +38,13 @@ export function useTasks() {
     } catch (e) {
       toast('Failed to add task')
       return null
+    } finally {
+      pendingMutations--
     }
   }, [dispatch, toast])
 
   const updateTask = useCallback(async (id, data) => {
+    pendingMutations++
     try {
       const task = await api.updateTask(id, data)
       if (task) {
@@ -45,16 +55,21 @@ export function useTasks() {
     } catch (e) {
       toast('Failed to update task')
       return null
+    } finally {
+      pendingMutations--
     }
   }, [dispatch, toast])
 
   const deleteTask = useCallback(async (id) => {
+    pendingMutations++
     try {
       await api.deleteTask(id)
       dispatch({ type: 'DELETE_TASK', payload: id })
       toast('Task deleted')
     } catch (e) {
       toast('Failed to delete task')
+    } finally {
+      pendingMutations--
     }
   }, [dispatch, toast])
 
@@ -63,6 +78,7 @@ export function useTasks() {
     const task = state.tasks.find(t => t.id === id)
     if (!task) return
     dispatch({ type: 'UPDATE_TASK', payload: { ...task, status: newStatus } })
+    pendingMutations++
     try {
       const updated = await api.updateTask(id, { status: newStatus })
       dispatch({ type: 'UPDATE_TASK', payload: updated })
@@ -72,6 +88,8 @@ export function useTasks() {
     } catch (e) {
       dispatch({ type: 'UPDATE_TASK', payload: task })
       toast('Failed to update task')
+    } finally {
+      pendingMutations--
     }
   }, [state.tasks, dispatch, toast])
 
