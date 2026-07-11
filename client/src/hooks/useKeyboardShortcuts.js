@@ -31,6 +31,14 @@ export function useKeyboardShortcuts() {
           e.preventDefault()
           dispatch({ type: 'SET_FAB', payload: { open: true } })
           break
+        case 'a':
+          e.preventDefault()
+          dispatch({ type: 'SET_VIEW', payload: 'all' })
+          break
+        case 'd':
+          e.preventDefault()
+          dispatch({ type: 'SET_VIEW', payload: 'dashboard' })
+          break
         case 'i':
           e.preventDefault()
           dispatch({ type: 'SET_VIEW', payload: 'inbox' })
