@@ -1,4 +1,4 @@
-import { useMemo, useRef, useCallback, useState, useEffect } from 'react'
+import { Fragment, useMemo, useRef, useCallback, useState, useEffect } from 'react'
 import { useApp } from '../../context/AppContext'
 import { useTasks } from '../../hooks/useTasks'
 import { ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react'
@@ -11,6 +11,32 @@ const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct
 
 function toDateStr(date) {
   return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`
+}
+
+// ── Shared time-grid helpers (used by both day and week views) ─────────────────
+// Full 0–23 range so no timed task ever falls outside a slot. The grid is
+// scrollable and auto-scrolls to a sensible hour on open.
+const HOURS = Array.from({ length: 24 }, (_, i) => i)
+const ROW_HEIGHT = 56 // px per hour row; also used to compute auto-scroll offset
+const formatHour = h => h === 0 ? '12 AM' : h === 12 ? '12 PM' : h < 12 ? `${h} AM` : `${h - 12} PM`
+const slotKey = (dateStr, h) => `${dateStr}|${String(h).padStart(2, '0')}:00:00`
+const hourOf = item => parseInt(item.due_time.slice(0, 2), 10)
+
+// Split a day's tasks + ICS events into timed (have due_time) and all-day buckets.
+function splitDayItems(dayTasks, dayIcs) {
+  const all = [
+    ...dayIcs.map(e => ({ ...e, _type: 'ics' })),
+    ...dayTasks.map(t => ({ ...t, _type: 'task' })),
+  ]
+  return {
+    timed: all.filter(i => !!i.due_time).sort((a, b) => a.due_time.localeCompare(b.due_time)),
+    allDay: all.filter(i => !i.due_time),
+  }
+}
+
+// Hour to scroll the grid to on open: the earliest timed item, else 7 AM.
+function initialScrollHour(timed) {
+  return timed.length ? hourOf(timed[0]) : 7
 }
 
 function TaskPill({ task, onDragStart, onTouchStart }) {
@@ -55,6 +81,41 @@ function IcsPill({ event, color }) {
   )
 }
 
+// A single timed task/ICS event rendered inside an hour cell (day + week grids).
+function TimedItem({ item, onDragStart, onTouchStart }) {
+  const { dispatch } = useApp()
+  if (item._type === 'ics') {
+    return (
+      <div className="flex items-start gap-2 px-2.5 py-1.5 rounded-lg min-h-[44px]"
+        style={{ background: item._color + '15', borderLeft: `3px solid ${item._color}` }}>
+        <span className="text-[11px] font-semibold shrink-0 pt-px" style={{ color: item._color }}>
+          {item.due_time.slice(0, 5)}
+        </span>
+        <span className="text-sm font-medium text-td-fg dark:text-tn-fg break-words leading-snug">{item.title}</span>
+      </div>
+    )
+  }
+  const done = item.status === 'done'
+  return (
+    <div
+      draggable
+      onDragStart={e => onDragStart(e, item)}
+      onTouchStart={e => onTouchStart(e, item)}
+      onClick={e => { e.stopPropagation(); dispatch({ type: 'SELECT_TASK', payload: item.id }) }}
+      className={`flex items-start gap-2 px-2.5 py-1.5 rounded-lg min-h-[44px]
+        cursor-grab active:cursor-grabbing touch-none select-none hover:bg-td-surface dark:hover:bg-tn-surface transition-colors
+        ${done ? 'opacity-50 bg-td-bg3/20 dark:bg-tn-bg3/20' : 'bg-td-blue/10 dark:bg-tn-blue/10 border-l-2 border-td-blue/40 dark:border-tn-blue/40'}`}
+    >
+      <span className="text-[11px] font-semibold text-td-blue dark:text-tn-blue shrink-0 pt-px">
+        {item.due_time.slice(0, 5)}
+      </span>
+      <span className={`text-sm font-medium text-td-fg dark:text-tn-fg break-words leading-snug ${done ? 'line-through' : ''}`}>
+        {item.title}
+      </span>
+    </div>
+  )
+}
+
 function UnscheduledCard({ task, project, onDragStart }) {
   const { dispatch } = useApp()
   const done = task.status === 'done'
@@ -81,54 +142,125 @@ function UnscheduledCard({ task, project, onDragStart }) {
 
 // ── Week view ─────────────────────────────────────────────────────────────────
 
+// Grid template: a fixed time gutter + 7 equal day columns.
+const WEEK_GRID_COLS = '3rem repeat(7, minmax(0, 1fr))'
+
 function WeekView({ weekDays, tasksByDate, icsEventsByDate, onDragStart, onTouchStart, handleDragOver, handleDrop, setOverDate, overDate, cellRefs }) {
   const todayStr = toDateStr(new Date())
+  const scrollRef = useRef(null)
+
+  const perDay = useMemo(() => weekDays.map(date => {
+    const dateStr = toDateStr(date)
+    const { timed, allDay } = splitDayItems(tasksByDate[dateStr] || [], icsEventsByDate[dateStr] || [])
+    return { date, dateStr, timed, allDay }
+  }), [weekDays, tasksByDate, icsEventsByDate])
+
+  const weekStartStr = perDay[0]?.dateStr
+  // Auto-scroll to the earliest timed item (or 7 AM) when the week changes.
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = initialScrollHour(perDay.flatMap(d => d.timed)) * ROW_HEIGHT
+    }
+    // Only re-scroll on week navigation, not on every task/ICS update.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weekStartStr])
+
+  const anyAllDay = perDay.some(d => d.allDay.length > 0)
 
   return (
-    <div className="flex-1 flex flex-col min-h-0"
+    <div className="flex-1 flex flex-col min-h-0 overflow-x-auto"
       style={{ paddingBottom: 'calc(16px + env(safe-area-inset-bottom, 0px))' }}>
-      <div className="grid grid-cols-7 gap-px flex-1 min-h-0">
-        {weekDays.map((date, i) => {
-          const dateStr = toDateStr(date)
-          const isToday = dateStr === todayStr
-          const dayTasks = tasksByDate[dateStr] || []
-          const dayIcs = icsEventsByDate[dateStr] || []
-          const isOver = overDate === dateStr
-
-          return (
-            <div key={i}
-              ref={el => { cellRefs.current[dateStr] = el }}
-              onDragOver={e => handleDragOver(e, dateStr)}
-              onDragLeave={() => setOverDate(null)}
-              onDrop={e => handleDrop(e, dateStr)}
-              className={`flex flex-col rounded-lg overflow-hidden transition-colors
-                ${isOver
-                  ? 'bg-td-surface dark:bg-tn-surface ring-2 ring-td-blue/50 dark:ring-tn-blue/50'
-                  : 'bg-td-bg3/40 dark:bg-tn-bg3/40 hover:bg-td-bg3 dark:hover:bg-tn-bg3'}
-                ${isToday && !isOver ? 'ring-1 ring-td-blue/50 dark:ring-tn-blue/50' : ''}`}
-            >
-              <div className={`flex flex-col items-center py-2 border-b shrink-0
-                border-td-border/20 dark:border-tn-border/20
-                ${isToday ? 'text-td-blue dark:text-tn-blue' : 'text-td-muted dark:text-tn-muted'}`}>
+      <div className="flex flex-col flex-1 min-h-0 min-w-[640px]">
+        {/* Sticky day-header row */}
+        <div className="grid shrink-0" style={{ gridTemplateColumns: WEEK_GRID_COLS }}>
+          <div className="border-b border-td-border/20 dark:border-tn-border/20" />
+          {perDay.map(({ date, dateStr }) => {
+            const isToday = dateStr === todayStr
+            return (
+              <div key={dateStr}
+                className={`flex flex-col items-center py-2 border-b border-l border-td-border/20 dark:border-tn-border/20
+                  ${isToday ? 'text-td-blue dark:text-tn-blue' : 'text-td-muted dark:text-tn-muted'}`}>
                 <span className="text-[10px] font-semibold uppercase tracking-wide">
-                  {DAYS[date.getDay()].slice(0,3)}
+                  {DAYS[date.getDay()].slice(0, 3)}
                 </span>
                 <span className={`text-base font-bold leading-none mt-1 w-7 h-7 flex items-center justify-center rounded-full
                   ${isToday ? 'bg-td-blue/20 dark:bg-tn-blue/20 text-td-blue dark:text-tn-blue' : ''}`}>
                   {date.getDate()}
                 </span>
               </div>
-              <div className="flex-1 overflow-y-auto p-1 space-y-0.5 min-h-0">
-                {dayIcs.map(ev => (
-                  <IcsPill key={ev.id + ev.due_date} event={ev} color={ev._color} />
-                ))}
-                {dayTasks.map(t => (
-                  <TaskPill key={t.id} task={t} onDragStart={onDragStart} onTouchStart={onTouchStart} />
-                ))}
-              </div>
+            )
+          })}
+        </div>
+
+        {/* All-day row (tasks/events with a date but no time) */}
+        {anyAllDay && (
+          <div className="grid shrink-0 border-b border-td-border/30 dark:border-tn-border/30"
+            style={{ gridTemplateColumns: WEEK_GRID_COLS }}>
+            <div className="flex items-start justify-end pr-1.5 pt-1.5">
+              <span className="text-[9px] font-semibold uppercase tracking-wide text-td-muted/50 dark:text-tn-muted/50">All day</span>
             </div>
-          )
-        })}
+            {perDay.map(({ dateStr, allDay }) => {
+              const isOver = overDate === dateStr
+              return (
+                <div key={dateStr}
+                  ref={el => { cellRefs.current[dateStr] = el }}
+                  onDragOver={e => handleDragOver(e, dateStr)}
+                  onDragLeave={() => setOverDate(null)}
+                  onDrop={e => handleDrop(e, dateStr)}
+                  className={`p-1 space-y-0.5 border-l border-td-border/20 dark:border-tn-border/20 transition-colors
+                    ${isOver ? 'bg-td-blue/5 dark:bg-tn-blue/5' : ''}`}
+                >
+                  {allDay.map((item, i) => item._type === 'ics'
+                    ? <IcsPill key={i} event={item} color={item._color} />
+                    : <TaskPill key={item.id} task={item} onDragStart={onDragStart} onTouchStart={onTouchStart} />
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Scrollable hours × 7-days grid */}
+        <div ref={scrollRef} className="relative flex-1 overflow-y-auto min-h-0">
+          <div className="grid" style={{ gridTemplateColumns: WEEK_GRID_COLS }}>
+            {HOURS.map(hour => (
+              <Fragment key={hour}>
+                <div className="flex justify-end pr-1.5 pt-1 border-b border-td-border/10 dark:border-tn-border/10"
+                  style={{ minHeight: `${ROW_HEIGHT}px` }}>
+                  <span className="text-[10px] font-medium text-td-muted/50 dark:text-tn-muted/50">
+                    {formatHour(hour)}
+                  </span>
+                </div>
+                {perDay.map(({ dateStr, timed }) => {
+                  const key = slotKey(dateStr, hour)
+                  const isOver = overDate === key
+                  const isToday = dateStr === todayStr
+                  const items = timed.filter(i => hourOf(i) === hour)
+                  return (
+                    <div key={dateStr}
+                      ref={el => { cellRefs.current[key] = el }}
+                      onDragOver={e => { e.preventDefault(); e.stopPropagation(); setOverDate(key) }}
+                      onDragLeave={e => e.stopPropagation()}
+                      onDrop={e => { e.stopPropagation(); handleDrop(e, key) }}
+                      className={`p-0.5 space-y-0.5 border-b border-l border-td-border/10 dark:border-tn-border/10 transition-colors
+                        ${isOver ? 'bg-td-blue/10 dark:bg-tn-blue/10 ring-1 ring-inset ring-td-blue/40 dark:ring-tn-blue/40'
+                          : isToday ? 'bg-td-blue/[0.04] dark:bg-tn-blue/[0.06]' : ''}`}
+                      style={{ minHeight: `${ROW_HEIGHT}px` }}
+                    >
+                      {isOver && items.length === 0 && (
+                        <div className="h-10 rounded border border-dashed border-td-blue/30 dark:border-tn-blue/30" />
+                      )}
+                      {items.map((item, i) => (
+                        <TimedItem key={item._type === 'ics' ? `ics-${i}` : item.id}
+                          item={item} onDragStart={onDragStart} onTouchStart={onTouchStart} />
+                      ))}
+                    </div>
+                  )
+                })}
+              </Fragment>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -138,35 +270,36 @@ function WeekView({ weekDays, tasksByDate, icsEventsByDate, onDragStart, onTouch
 
 function DayView({ dateStr, dayTasks, dayIcs, onDragStart, onTouchStart, handleDragOver, handleDrop, setOverDate, overDate, cellRefs }) {
   const { dispatch } = useApp()
+  const scrollRef = useRef(null)
 
-  const timed = useMemo(() => [
-    ...dayIcs.map(e => ({ ...e, _type: 'ics' })),
-    ...dayTasks.map(t => ({ ...t, _type: 'task' })),
-  ].filter(item => !!item.due_time)
-   .sort((a, b) => a.due_time.localeCompare(b.due_time)),
-  [dayTasks, dayIcs])
+  const { timed, allDay } = useMemo(
+    () => splitDayItems(dayTasks, dayIcs),
+    [dayTasks, dayIcs]
+  )
 
-  const allDay = useMemo(() => [
-    ...dayIcs.map(e => ({ ...e, _type: 'ics' })),
-    ...dayTasks.map(t => ({ ...t, _type: 'task' })),
-  ].filter(item => !item.due_time), [dayTasks, dayIcs])
-
-  const HOUR_SLOTS = [7,8,9,10,11,12,13,14,15,16,17,18,19,20]
-  const formatHour = h => h === 12 ? '12 PM' : h < 12 ? `${h} AM` : `${h-12} PM`
-  const slotKey = (h) => `${dateStr}|${String(h).padStart(2,'0')}:00:00`
+  // Auto-scroll to the earliest timed item (or 7 AM) when the day changes.
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = initialScrollHour(timed) * ROW_HEIGHT
+    }
+    // Only re-scroll on day navigation, not on every task/ICS update.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateStr])
 
   return (
-    <div
-      ref={el => { cellRefs.current[dateStr] = el }}
-      onDragOver={e => handleDragOver(e, dateStr)}
-      onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget)) setOverDate(null) }}
-      onDrop={e => handleDrop(e, dateStr)}
-      className="flex-1 overflow-y-auto min-h-0"
-      style={{ paddingBottom: 'calc(80px + env(safe-area-inset-bottom, 0px))' }}
-    >
-      {/* All-day row: tasks with this date but no time */}
+    <div className="flex-1 flex flex-col min-h-0"
+      style={{ paddingBottom: 'calc(80px + env(safe-area-inset-bottom, 0px))' }}>
+      {/* All-day row: tasks with this date but no time (drop target = date only) */}
       {allDay.length > 0 && (
-        <div className="px-4 pt-2 pb-2 border-b border-td-border/30 dark:border-tn-border/30">
+        <div
+          ref={el => { cellRefs.current[dateStr] = el }}
+          onDragOver={e => handleDragOver(e, dateStr)}
+          onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget)) setOverDate(null) }}
+          onDrop={e => handleDrop(e, dateStr)}
+          className={`px-4 pt-2 pb-2 border-b shrink-0 transition-colors
+            border-td-border/30 dark:border-tn-border/30
+            ${overDate === dateStr ? 'bg-td-blue/5 dark:bg-tn-blue/5' : ''}`}
+        >
           <p className="text-[10px] font-semibold uppercase tracking-wider text-td-muted/60 dark:text-tn-muted/60 mb-1.5">All day</p>
           <div className="space-y-1">
             {allDay.map((item, i) => {
@@ -197,11 +330,12 @@ function DayView({ dateStr, dayTasks, dayIcs, onDragStart, onTouchStart, handleD
           </div>
         </div>
       )}
-      {/* Timed slots */}
-      <div>
-        {HOUR_SLOTS.map(hour => {
-          const key = slotKey(hour)
+      {/* Scrollable timed slots (full 0–23 range) */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto min-h-0">
+        {HOURS.map(hour => {
+          const key = slotKey(dateStr, hour)
           const isSlotOver = overDate === key
+          const items = timed.filter(item => hourOf(item) === hour)
           return (
             <div key={hour}
               ref={el => { cellRefs.current[key] = el }}
@@ -210,47 +344,20 @@ function DayView({ dateStr, dayTasks, dayIcs, onDragStart, onTouchStart, handleD
               onDrop={e => { e.stopPropagation(); handleDrop(e, key) }}
               className={`flex items-start gap-3 px-4 border-b border-td-border/20 dark:border-tn-border/20 transition-colors
                 ${isSlotOver ? 'bg-td-blue/5 dark:bg-tn-blue/5' : ''}`}
-              style={{ minHeight: '56px' }}
+              style={{ minHeight: `${ROW_HEIGHT}px` }}
             >
               <span className={`text-[10px] font-medium w-10 shrink-0 pt-1.5 text-right transition-colors
                 ${isSlotOver ? 'text-td-blue dark:text-tn-blue' : 'text-td-muted/50 dark:text-tn-muted/50'}`}>
                 {formatHour(hour)}
               </span>
               <div className="flex-1 py-1 space-y-1">
-                {isSlotOver && timed.filter(item => parseInt(item.due_time.slice(0,2), 10) === hour).length === 0 && (
+                {isSlotOver && items.length === 0 && (
                   <div className="h-6 rounded border border-dashed border-td-blue/30 dark:border-tn-blue/30" />
                 )}
-                {timed.filter(item => parseInt(item.due_time.slice(0,2), 10) === hour).map((item, i) => {
-                  if (item._type === 'ics') {
-                    return (
-                      <div key={i} className="flex items-start gap-2 px-2.5 py-1.5 rounded-lg"
-                        style={{ background: item._color + '15', borderLeft: `3px solid ${item._color}` }}>
-                        <span className="text-[11px] font-semibold shrink-0" style={{ color: item._color }}>
-                          {item.due_time.slice(0,5)}
-                        </span>
-                        <span className="text-sm font-medium text-td-fg dark:text-tn-fg">{item.title}</span>
-                      </div>
-                    )
-                  }
-                  return (
-                    <div key={item.id}
-                      draggable
-                      onDragStart={e => onDragStart(e, item)}
-                      onTouchStart={e => onTouchStart(e, item)}
-                      onClick={() => dispatch({ type: 'SELECT_TASK', payload: item.id })}
-                      className={`flex items-start gap-2 px-2.5 py-1.5 rounded-lg cursor-pointer transition-colors
-                        hover:bg-td-surface dark:hover:bg-tn-surface
-                        ${item.status === 'done' ? 'opacity-50 bg-td-bg3/20 dark:bg-tn-bg3/20' : 'bg-td-blue/10 dark:bg-tn-blue/10 border-l-2 border-td-blue/40 dark:border-tn-blue/40'}`}
-                    >
-                      <span className="text-[11px] font-semibold text-td-blue dark:text-tn-blue shrink-0">
-                        {item.due_time.slice(0,5)}
-                      </span>
-                      <span className={`text-sm font-medium text-td-fg dark:text-tn-fg ${item.status === 'done' ? 'line-through' : ''}`}>
-                        {item.title}
-                      </span>
-                    </div>
-                  )
-                })}
+                {items.map((item, i) => (
+                  <TimedItem key={item._type === 'ics' ? `ics-${i}` : item.id}
+                    item={item} onDragStart={onDragStart} onTouchStart={onTouchStart} />
+                ))}
               </div>
             </div>
           )
@@ -329,12 +436,11 @@ export function CalendarView({ tasks }) {
     setOverDate(dateStr)
   }, [])
 
-  const handleDrop = useCallback(async (e, key) => {
-    e.preventDefault()
-    const task = dragTask.current
-    setOverDate(null)
-    dragTask.current = null
-    if (!task) return
+  // Schedule a task from a drop key. Keys are either `YYYY-MM-DD` (date only,
+  // e.g. all-day rows / month cells) or `YYYY-MM-DD|HH:00:00` (date + time,
+  // from an hour cell). Shared by desktop drop and mobile touch drop.
+  const applyDrop = useCallback(async (task, key) => {
+    if (!task || !key) return
 
     const pipe = key.indexOf('|')
     const dateStr = pipe >= 0 ? key.slice(0, pipe) : key
@@ -349,6 +455,14 @@ export function CalendarView({ tasks }) {
     dispatch({ type: 'UPDATE_TASK', payload: { ...task, ...updates } })
     await updateTask(task.id, updates)
   }, [dispatch, updateTask])
+
+  const handleDrop = useCallback((e, key) => {
+    e.preventDefault()
+    const task = dragTask.current
+    setOverDate(null)
+    dragTask.current = null
+    applyDrop(task, key)
+  }, [applyDrop])
 
   // ── Mobile touch drag ─────────────────────────────────────────
   const createGhost = useCallback((el, x, y) => {
@@ -419,19 +533,17 @@ export function CalendarView({ tasks }) {
       touchListeners.current = { onMove: null, onEnd: null }
       const task = dragTask.current
       const t = ev.changedTouches[0]
-      const targetDate = getDateAtPoint(t.clientX, t.clientY)
+      const targetKey = getDateAtPoint(t.clientX, t.clientY)
       removeGhost()
       setOverDate(null)
       dragTask.current = null
-      if (task && targetDate && targetDate !== task.due_date) {
-        dispatch({ type: 'UPDATE_TASK', payload: { ...task, due_date: targetDate } })
-        await updateTask(task.id, { due_date: targetDate })
-      }
+      // targetKey may carry a time (hour cell) or be date-only — applyDrop handles both.
+      await applyDrop(task, targetKey)
     }
     touchListeners.current = { onMove, onEnd }
     window.addEventListener('touchmove', onMove, { passive: false })
     window.addEventListener('touchend', onEnd)
-  }, [createGhost, moveGhost, removeGhost, getDateAtPoint, dispatch, updateTask])
+  }, [createGhost, moveGhost, removeGhost, getDateAtPoint, applyDrop])
 
   // ── Navigation ────────────────────────────────────────────────
   const navigate = useCallback((dir) => {
