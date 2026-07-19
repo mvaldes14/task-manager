@@ -24,6 +24,19 @@
   .scrollbar-none::-webkit-scrollbar { display: none; }
 }
 
+/* Stop iOS Safari from auto-zooming when a sub-16px form control gains focus.
+   Scoped to touch devices and to the small text utilities actually used on
+   inputs, so body text and the intentionally-large FAB input (text-xl) keep
+   their sizes. `input.text-sm` (0,1,1) outranks Tailwind's `.text-sm` (0,1,0),
+   so this wins regardless of source order. */
+@media (pointer: coarse) {
+  input.text-xs, input.text-sm,
+  textarea.text-xs, textarea.text-sm,
+  select.text-xs, select.text-sm {
+    font-size: 16px;
+  }
+}
+
 /* Respect system preference — collapse motion to opacity-only */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

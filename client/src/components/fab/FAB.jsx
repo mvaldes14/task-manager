@@ -289,7 +289,7 @@ export function FAB() {
           className="md:hidden fixed inset-x-0 z-[96] rounded-t-2xl shadow-e3
             bg-white dark:bg-tn-bg2 border-t border-td-border dark:border-tn-border
             animate-slide-up"
-          style={{ bottom: keyboardHeight }}
+          style={{ bottom: keyboardHeight, paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
           onClick={e => e.stopPropagation()}
         >
           {/* Drag handle */}
