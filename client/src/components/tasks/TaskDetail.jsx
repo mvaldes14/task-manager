@@ -434,7 +434,6 @@ export function TaskDetail() {
   const task = state.tasks.find(t => t.id === state.selectedTaskId)
 
   const [title, setTitle]               = useState('')
-  const [description, setDescription]   = useState('')
   const [status, setStatus]             = useState('todo')
   const [dueDate, setDueDate]           = useState('')
   const [dueTime, setDueTime]           = useState('')
@@ -472,7 +471,6 @@ export function TaskDetail() {
   useEffect(() => {
     if (!task) return
     setTitle(task.title || '')
-    setDescription(task.description || '')
     setStatus(task.status || 'todo')
     setDueDate(task.due_date || '')
     setDueTime(task.due_time || '')
@@ -595,17 +593,48 @@ export function TaskDetail() {
             />
           </div>
 
-          {/* Description */}
-          <div className="space-y-1">
-            <label className={MICRO_LABEL}>Description</label>
-            <textarea
-              value={description}
-              onChange={e => setDescription(e.target.value)}
-              onBlur={() => { if (description !== (task.description || '')) autoSave(task.id, { description }) }}
-              rows={2}
-              placeholder="Add description…"
-              className="w-full bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-sm rounded-lg px-2.5 py-2 outline-none border border-td-border/50 dark:border-tn-border/50 resize-none placeholder-td-muted/40 dark:placeholder-tn-muted/40 font-mono text-xs leading-relaxed"
-            />
+          {/* Subtasks — promoted directly under the title */}
+          <div className="space-y-1.5">
+            <label className={MICRO_LABEL}>
+              Subtasks {task.subtasks?.length > 0 && `(${task.subtasks.filter(s => s.completed).length}/${task.subtasks.length})`}
+            </label>
+            <div className="divide-y divide-td-border/30 dark:divide-tn-border/30">
+              {(task.subtasks || []).map(s => (
+                <SubtaskRow key={s.id} sub={s} taskId={task.id} />
+              ))}
+            </div>
+            <div className="relative">
+              {subtaskResults.length > 0 && (
+                <div className="absolute bottom-full left-0 right-0 mb-1 z-20 rounded-xl border border-td-border dark:border-tn-border bg-white dark:bg-tn-bg2 shadow-e2 overflow-hidden max-h-40 overflow-y-auto">
+                  {subtaskResults.map(t => (
+                    <button key={t.id} onMouseDown={() => linkSubtask(t.id)}
+                      className="w-full text-left text-sm px-3 min-h-11 hover:bg-td-surface dark:hover:bg-tn-surface flex items-center gap-2 transition-colors">
+                      <span className={`w-2 h-2 rounded-full shrink-0 ${STATUS_DOT[t.status] || STATUS_DOT.todo}`} />
+                      <span className="text-td-fg dark:text-tn-fg truncate">{t.title}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <input
+                  ref={subtaskInputRef}
+                  type="text" value={subtaskInput}
+                  onChange={handleSubtaskInput}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') addSubtask()
+                    if (e.key === 'Escape') setSubtaskResults([])
+                  }}
+                  onBlur={() => setTimeout(() => setSubtaskResults([]), 150)}
+                  placeholder="Add subtask or search tasks…"
+                  className="flex-1 bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-sm rounded-lg px-3 min-h-11 outline-none border border-td-border/50 dark:border-tn-border/50 placeholder-td-muted/40 dark:placeholder-tn-muted/40"
+                />
+                {/* preventDefault keeps focus in the input so the mobile keyboard stays up for the next subtask */}
+                <button onMouseDown={e => e.preventDefault()} onClick={addSubtask} aria-label="Add subtask"
+                  className="shrink-0 flex items-center justify-center px-4 min-h-11 bg-td-surface dark:bg-tn-surface text-td-muted dark:text-tn-muted hover:text-td-blue dark:hover:text-tn-blue rounded-lg border border-td-border/50 dark:border-tn-border/50">
+                  <Plus size={16} />
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* AI result chip */}
@@ -771,50 +800,6 @@ export function TaskDetail() {
 
           {/* Links */}
           <LinksSection task={task} onUpdate={updated => dispatch({ type: 'UPDATE_TASK', payload: updated })} />
-
-          {/* Subtasks */}
-          <div className="space-y-1.5">
-            <label className={MICRO_LABEL}>
-              Subtasks {task.subtasks?.length > 0 && `(${task.subtasks.filter(s => s.completed).length}/${task.subtasks.length})`}
-            </label>
-            <div className="divide-y divide-td-border/30 dark:divide-tn-border/30">
-              {(task.subtasks || []).map(s => (
-                <SubtaskRow key={s.id} sub={s} taskId={task.id} />
-              ))}
-            </div>
-            <div className="relative">
-              {subtaskResults.length > 0 && (
-                <div className="absolute bottom-full left-0 right-0 mb-1 z-20 rounded-xl border border-td-border dark:border-tn-border bg-white dark:bg-tn-bg2 shadow-e2 overflow-hidden max-h-40 overflow-y-auto">
-                  {subtaskResults.map(t => (
-                    <button key={t.id} onMouseDown={() => linkSubtask(t.id)}
-                      className="w-full text-left text-sm px-3 min-h-11 hover:bg-td-surface dark:hover:bg-tn-surface flex items-center gap-2 transition-colors">
-                      <span className={`w-2 h-2 rounded-full shrink-0 ${STATUS_DOT[t.status] || STATUS_DOT.todo}`} />
-                      <span className="text-td-fg dark:text-tn-fg truncate">{t.title}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-              <div className="flex gap-2">
-                <input
-                  ref={subtaskInputRef}
-                  type="text" value={subtaskInput}
-                  onChange={handleSubtaskInput}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') addSubtask()
-                    if (e.key === 'Escape') setSubtaskResults([])
-                  }}
-                  onBlur={() => setTimeout(() => setSubtaskResults([]), 150)}
-                  placeholder="Add subtask or search tasks…"
-                  className="flex-1 bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-sm rounded-lg px-3 min-h-11 outline-none border border-td-border/50 dark:border-tn-border/50 placeholder-td-muted/40 dark:placeholder-tn-muted/40"
-                />
-                {/* preventDefault keeps focus in the input so the mobile keyboard stays up for the next subtask */}
-                <button onMouseDown={e => e.preventDefault()} onClick={addSubtask} aria-label="Add subtask"
-                  className="shrink-0 flex items-center justify-center px-4 min-h-11 bg-td-surface dark:bg-tn-surface text-td-muted dark:text-tn-muted hover:text-td-blue dark:hover:text-tn-blue rounded-lg border border-td-border/50 dark:border-tn-border/50">
-                  <Plus size={16} />
-                </button>
-              </div>
-            </div>
-          </div>
 
           {/* Meta */}
           <div className="text-[10px] text-td-muted/40 dark:text-tn-muted/40 pt-2">
