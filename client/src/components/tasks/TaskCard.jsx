@@ -3,7 +3,7 @@ import { useApp } from '../../context/AppContext'
 import { ProjectIcon } from '../shared/ProjectIcon'
 import { useTasks } from '../../hooks/useTasks'
 import { formatDate, isOverdue, priorityColor, recurrenceLabel, fmtTime, getLinkLabel, rescheduleOptions } from '../../utils'
-import { Paperclip, GitBranch, Link2, Sparkles } from 'lucide-react'
+import { Paperclip, GitBranch, Link2, Sparkles, Flag } from 'lucide-react'
 import { AiResultModal } from './AiResultModal'
 import { SwipeableRow } from './SwipeableRow'
 import { Chip } from '../ui'
@@ -86,9 +86,16 @@ export function TaskCard({ task }) {
 
           {/* Meta row */}
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5">
-            {/* Priority dot — keeps saturated color as a signal */}
-            {task.priority && task.priority !== 'low' && (
-              <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: priorityColor(task.priority) }} />
+            {/* Priority — high gets a flag chip so it reads as more prominent; medium keeps a plain dot; low shows nothing */}
+            {task.priority === 'high' && (
+              <Chip
+                icon={<Flag size={10} />}
+                label="High"
+                className="px-1.5 py-0.5 rounded-md gap-0.5 text-td-red dark:text-tn-red bg-td-red/10 dark:bg-tn-red/10"
+              />
+            )}
+            {task.priority === 'medium' && (
+              <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: priorityColor('medium') }} />
             )}
 
             {/* Due date — red only when overdue (signal), muted otherwise */}
