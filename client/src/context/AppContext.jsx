@@ -10,7 +10,7 @@ const initialState = {
   currentUser: null,  // {id, username, display_name, is_admin, has_avatar}
   users: [],          // [{id, username, display_name, is_admin, has_avatar}]
   // Navigation
-  view: localStorage.getItem('td-view') || 'inbox',  // inbox | today | overdue | all | calendar | dashboard | project:<id>
+  view: localStorage.getItem('td-view') || 'inbox',  // inbox | today | upcoming | overdue | all | calendar | dashboard | project:<id>
   viewMode: 'list',         // list | board | calendar
   // Detail panel
   selectedTaskId: null,
@@ -29,6 +29,7 @@ const initialState = {
   calMonth: new Date().getMonth(),
   calDay: new Date().getDate(),
   calView: localStorage.getItem('td-cal-view') || 'month',
+  upcomingRange: localStorage.getItem('td-upcoming-range') || '7',  // '7' | '14'
   // Loading
   tasksLoaded: false,
   // Settings
@@ -72,6 +73,10 @@ function reducer(state, action) {
     case 'SET_CAL_VIEW': {
       localStorage.setItem('td-cal-view', action.payload)
       return { ...state, calView: action.payload }
+    }
+    case 'SET_UPCOMING_RANGE': {
+      localStorage.setItem('td-upcoming-range', action.payload)
+      return { ...state, upcomingRange: action.payload }
     }
     case 'SET_SETTINGS':    return { ...state, gcalEnabled: action.payload.gcal_enabled || false, otelEndpoint: action.payload.otel_frontend_endpoint || '', aiWebhookUrl: action.payload.ai_webhook_url || '' }
     case 'SET_TASKS_LOADED': return { ...state, tasksLoaded: true }
