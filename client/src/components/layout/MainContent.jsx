@@ -9,9 +9,10 @@ import { getGroupKeys } from '../tasks/grouping'
 import { KanbanBoard } from '../tasks/KanbanBoard'
 import { CalendarView } from '../calendar/CalendarView'
 import { DashboardView } from '../dashboard/DashboardView'
-import { LayoutList, Columns, Search, X, ChevronDown, Inbox, Sun, Layers, CalendarDays, AlertCircle, SlidersHorizontal } from 'lucide-react'
+import { LayoutList, Columns, Search, X, ChevronDown, Inbox, Sun, Layers, CalendarDays, CalendarClock, AlertCircle, SlidersHorizontal } from 'lucide-react'
 import { ProjectIcon } from '../shared/ProjectIcon'
 import { PriorityTodayView } from '../tasks/PriorityTodayView'
+import { UpcomingView } from '../tasks/UpcomingView'
 
 function ViewHeader({ title, icon: Icon, count }) {
   const { state, dispatch } = useApp()
@@ -62,6 +63,22 @@ function ViewHeader({ title, icon: Icon, count }) {
                     : 'text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg active:text-td-fg dark:active:text-tn-fg'}`}
               >
                 {v.charAt(0).toUpperCase() + v.slice(1)}
+              </button>
+            ))}
+          </div>
+        )}
+        {state.view === 'upcoming' && (
+          <div className="flex items-center gap-0.5 bg-td-surface dark:bg-tn-surface rounded-lg p-0.5">
+            {['7', '14'].map(v => (
+              <button
+                key={v}
+                onClick={() => dispatch({ type: 'SET_UPCOMING_RANGE', payload: v })}
+                className={`min-h-[40px] px-2 flex items-center rounded-md text-[11px] font-medium transition-colors
+                  ${state.upcomingRange === v
+                    ? 'bg-td-bg2 dark:bg-tn-bg2 text-td-fg dark:text-tn-fg shadow-sm'
+                    : 'text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg active:text-td-fg dark:active:text-tn-fg'}`}
+              >
+                {v}d
               </button>
             ))}
           </div>
@@ -403,6 +420,20 @@ export function MainContent() {
       baseTasks: tasks.filter(t => isToday(t) || isOverdue(t)),
       emptyMessage: 'Nothing due today',
     }
+    if (view === 'upcoming') {
+      const today = new Date(); today.setHours(0, 0, 0, 0)
+      const n = state.upcomingRange === '14' ? 14 : 7
+      const end = new Date(today); end.setDate(today.getDate() + (n - 1))  // inclusive
+      return {
+        title: 'Upcoming', icon: CalendarClock,
+        baseTasks: tasks.filter(t => {
+          if (!t.due_date) return false
+          const due = new Date(t.due_date + 'T00:00:00')
+          return due >= today && due <= end
+        }),
+        emptyMessage: 'Nothing coming up',
+      }
+    }
     if (view === 'all') return {
       title: 'All Tasks', icon: Layers,
       baseTasks: tasks,
@@ -428,7 +459,7 @@ export function MainContent() {
       }
     }
     return { title: 'Tasks', icon: null, baseTasks: tasks, emptyMessage: 'No tasks' }
-  }, [view, tasks, projects])
+  }, [view, tasks, projects, state.upcomingRange])
 
   // Apply show/hide done + sort
   const visibleTasks = useMemo(() => {
@@ -444,7 +475,7 @@ export function MainContent() {
   const activeCount = useMemo(() =>
     baseTasks.filter(t => t.status !== 'done').length, [baseTasks])
 
-  const showToolbar = viewMode === 'list' && view !== 'overdue' && view !== 'calendar' && view !== 'dashboard' && view !== 'today'
+  const showToolbar = viewMode === 'list' && view !== 'overdue' && view !== 'calendar' && view !== 'dashboard' && view !== 'today' && view !== 'upcoming'
   const hasActiveFilters = !showDone || sortBy !== 'status' || groupBy !== 'status'
   const effectiveGroupBy = groupBy === 'none' ? 'flat' : groupBy
   const groupKeys = useMemo(() => getGroupKeys(effectiveGroupBy, visibleTasks, projects), [effectiveGroupBy, visibleTasks, projects])
@@ -547,6 +578,8 @@ export function MainContent() {
           <OverdueView tasks={visibleTasks} />
         ) : view === 'today' && viewMode !== 'board' ? (
           <PriorityTodayView tasks={visibleTasks} />
+        ) : view === 'upcoming' && viewMode !== 'board' ? (
+          <UpcomingView tasks={visibleTasks} range={state.upcomingRange} />
         ) : viewMode === 'board' ? (
           <KanbanBoard tasks={visibleTasks} />
         ) : (

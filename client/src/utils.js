@@ -29,6 +29,17 @@ export function isToday(task) {
 export function tasksForView(view, tasks) {
   if (view === 'inbox') return tasks.filter(t => t.project_id === 'inbox')
   if (view === 'today') return tasks.filter(t => isToday(t) || isOverdue(t))
+  if (view === 'upcoming') {
+    // This helper doesn't know the active range, so scope search to the max
+    // (14-day) window — a superset of whatever's on screen.
+    const today = new Date(); today.setHours(0, 0, 0, 0)
+    const end = new Date(today); end.setDate(today.getDate() + 13)  // inclusive 14-day window
+    return tasks.filter(t => {
+      if (!t.due_date || t.status === 'done') return false
+      const due = new Date(t.due_date + 'T00:00:00')
+      return due >= today && due <= end
+    })
+  }
   if (view === 'overdue') return tasks.filter(t => isOverdue(t))
   if (view.startsWith('project:')) {
     const pid = view.replace('project:', '')

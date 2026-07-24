@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect, useRef } from 'react'
 import { useApp } from '../../context/AppContext'
 import { isOverdue, isToday } from '../../utils'
-import { Plus, LogOut, Sun, Moon, Settings, Trash2, CheckCircle2, RefreshCw, CalendarDays, Inbox, Layers, AlertCircle, PanelLeftClose, PanelLeftOpen, LayoutDashboard, Users, Search } from 'lucide-react'
+import { Plus, LogOut, Sun, Moon, Settings, Trash2, CheckCircle2, RefreshCw, CalendarDays, CalendarClock, Inbox, Layers, AlertCircle, PanelLeftClose, PanelLeftOpen, LayoutDashboard, Users, Search } from 'lucide-react'
 import { api } from '../../api'
 import { ProjectIcon, PROJECT_ICON_OPTIONS } from '../shared/ProjectIcon'
 import { SettingsModal } from '../settings/SettingsModal'
@@ -349,6 +349,7 @@ export function Sidebar() {
         <SearchNavItem collapsed={collapsed} />
         <NavItem icon={Inbox}       label="Inbox"     viewKey="inbox"    badge={inboxCount} collapsed={collapsed} />
         <NavItem icon={Sun}         label="Today"     viewKey="today"    badge={todayCount} collapsed={collapsed} />
+        <NavItem icon={CalendarClock} label="Upcoming" viewKey="upcoming" collapsed={collapsed} />
         <NavItem icon={Layers}      label="All"       viewKey="all"      collapsed={collapsed} />
         <NavItem icon={CalendarDays} label="Calendar" viewKey="calendar" collapsed={collapsed} />
         {overdueCount > 0 && (
