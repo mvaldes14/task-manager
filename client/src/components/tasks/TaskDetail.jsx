@@ -3,7 +3,7 @@ import { useApp } from '../../context/AppContext'
 import { useTasks } from '../../hooks/useTasks'
 import { api } from '../../api'
 import { formatDate, fmtTime, isOverdue, recurrenceLabel, getLinkLabel, getLinkStyle, priorityColor } from '../../utils'
-import { X, Trash2, Plus, Check, ChevronRight, Paperclip, GitBranch, Link2, ExternalLink, Sparkles } from 'lucide-react'
+import { X, Trash2, Plus, Check, ChevronRight, Paperclip, GitBranch, Link2, ExternalLink, Sparkles, Pencil } from 'lucide-react'
 import { DateTimePicker } from '../shared/DateTimePicker'
 import { AiResultModal } from './AiResultModal'
 
@@ -232,6 +232,34 @@ function SubtaskRow({ sub, taskId }) {
     } catch { toast('Failed to delete subtask') }
   }
 
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(sub.title)
+  const editRef = useRef(null)
+
+  useEffect(() => {
+    if (editing) {
+      editRef.current?.focus()
+      editRef.current?.select()
+    }
+  }, [editing])
+
+  const startEdit = () => { setDraft(sub.title); setEditing(true) }
+  const cancelEdit = () => { setDraft(sub.title); setEditing(false) }
+
+  const saveEdit = async () => {
+    const next = draft.trim()
+    if (!next || next === sub.title) { cancelEdit(); return }
+    try {
+      await api.updateSubtask(taskId, sub.id, { title: next })
+      const task = await api.getTask(taskId)
+      if (task) dispatch({ type: 'UPDATE_TASK', payload: task })
+      setEditing(false)
+    } catch {
+      toast('Failed to rename subtask')
+      cancelEdit()
+    }
+  }
+
   return (
     <div className="flex items-center gap-1 group">
       {/* 44px hit target on touch; compact bubble on desktop */}
@@ -254,10 +282,34 @@ function SubtaskRow({ sub, taskId }) {
           </span>
           <ExternalLink size={10} className="shrink-0 opacity-40" />
         </button>
+      ) : editing ? (
+        <input
+          ref={editRef}
+          type="text"
+          value={draft}
+          onChange={e => setDraft(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === 'Enter') saveEdit()
+            if (e.key === 'Escape') cancelEdit()
+          }}
+          onBlur={saveEdit}
+          aria-label="Edit subtask title"
+          className="flex-1 bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-sm rounded-md px-2 min-h-9 outline-none border border-td-border/50 dark:border-tn-border/50"
+        />
       ) : (
         <span className={`flex-1 text-sm ${sub.completed ? 'line-through text-td-muted dark:text-tn-muted' : 'text-td-fg dark:text-tn-fg'}`}>
           {sub.title}
         </span>
+      )}
+
+      {/* Edit — plain subtasks only; same touch-visible / hover-reveal pattern as delete. */}
+      {!sub.linked_task_id && !editing && (
+        <button onClick={startEdit} aria-label="Edit subtask"
+          className="shrink-0 flex items-center justify-center w-11 h-11 md:w-6 md:h-6
+            opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity
+            text-td-muted/50 dark:text-tn-muted/50 hover:text-td-blue dark:hover:text-tn-blue">
+          <Pencil size={15} className="md:w-3 md:h-3" />
+        </button>
       )}
 
       {/* Always visible on touch (no hover); hover-reveal on desktop. 44px hit target on mobile. */}
