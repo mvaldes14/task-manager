@@ -12,6 +12,7 @@ Desktop
 <img width="2850" height="1714" alt="image" src="https://github.com/user-attachments/assets/d2b4b060-eeae-4b2c-95cf-66c37d4fbd90" />
 
 Mobile
+
 <img width="652" height="1588" alt="image" src="https://github.com/user-attachments/assets/3cf0f79f-e4ad-4111-9818-40becbd7fa33" />
 
 ---
