@@ -3,13 +3,16 @@
 ![Logo](https://s3.mvaldes.dev/doit-logo.png)
 
 A self-hosted task manager that runs as a PWA on phone and web. Understands natural language and syncs with Google Calendar.
-![Dark Mode](https://s3.mvaldes.dev/dash1.png)
 
-![Dark Mode](https://s3.mvaldes.dev/doit1.png)
+Desktop
+<img width="2862" height="1728" alt="image" src="https://github.com/user-attachments/assets/337d9144-498e-4a28-b96e-a17d5a3974da" />
 
-![Kanban Mode](https://s3.mvaldes.dev/doit2.png)
+<img width="2868" height="1732" alt="image" src="https://github.com/user-attachments/assets/19bdbf8b-9d77-428d-8af4-49a4d9b02d30" />
 
-![Calendar Mode](https://s3.mvaldes.dev/doit3.png)
+<img width="2850" height="1714" alt="image" src="https://github.com/user-attachments/assets/d2b4b060-eeae-4b2c-95cf-66c37d4fbd90" />
+
+Mobile
+<img width="652" height="1588" alt="image" src="https://github.com/user-attachments/assets/3cf0f79f-e4ad-4111-9818-40becbd7fa33" />
 
 ---
 
