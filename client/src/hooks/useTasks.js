@@ -32,7 +32,7 @@ export function useTasks() {
       const task = await api.createTask(data)
       if (task) {
         dispatch({ type: 'ADD_TASK', payload: task })
-        toast(task.ai_webhook_fired ? 'Task added · AI webhook dispatched' : 'Task added')
+        toast(task.bot_webhook_fired ? 'Task added · sent to Bot' : 'Task added')
       }
       return task
     } catch (e) {
@@ -49,7 +49,7 @@ export function useTasks() {
       const task = await api.updateTask(id, data)
       if (task) {
         dispatch({ type: 'UPDATE_TASK', payload: task })
-        if (task.ai_webhook_fired) toast('AI webhook dispatched')
+        if (task.bot_webhook_fired) toast('Sent to Bot')
       }
       return task
     } catch (e) {

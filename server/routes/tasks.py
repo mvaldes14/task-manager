@@ -15,17 +15,33 @@ logger = logging.getLogger(__name__)
 
 bp = Blueprint('tasks', __name__)
 
-_AI_TAG = 'ai'
+_BOT_USERNAME = 'bot'
+_bot_id_cache = None
 
-def _fire_ai_webhook(task: dict) -> bool:
-    """POST task to the configured AI webhook URL in a daemon thread. Returns True if fired."""
+def _get_bot_user_id():
+    """Resolve the id of the reserved 'bot' user, memoizing positive hits."""
+    global _bot_id_cache
+    if _bot_id_cache:
+        return _bot_id_cache
+    conn = get_db()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT id FROM users WHERE username=%s", (_BOT_USERNAME,))
+        row = cur.fetchone()
+        _bot_id_cache = row[0] if row else None
+        return _bot_id_cache
+    finally:
+        release_db(conn)
+
+def _fire_bot_webhook(task: dict) -> bool:
+    """POST task to the configured webhook URL in a daemon thread. Returns True if fired."""
     settings = get_settings()
     url = (settings.get('ai_webhook_url') or '').strip()
-    logger.info('AI webhook check: url=%r tags=%s', url, task.get('tags'))
+    logger.info('Bot webhook check: url=%r assigned_to=%s', url, task.get('assigned_to'))
     if not url:
-        logger.warning('AI webhook skipped — no ai_webhook_url in settings')
+        logger.warning('Bot webhook skipped — no ai_webhook_url in settings')
         return False
-    payload = json.dumps({'event': 'task.ai_tagged', 'task': task}).encode()
+    payload = json.dumps({'event': 'task.assigned_to_bot', 'task': task}).encode()
     def _call():
         try:
             req = _urllib_req.Request(url, data=payload,
@@ -36,12 +52,12 @@ def _fire_ai_webhook(task: dict) -> bool:
                                       method='POST')
             resp = _urllib_req.urlopen(req, timeout=10)
             body = resp.read().decode('utf-8', errors='replace')
-            logger.info('AI webhook fired: status=%s body=%s', resp.status, body[:500])
+            logger.info('Bot webhook fired: status=%s body=%s', resp.status, body[:500])
         except _urllib_req.HTTPError as exc:
             body = exc.read().decode('utf-8', errors='replace')
-            logger.warning('AI webhook HTTP error: status=%s body=%s', exc.code, body[:500])
+            logger.warning('Bot webhook HTTP error: status=%s body=%s', exc.code, body[:500])
         except Exception as exc:
-            logger.warning('AI webhook failed: %s', exc)
+            logger.warning('Bot webhook failed: %s', exc)
     threading.Thread(target=_call, daemon=True).start()
     return True
 
@@ -208,9 +224,10 @@ def create_task():
         task['timezone'] = data.get('timezone') or 'UTC'
         eid = gcal_upsert(task)
         if eid: gcal_save(tid, eid); task['gcal_event_id'] = eid
-    logger.info('create_task: tags=%s ai_tag_present=%s', task.get('tags'), _AI_TAG in (task.get('tags') or []))
-    if _AI_TAG in (task.get('tags') or []) and _fire_ai_webhook(task):
-        task['ai_webhook_fired'] = True
+    _bot_id = _get_bot_user_id()
+    logger.info('create_task: assigned_to=%s bot_id=%s', task.get('assigned_to'), _bot_id)
+    if _bot_id and task.get('assigned_to') == _bot_id and _fire_bot_webhook(task):
+        task['bot_webhook_fired'] = True
     return jsonify(task), 201
 
 
@@ -243,8 +260,7 @@ def update_task(tid):
         if not row: return jsonify({'error': 'Not found'}), 404
         t = dict(row)
         old_status = t.get('status')
-        _old_tags_raw = t.get('tags', '[]')
-        old_tags = json.loads(_old_tags_raw) if isinstance(_old_tags_raw, str) else (_old_tags_raw or [])
+        old_assigned = t.get('assigned_to')
         for f in ['title','description','project_id','status','due_date','due_time','position','recurrence','recurrence_end','assigned_to','priority']:
             if f in data: t[f] = data[f]
         if 'tags'  in data: t['tags']  = json.dumps(data['tags'])
@@ -298,11 +314,12 @@ def update_task(tid):
                 gcal_save(tid, eid); result['gcal_event_id'] = eid
         elif result.get('gcal_event_id'):
             gcal_delete(result['gcal_event_id']); gcal_save(tid, None); result['gcal_event_id'] = None
-    logger.info('update_task: tags=%s old_tags=%s ai_newly_added=%s',
-                result.get('tags'), old_tags,
-                _AI_TAG in (result.get('tags') or []) and _AI_TAG not in old_tags)
-    if _AI_TAG in (result.get('tags') or []) and _AI_TAG not in old_tags and _fire_ai_webhook(result):
-        result['ai_webhook_fired'] = True
+    _bot_id = _get_bot_user_id()
+    _new_assigned = result.get('assigned_to')
+    logger.info('update_task: assigned_to=%s old_assigned=%s bot_id=%s',
+                _new_assigned, old_assigned, _bot_id)
+    if _bot_id and _new_assigned == _bot_id and old_assigned != _bot_id and _fire_bot_webhook(result):
+        result['bot_webhook_fired'] = True
     return jsonify(result)
 
 

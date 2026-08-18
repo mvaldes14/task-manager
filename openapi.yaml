@@ -844,7 +844,7 @@ components:
         has_ai_result:    { type: boolean }
         subtasks:         { type: array, items: { $ref: '#/components/schemas/Subtask' } }
         recurrence_next:  { allOf: [{ $ref: '#/components/schemas/Task' }], description: Only present when completing a recurring task triggers a clone }
-        ai_webhook_fired: { type: boolean, description: Only present when the 'ai' tag was just added and the webhook fired }
+        bot_webhook_fired: { type: boolean, description: Only present when the task was just assigned to the Bot user and the webhook fired }
         nlp_summary:      { type: string, description: Diagnostic — only present on create when NLP parsing extracted fields }
 
     TaskCreate:
