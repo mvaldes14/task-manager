@@ -598,7 +598,7 @@ export function TaskDetail() {
 
       <aside className="
         fixed inset-0 z-[97] animate-slide-up
-        md:relative md:inset-auto md:animate-none md:w-80 md:z-auto md:border-l md:border-td-border dark:border-tn-border
+        md:relative md:inset-auto md:animate-none md:w-80 lg:w-96 xl:w-[28rem] 2xl:w-[32rem] md:z-auto md:border-l md:border-td-border dark:border-tn-border
         bg-td-bg2 dark:bg-tn-bg2 flex flex-col overflow-hidden
       ">
         {/* Safe-area top + grabber — mobile only */}
