@@ -149,6 +149,7 @@ def init_db():
         conn.commit()
         logger.info("tables ready.")
         _migrate_to_multiuser(conn)
+        _seed_bot_user(conn)
     except Exception as e:
         conn.rollback()
         logger.exception("init_db failed: %s", e)
@@ -184,6 +185,30 @@ def _migrate_to_multiuser(conn):
     except Exception:
         conn.rollback()
         logger.exception("[migration] failed")
+
+
+def _seed_bot_user(conn):
+    """Ensure a reserved, non-login 'bot' user exists. Idempotent.
+
+    Assigning a task to this user triggers the outbound webhook (routes/tasks.py).
+    It carries a random unusable password so it can never be logged into, and is
+    excluded from the auth-required check in routes/auth.py so a lone bot row does
+    not, by itself, lock a fresh passwordless install.
+    """
+    import bcrypt as _bcrypt, secrets as _secrets
+    try:
+        cur = conn.cursor()
+        pw_hash = _bcrypt.hashpw(_secrets.token_hex(32).encode(), _bcrypt.gensalt(12)).decode()
+        cur.execute(
+            "INSERT INTO users (id, username, password_hash, display_name, is_admin) "
+            "VALUES (%s,%s,%s,%s,FALSE) ON CONFLICT (username) DO NOTHING",
+            (str(uuid.uuid4()), 'bot', pw_hash, 'Bot'))
+        conn.commit()
+        logger.info("[seed] reserved 'bot' user ensured")
+    except Exception:
+        conn.rollback()
+        logger.exception("[seed] bot user seeding failed")
+
 
 def get_settings() -> dict:
     """Return the single settings row as a dict, creating it if missing."""

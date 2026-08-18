@@ -152,8 +152,8 @@ def init_auth():
     try:
         conn = get_db()
         cur  = conn.cursor()
-        # Auth required if users exist
-        cur.execute("SELECT 1 FROM users LIMIT 1")
+        # Auth required if any real (non-bot) user exists
+        cur.execute("SELECT 1 FROM users WHERE username != 'bot' LIMIT 1")
         if cur.fetchone() is not None:
             _AUTH_REQUIRED = True
             logger.info("[auth] auth required (users exist)")
