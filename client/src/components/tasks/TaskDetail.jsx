@@ -486,6 +486,8 @@ export function TaskDetail() {
   const task = state.tasks.find(t => t.id === state.selectedTaskId)
 
   const [title, setTitle]               = useState('')
+  const [description, setDescription]   = useState('')
+  const [descExpanded, setDescExpanded] = useState(false)
   const [status, setStatus]             = useState('todo')
   const [dueDate, setDueDate]           = useState('')
   const [dueTime, setDueTime]           = useState('')
@@ -523,6 +525,8 @@ export function TaskDetail() {
   useEffect(() => {
     if (!task) return
     setTitle(task.title || '')
+    setDescription(task.description || '')
+    setDescExpanded(false)
     setStatus(task.status || 'todo')
     setDueDate(task.due_date || '')
     setDueTime(task.due_time || '')
@@ -643,6 +647,35 @@ export function TaskDetail() {
               className="w-full bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-base font-medium resize-none outline-none leading-snug rounded-lg px-3 py-2.5 border border-td-border/50 dark:border-tn-border/50 placeholder-td-muted/40 dark:placeholder-tn-muted/40"
               placeholder="Task title"
             />
+          </div>
+
+          {/* Description — task body; borderless, sits between title and subtasks */}
+          <div className="space-y-1">
+            {(descExpanded || description.trim()) ? (
+              <>
+                <label className={MICRO_LABEL}>Description</label>
+                <textarea
+                  value={description}
+                  onChange={e => setDescription(e.target.value)}
+                  onBlur={() => {
+                    if (description !== (task.description || '')) autoSave(task.id, { description })
+                    if (!description.trim()) setDescExpanded(false)
+                  }}
+                  autoFocus={descExpanded}
+                  rows={3}
+                  className="w-full bg-transparent text-td-fg dark:text-tn-fg text-sm resize-none outline-none leading-relaxed placeholder-td-muted/40 dark:placeholder-tn-muted/40"
+                  placeholder="Add details…"
+                />
+              </>
+            ) : (
+              <button
+                onClick={() => setDescExpanded(true)}
+                className="flex items-center gap-1.5 text-sm text-td-muted dark:text-tn-muted hover:text-td-blue dark:hover:text-tn-blue transition-colors"
+              >
+                <Plus size={14} />
+                Add description
+              </button>
+            )}
           </div>
 
           {/* Subtasks — promoted directly under the title */}
