@@ -597,39 +597,40 @@ export function TaskDetail() {
       <div className="md:hidden fixed inset-0 z-[96] bg-black/40 animate-fade-in" onClick={close} />
 
       <aside className="
-        fixed inset-0 z-[97] animate-slide-up
-        md:relative md:inset-auto md:animate-none md:w-80 lg:w-96 xl:w-[28rem] 2xl:w-[32rem] md:z-auto md:border-l md:border-td-border dark:border-tn-border
+        fixed inset-x-0 bottom-0 top-20 z-[97] animate-slide-up rounded-t-2xl
+        md:relative md:inset-auto md:animate-none md:rounded-none md:w-80 lg:w-96 xl:w-[28rem] 2xl:w-[32rem] md:z-auto md:border-l md:border-td-border dark:border-tn-border
         bg-td-bg2 dark:bg-tn-bg2 flex flex-col overflow-hidden
       ">
-        {/* Safe-area top + grabber — mobile only */}
-        <div className="md:hidden shrink-0" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
-          <div
-            onTouchStart={e => { swipeStart.current = e.touches[0].clientY }}
-            onTouchEnd={e => {
-              const delta = e.changedTouches[0].clientY - (swipeStart.current ?? 0)
-              swipeStart.current = null
-              if (delta > 80) close()
-            }}
-            className="flex justify-center py-2.5 cursor-grab active:cursor-grabbing"
-          >
+        {/* Drag-to-dismiss zone — grabber and header act as one pull target on mobile */}
+        <div
+          className="shrink-0"
+          onTouchStart={e => { swipeStart.current = e.touches[0].clientY }}
+          onTouchEnd={e => {
+            const delta = e.changedTouches[0].clientY - (swipeStart.current ?? 0)
+            swipeStart.current = null
+            if (delta > 60 && window.innerWidth < 768) close()
+          }}
+        >
+          {/* Grabber — mobile only */}
+          <div className="md:hidden flex justify-center py-2.5 cursor-grab active:cursor-grabbing">
             <div className="w-10 h-1 rounded-full bg-td-border dark:bg-tn-border" />
           </div>
-        </div>
 
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3.5 border-b border-td-border/50 dark:border-tn-border/50 shrink-0">
-          <button onClick={close} className="text-td-muted dark:text-tn-muted hover:text-td-fg dark:text-tn-fg transition-colors">
-            <X size={18} />
-          </button>
-          <span className="text-[11px] transition-opacity duration-300"
-            style={{ opacity: saveIndicator === 'idle' ? 0 : 1 }}>
-            {saveIndicator === 'saving'
-              ? <span className="text-td-muted dark:text-tn-muted">Saving…</span>
-              : <span className="text-td-green dark:text-tn-green">Saved ✓</span>}
-          </span>
-          <button onClick={handleDelete} className="text-td-muted/50 dark:text-tn-muted/50 hover:text-td-red dark:hover:text-tn-red transition-colors p-1">
-            <Trash2 size={16} />
-          </button>
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-3.5 border-b border-td-border/50 dark:border-tn-border/50">
+            <button onClick={close} className="text-td-muted dark:text-tn-muted hover:text-td-fg dark:text-tn-fg transition-colors">
+              <X size={18} />
+            </button>
+            <span className="text-[11px] transition-opacity duration-300"
+              style={{ opacity: saveIndicator === 'idle' ? 0 : 1 }}>
+              {saveIndicator === 'saving'
+                ? <span className="text-td-muted dark:text-tn-muted">Saving…</span>
+                : <span className="text-td-green dark:text-tn-green">Saved ✓</span>}
+            </span>
+            <button onClick={handleDelete} className="text-td-muted/50 dark:text-tn-muted/50 hover:text-td-red dark:hover:text-tn-red transition-colors p-1">
+              <Trash2 size={16} />
+            </button>
+          </div>
         </div>
 
         {/* Scrollable content */}
