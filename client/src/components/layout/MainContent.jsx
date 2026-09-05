@@ -9,7 +9,7 @@ import { getGroupKeys } from '../tasks/grouping'
 import { KanbanBoard } from '../tasks/KanbanBoard'
 import { CalendarView } from '../calendar/CalendarView'
 import { DashboardView } from '../dashboard/DashboardView'
-import { LayoutList, Columns, Search, X, ChevronDown, Inbox, Sun, Layers, CalendarDays, CalendarClock, AlertCircle, SlidersHorizontal } from 'lucide-react'
+import { LayoutList, Columns, Table2, Search, X, ChevronDown, Inbox, Sun, Layers, CalendarDays, CalendarClock, AlertCircle, SlidersHorizontal } from 'lucide-react'
 import { ProjectIcon } from '../shared/ProjectIcon'
 import { PriorityTodayView } from '../tasks/PriorityTodayView'
 import { UpcomingView } from '../tasks/UpcomingView'
@@ -102,6 +102,18 @@ function ViewHeader({ title, icon: Icon, count }) {
                   : 'text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg active:text-td-fg dark:active:text-tn-fg'}`}
             >
               <Columns size={15} />
+            </button>
+            {/* Table is desktop-only — a table at phone widths means horizontal
+                scroll, which conflicts with SwipeableRow gestures elsewhere. */}
+            <button
+              onClick={() => dispatch({ type: 'SET_VIEW_MODE', payload: 'table' })}
+              title="Table view (b)"
+              className={`hidden md:flex min-h-[40px] min-w-[40px] items-center justify-center rounded-md transition-colors
+                ${state.viewMode === 'table'
+                  ? 'bg-td-bg2 dark:bg-tn-bg2 text-td-fg dark:text-tn-fg shadow-sm'
+                  : 'text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg active:text-td-fg dark:active:text-tn-fg'}`}
+            >
+              <Table2 size={15} />
             </button>
           </div>
         )}
@@ -376,6 +388,7 @@ function sortTasks(tasks, sortBy, projects) {
 import { TaskCard } from '../tasks/TaskCard'
 import { TaskListSkeleton } from '../tasks/TaskList'
 import { KanbanSkeleton } from '../tasks/KanbanBoard'
+import { TaskTable, TaskTableSkeleton } from '../tasks/TaskTable'
 
 export function MainContent() {
   const { state } = useApp()
@@ -466,8 +479,8 @@ export function MainContent() {
 
   // Apply show/hide done + sort
   const visibleTasks = useMemo(() => {
-    // Board view owns its own done toggle — always include done tasks so KanbanBoard can filter
-    const skipDoneFilter = viewMode === 'board'
+    // Board and table own their own done toggles — always include done tasks so they can filter
+    const skipDoneFilter = viewMode === 'board' || viewMode === 'table'
     let pool
     if (skipDoneFilter)      pool = baseTasks                                   // board filters itself
     else if (showDone)       pool = baseTasks.filter(t => t.status === 'done')  // only completed
@@ -489,6 +502,10 @@ export function MainContent() {
   )
   const isCalendar = view === 'calendar'
   const isDashboard = view === 'dashboard'
+  const isTable = viewMode === 'table' && !isCalendar && !isDashboard
+  // Panes that manage their own internal scrolling — the outer container must not
+  // scroll or it fights the sticky table header / kanban columns.
+  const isFixedPane = isCalendar || isDashboard || viewMode === 'board' || isTable
 
   return (
     <div className="flex-1 flex flex-col min-h-0 min-w-0">
@@ -552,11 +569,11 @@ export function MainContent() {
       )}
 
       <div
-        className={`flex-1 min-h-0 ${(isCalendar || isDashboard || viewMode === 'board') ? 'overflow-hidden flex flex-col' : 'overflow-y-auto overscroll-contain'}`}
-        style={!(isCalendar || isDashboard || viewMode === 'board') ? { paddingBottom: 'calc(76px + env(safe-area-inset-bottom, 0px))' } : undefined}
-        onTouchStart={!(isCalendar || isDashboard || viewMode === 'board') ? onTouchStart : undefined}
-        onTouchMove={!(isCalendar || isDashboard || viewMode === 'board') ? onTouchMove : undefined}
-        onTouchEnd={!(isCalendar || isDashboard || viewMode === 'board') ? onTouchEnd : undefined}
+        className={`flex-1 min-h-0 ${isFixedPane ? 'overflow-hidden flex flex-col' : 'overflow-y-auto overscroll-contain'}`}
+        style={!isFixedPane ? { paddingBottom: 'calc(76px + env(safe-area-inset-bottom, 0px))' } : undefined}
+        onTouchStart={!isFixedPane ? onTouchStart : undefined}
+        onTouchMove={!isFixedPane ? onTouchMove : undefined}
+        onTouchEnd={!isFixedPane ? onTouchEnd : undefined}
       >
         {/* Pull to refresh indicator */}
         {!(isCalendar || isDashboard) && (
@@ -576,7 +593,11 @@ export function MainContent() {
         ) : isCalendar ? (
           <CalendarView tasks={tasks} />
         ) : !state.tasksLoaded ? (
-          viewMode === 'board' ? <KanbanSkeleton /> : <TaskListSkeleton />
+          viewMode === 'board' ? <KanbanSkeleton />
+            : viewMode === 'table' ? <TaskTableSkeleton />
+            : <TaskListSkeleton />
+        ) : isTable ? (
+          <TaskTable tasks={visibleTasks} emptyMessage={emptyMessage} />
         ) : view === 'overdue' ? (
           <OverdueView tasks={visibleTasks} />
         ) : view === 'today' && viewMode !== 'board' ? (

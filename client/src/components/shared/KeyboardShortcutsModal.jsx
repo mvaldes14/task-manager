@@ -15,6 +15,7 @@ const SHORTCUTS = [
   { section: 'View' },
   { key: 'L',   desc: 'List view' },
   { key: 'K',   desc: 'Kanban view' },
+  { key: 'B',   desc: 'Table view' },
   { section: 'UI' },
   { key: 'S',   desc: 'Toggle sidebar' },
   { key: '/',   desc: 'Search tasks' },
