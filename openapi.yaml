@@ -378,7 +378,7 @@ paths:
   /api/nlp/parse:
     post:
       tags: [nlp]
-      summary: Parse a free-form task title (dates, recurrence, project, assignee, tags, links, priority)
+      summary: Parse a free-form task title (dates, recurrence, project or subproject path, assignee, labels, links, priority)
       requestBody:
         required: true
         content:
@@ -403,7 +403,7 @@ paths:
                   recurrence:            { type: string, nullable: true }
                   labels:                { type: array, items: { type: string } }
                   links:                 { type: array, items: { $ref: '#/components/schemas/Link' } }
-                  project_name:          { type: string, nullable: true }
+                  project_name:          { type: string, nullable: true, description: "Bare name, or `Parent/Child` when a subproject path was given. A bare name that matches several projects resolves to the root project first, then by sidebar position." }
                   assigned_to_username:  { type: string, nullable: true }
                   priority:              { type: string, nullable: true }
                   nlp_summary:           { type: string, nullable: true }
@@ -852,7 +852,7 @@ components:
       type: object
       required: [title]
       properties:
-        title:          { type: string, description: NLP-parsed (dates, #tags, !priority, @user, +project, !url=…) }
+        title:          { type: string, description: "NLP-parsed. #Project or #Parent/Child (one level; created if missing), @label, +assignee, p1|p2|p3 priority, dates, recurrence, !url=…" }
         description:    { type: string }
         status:         { $ref: '#/components/schemas/TaskStatus' }
         priority:       { $ref: '#/components/schemas/Priority' }

@@ -164,6 +164,61 @@ def get_tasks():
     return jsonify(_fetch_tasks(q, p))
 
 
+_PROJECT_PALETTE = ['#7c6af7', '#f87171', '#fbbf24', '#4ade80', '#60a5fa', '#f472b6', '#34d399', '#fb923c']
+# Visibility rule mirrors GET /api/projects: own projects, shared projects, inbox.
+_PROJECT_VISIBLE = "(id='inbox' OR owner_id IS NOT DISTINCT FROM %s OR shared=TRUE)"
+# Roots before subprojects, then sidebar order, then oldest. Makes a bare #Name
+# that matches several projects resolve to the same one every time.
+_PROJECT_RANK = "ORDER BY (parent_id IS NULL) DESC, position, created_at"
+
+
+def _create_project(cur, name, owner_id, parent_id=None):
+    """Insert a project and return its id. Position lands at the end of its sibling group."""
+    new_pid = str(uuid.uuid4())
+    cur.execute(
+        "SELECT COALESCE(MAX(position), 0) + 1 AS next_pos FROM projects "
+        "WHERE id != 'inbox' AND owner_id IS NOT DISTINCT FROM %s AND parent_id IS NOT DISTINCT FROM %s",
+        (owner_id, parent_id))
+    next_pos = cur.fetchone()['next_pos']
+    cur.execute(
+        "INSERT INTO projects (id,name,color,icon,owner_id,position,parent_id) VALUES (%s,%s,%s,'📁',%s,%s,%s)",
+        (new_pid, name.capitalize(), _PROJECT_PALETTE[hash(name) % len(_PROJECT_PALETTE)],
+         owner_id, next_pos, parent_id))
+    return new_pid
+
+
+def _resolve_project_name(cur, pname, owner_id):
+    """Resolve an NLP-extracted `#Name` or `#Parent/Child` to a project id.
+
+    Never raises and never returns None — quick-capture from Obsidian, the n8n
+    webhook and the MCP layer all funnel through here, so a miss creates the
+    project rather than failing the task insert.
+    """
+    if '/' in pname:
+        parent_name, _, child_name = pname.partition('/')
+        parent_name, child_name = parent_name.strip(), child_name.strip()
+        if not parent_name or not child_name:
+            return _resolve_project_name(cur, (parent_name or child_name), owner_id)
+        # Parent must be a root. Create it if it isn't there yet.
+        cur.execute(
+            f"SELECT id FROM projects WHERE LOWER(name)=LOWER(%s) AND parent_id IS NULL "
+            f"AND id != 'inbox' AND {_PROJECT_VISIBLE} {_PROJECT_RANK} LIMIT 1",
+            (parent_name, owner_id))
+        prow = cur.fetchone()
+        parent_id = prow['id'] if prow else _create_project(cur, parent_name, owner_id)
+        cur.execute(
+            f"SELECT id FROM projects WHERE LOWER(name)=LOWER(%s) AND parent_id=%s "
+            f"AND {_PROJECT_VISIBLE} {_PROJECT_RANK} LIMIT 1",
+            (child_name, parent_id, owner_id))
+        crow = cur.fetchone()
+        return crow['id'] if crow else _create_project(cur, child_name, owner_id, parent_id=parent_id)
+    cur.execute(
+        f"SELECT id FROM projects WHERE LOWER(name)=LOWER(%s) AND {_PROJECT_VISIBLE} {_PROJECT_RANK} LIMIT 1",
+        (pname, owner_id))
+    row = cur.fetchone()
+    return row['id'] if row else _create_project(cur, pname, owner_id)
+
+
 @bp.route('/api/tasks', methods=['POST'])
 def create_task():
     data = request.get_json(); tid = str(uuid.uuid4())
@@ -193,16 +248,7 @@ def create_task():
             if urow: assigned_to = urow['id']
         pname = nlp.get('project_name')
         if pname:
-            cur.execute("SELECT id FROM projects WHERE LOWER(name)=LOWER(%s)", (pname,))
-            row = cur.fetchone()
-            if row:
-                project_id = row['id']
-            else:
-                new_pid = str(uuid.uuid4())
-                PALETTE = ['#7c6af7','#f87171','#fbbf24','#4ade80','#60a5fa','#f472b6','#34d399','#fb923c']
-                cur.execute("INSERT INTO projects (id,name,color,icon) VALUES (%s,%s,%s,'📁')",
-                            (new_pid, pname.capitalize(), PALETTE[hash(pname) % len(PALETTE)]))
-                project_id = new_pid
+            project_id = _resolve_project_name(cur, pname, getattr(g, 'user_id', None))
         cur.execute("SELECT COALESCE(MAX(position),0) FROM tasks WHERE project_id=%s AND status=%s",
                     (project_id, status))
         max_pos = cur.fetchone()['coalesce']
