@@ -428,9 +428,10 @@ paths:
               type: object
               required: [name]
               properties:
-                name:  { type: string }
-                color: { type: string, default: "#6366f1" }
-                icon:  { type: string, default: "📁" }
+                name:      { type: string }
+                color:     { type: string, default: "#6366f1" }
+                icon:      { type: string, default: "📁" }
+                parent_id: { type: string, nullable: true, description: "Root project to nest under. One level only; the parent must not itself have a parent." }
       responses:
         '201':
           description: Created
@@ -441,7 +442,7 @@ paths:
   /api/projects/reorder:
     post:
       tags: [projects]
-      summary: Reorder projects (inbox is ignored if included)
+      summary: Reorder projects (inbox is ignored if included). Positions are scoped per sibling group; send one flat depth-first list.
       requestBody:
         required: true
         content:
@@ -486,7 +487,7 @@ paths:
               schema: { $ref: '#/components/schemas/Project' }
     delete:
       tags: [projects]
-      summary: Delete project; its tasks fall back to inbox. Cannot delete `inbox`.
+      summary: Delete project; its tasks fall back to inbox and its subprojects are promoted to top level. Cannot delete `inbox`.
       responses:
         '204': { description: Deleted }
 
@@ -891,7 +892,8 @@ components:
         name:       { type: string }
         color:     { type: string }
         icon:       { type: string }
-        position:   { type: integer }
+        position:   { type: integer, description: order within the sibling group }
+        parent_id:  { type: string, nullable: true, description: parent project id, or null for a top-level project }
         shared:     { type: boolean }
         owner_id:   { type: string, format: uuid, nullable: true }
         created_at: { type: string, format: date-time }
@@ -899,12 +901,13 @@ components:
 
     ProjectUpdate:
       type: object
-      description: Only `name`, `color`, `icon`, `shared` are accepted; other keys are ignored.
+      description: Only `name`, `color`, `icon`, `shared`, `parent_id` are accepted; other keys are ignored.
       properties:
-        name:   { type: string }
-        color:  { type: string }
-        icon:   { type: string }
-        shared: { type: boolean }
+        name:      { type: string }
+        color:     { type: string }
+        icon:      { type: string }
+        shared:    { type: boolean }
+        parent_id: { type: string, nullable: true, description: "Set to a root project id to nest, or null to promote to top level. Rejected with 400 if it would create a second level." }
 
     User:
       type: object

@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect, useRef } from 'react'
 import { useApp } from '../../context/AppContext'
 import { isOverdue, isToday } from '../../utils'
-import { Plus, LogOut, Sun, Moon, Settings, Trash2, CheckCircle2, RefreshCw, CalendarDays, CalendarClock, Inbox, Layers, AlertCircle, PanelLeftClose, PanelLeftOpen, LayoutDashboard, Users, Search } from 'lucide-react'
+import { Plus, LogOut, Sun, Moon, Settings, Trash2, CheckCircle2, RefreshCw, CalendarDays, CalendarClock, Inbox, Layers, AlertCircle, PanelLeftClose, PanelLeftOpen, LayoutDashboard, Users, Search, ChevronRight } from 'lucide-react'
 import { api } from '../../api'
 import { ProjectIcon, PROJECT_ICON_OPTIONS } from '../shared/ProjectIcon'
 import { SettingsModal } from '../settings/SettingsModal'
@@ -67,18 +67,26 @@ function ProjectFormModal({ project, onClose }) {
   const [color, setColor] = useState(project?.color || PROJECT_COLORS[6])
   const [icon, setIcon] = useState(project?.icon || '📁')
   const [shared, setShared] = useState(project?.shared || false)
+  const [parentId, setParentId] = useState(project?.parent_id || '')
   const [saving, setSaving] = useState(false)
+
+  // One level only: eligible parents are root projects other than this one, and
+  // a project that already has children cannot be moved under another.
+  const hasChildren = isEdit && state.projects.some(p => p.parent_id === project.id)
+  const parentOptions = state.projects.filter(p =>
+    p.id !== 'inbox' && !p.parent_id && (!isEdit || p.id !== project.id))
 
   const save = async () => {
     if (!name.trim()) return
     setSaving(true)
     try {
+      const payload = { name: name.trim(), color, icon, shared, parent_id: parentId || null }
       if (isEdit) {
-        const p = await api.updateProject(project.id, { name: name.trim(), color, icon, shared })
+        const p = await api.updateProject(project.id, payload)
         dispatch({ type: 'UPDATE_PROJECT', payload: p })
         toast('Project updated')
       } else {
-        const p = await api.createProject({ name: name.trim(), color, icon, shared })
+        const p = await api.createProject(payload)
         dispatch({ type: 'ADD_PROJECT', payload: p })
         toast('Project created')
       }
@@ -88,7 +96,7 @@ function ProjectFormModal({ project, onClose }) {
   }
 
   const handleDelete = () => {
-    confirm('Delete this project? Tasks will be unassigned.', async () => {
+    confirm('Delete this project? Its tasks move to Inbox and any subprojects move to the top level.', async () => {
       try {
         await api.deleteProject(project.id)
         dispatch({ type: 'DELETE_PROJECT', payload: project.id })
@@ -141,6 +149,23 @@ function ProjectFormModal({ project, onClose }) {
               style={{ background: c }} />
           ))}
         </div>
+        {!hasChildren && parentOptions.length > 0 && (
+          <select
+            value={parentId}
+            onChange={e => setParentId(e.target.value)}
+            className="w-full bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-sm rounded-lg px-3 py-2.5 outline-none mb-4 border border-td-border/50 dark:border-tn-border/50"
+          >
+            <option value="">No parent (top level)</option>
+            {parentOptions.map(p => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+        )}
+        {hasChildren && (
+          <p className="text-[11px] text-td-muted/60 dark:text-tn-muted/60 mb-4 px-1">
+            This project has subprojects, so it can&apos;t be nested under another.
+          </p>
+        )}
         <button
           onClick={() => setShared(s => !s)}
           className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm mb-5 transition-colors border
@@ -163,6 +188,64 @@ function ProjectFormModal({ project, onClose }) {
         </div>
       </div>
     </>
+  )
+}
+
+function ProjectRow({
+  project: p, depth, count, hasChildren, expanded, onToggleExpand, active, isTouch,
+  dragProjectId, dropTargetId, setDragProjectId, setDropTargetId, onDropProject, onOpen, onEdit,
+}) {
+  return (
+    <div
+      draggable={!isTouch}
+      onDragStart={!isTouch ? (e => { setDragProjectId(p.id); e.dataTransfer.effectAllowed = 'move' }) : undefined}
+      onDragOver={!isTouch ? (e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (dragProjectId && dragProjectId !== p.id) setDropTargetId(p.id) }) : undefined}
+      onDragLeave={!isTouch ? (() => { if (dropTargetId === p.id) setDropTargetId(null) }) : undefined}
+      onDrop={!isTouch ? (e => { e.preventDefault(); onDropProject(p.id) }) : undefined}
+      onDragEnd={!isTouch ? (() => { setDragProjectId(null); setDropTargetId(null) }) : undefined}
+      onClick={onOpen}
+      role="button"
+      tabIndex={0}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen() } }}
+      className={`group w-full flex items-center gap-2.5 pr-3 py-2.5 md:py-2 min-h-[44px] md:min-h-0 rounded-lg text-sm transition-colors cursor-pointer
+        ${dragProjectId === p.id ? 'opacity-40' : ''}
+        ${dropTargetId === p.id ? 'ring-1 ring-td-blue/60 dark:ring-tn-blue/60' : ''}
+        ${active
+          ? 'bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg font-semibold'
+          : 'text-td-muted dark:text-tn-nav font-medium hover:text-td-fg dark:hover:text-tn-fg hover:bg-td-surface/50 dark:hover:bg-tn-surface/50'}`}
+      style={{ paddingLeft: depth === 0 ? '0.75rem' : '1.75rem' }}
+    >
+      {hasChildren ? (
+        <button
+          onClick={e => { e.stopPropagation(); onToggleExpand() }}
+          className="shrink-0 -ml-1 flex items-center justify-center w-4 h-4 rounded text-td-muted/50 dark:text-tn-muted/50 hover:text-td-fg dark:hover:text-tn-fg"
+          title={expanded ? 'Collapse subprojects' : 'Expand subprojects'}
+          aria-expanded={expanded}
+        >
+          <ChevronRight size={12} className={`transition-transform ${expanded ? 'rotate-90' : ''}`} />
+        </button>
+      ) : depth === 0 ? (
+        <span className="shrink-0 -ml-1 w-4 h-4" aria-hidden="true" />
+      ) : null}
+      <span className="w-6 h-6 rounded-md flex items-center justify-center shrink-0"
+        style={{ background: p.color + '25' }}>
+        <ProjectIcon icon={p.icon} size={13} />
+      </span>
+      <span className="flex-1 text-left truncate">{p.name}</span>
+      <span className="flex items-center gap-1.5 shrink-0 group-hover:hidden">
+        {p.shared && <Users size={10} className="text-td-blue/60 dark:text-tn-blue/60" title="Shared project" />}
+        {count > 0 && <span className="text-[10px] text-td-muted/60 dark:text-tn-muted/60">{count}</span>}
+      </span>
+      <button
+        onClick={e => { e.stopPropagation(); onEdit() }}
+        className="hidden group-hover:flex items-center justify-center w-5 h-5 rounded
+          text-td-muted/50 dark:text-tn-muted/50 hover:text-td-fg dark:hover:text-tn-fg
+          hover:bg-td-surface dark:hover:bg-tn-surface transition-all"
+        title="Edit project"
+      >
+        <Settings size={12} />
+      </button>
+    </div>
   )
 }
 
@@ -196,13 +279,31 @@ export function Sidebar() {
   const [showSettings, setShowSettings] = useState(false)
   const [dragProjectId, setDragProjectId] = useState(null)
   const [dropTargetId, setDropTargetId] = useState(null)
+  const [collapsedProjects, setCollapsedProjects] = useState(() => {
+    try { return new Set(JSON.parse(localStorage.getItem('td-collapsed-projects') || '[]')) }
+    catch { return new Set() }
+  })
+
+  const toggleProjectCollapse = (id) => setCollapsedProjects(prev => {
+    const next = new Set(prev)
+    if (next.has(id)) next.delete(id); else next.add(id)
+    localStorage.setItem('td-collapsed-projects', JSON.stringify([...next]))
+    return next
+  })
 
   const handleProjectDrop = async (targetId) => {
     const sourceId = dragProjectId
     setDragProjectId(null)
     setDropTargetId(null)
     if (!sourceId || sourceId === targetId) return
-    const list = state.projects.filter(p => p.id !== 'inbox')
+    // Phase 1: reorder only, and only within a sibling group. Cross-group drops
+    // (reparenting via drag) are a separate follow-up.
+    const all = state.projects.filter(p => p.id !== 'inbox')
+    const source = all.find(p => p.id === sourceId)
+    const target = all.find(p => p.id === targetId)
+    if (!source || !target) return
+    if ((source.parent_id || null) !== (target.parent_id || null)) return
+    const list = all.filter(p => (p.parent_id || null) === (source.parent_id || null))
     const fromIdx = list.findIndex(p => p.id === sourceId)
     const toIdx = list.findIndex(p => p.id === targetId)
     if (fromIdx < 0 || toIdx < 0) return
@@ -210,8 +311,12 @@ export function Sidebar() {
     const [moved] = reordered.splice(fromIdx, 1)
     reordered.splice(toIdx, 0, moved)
     const withPositions = reordered.map((p, i) => ({ ...p, position: i + 1 }))
+    const movedById = new Map(withPositions.map(p => [p.id, p]))
     const inbox = state.projects.find(p => p.id === 'inbox')
-    dispatch({ type: 'SET_PROJECTS', payload: inbox ? [inbox, ...withPositions] : withPositions })
+    // Splice the reordered sibling group back into the full list in place.
+    let cursor = 0
+    const merged = all.map(p => (movedById.has(p.id) ? withPositions[cursor++] : p))
+    dispatch({ type: 'SET_PROJECTS', payload: inbox ? [inbox, ...merged] : merged })
     try {
       await api.reorderProjects(reordered.map(p => p.id))
     } catch {
@@ -294,6 +399,29 @@ export function Sidebar() {
     []
   )
   const toggle = () => dispatch({ type: 'TOGGLE_SIDEBAR_COLLAPSED' })
+
+  // Roots first, each with its children. A project whose parent isn't visible to
+  // this user (shared-project edge case) is rendered as a root so it never vanishes.
+  const projectTree = useMemo(() => {
+    const list = state.projects.filter(p => p.id !== 'inbox')
+    const ids = new Set(list.map(p => p.id))
+    const roots = list.filter(p => !p.parent_id || !ids.has(p.parent_id))
+    return roots.map(p => ({ ...p, children: list.filter(c => c.parent_id === p.id) }))
+  }, [state.projects])
+
+  // Open-task counts, rolled up from children into their parent.
+  const projectCounts = useMemo(() => {
+    const direct = {}
+    for (const t of state.tasks) {
+      if (t.status === 'done' || !t.project_id) continue
+      direct[t.project_id] = (direct[t.project_id] || 0) + 1
+    }
+    const rolled = { ...direct }
+    for (const p of state.projects) {
+      if (p.parent_id) rolled[p.parent_id] = (rolled[p.parent_id] || 0) + (direct[p.id] || 0)
+    }
+    return rolled
+  }, [state.tasks, state.projects])
 
   const overdueCount = useMemo(() => state.tasks.filter(t => isOverdue(t)).length, [state.tasks])
   const inboxCount   = useMemo(() => state.tasks.filter(t => t.project_id === 'inbox' && t.status !== 'done').length, [state.tasks])
@@ -378,65 +506,79 @@ export function Sidebar() {
           </div>
         )}
 
-        {state.projects.filter(p => p.id !== 'inbox').map(p => {
-          const count = state.tasks.filter(t => t.project_id === p.id && t.status !== 'done').length
-          const active = state.view === `project:${p.id}`
-          return collapsed ? (
-            <button key={p.id}
-              onClick={() => dispatch({ type: 'SET_VIEW', payload: `project:${p.id}` })}
-              title={p.name}
-              className={`relative w-full flex items-center justify-center py-2 rounded-lg transition-colors
-                ${active
-                  ? 'bg-td-surface dark:bg-tn-surface'
-                  : 'hover:bg-td-surface/50 dark:hover:bg-tn-surface/50'}`}
-            >
-              <span className="w-6 h-6 rounded-md flex items-center justify-center"
-                style={{ background: p.color + '25' }}>
-                <ProjectIcon icon={p.icon} size={13} />
-              </span>
-              {count > 0 && (
-                <span className="absolute top-0.5 right-1 text-[9px] font-bold text-td-muted/60 dark:text-tn-muted/60">
-                  {count > 9 ? '9+' : count}
-                </span>
-              )}
-            </button>
-          ) : (
-            <button key={p.id}
-              draggable={!isTouch}
-              onDragStart={!isTouch ? (e => { setDragProjectId(p.id); e.dataTransfer.effectAllowed = 'move' }) : undefined}
-              onDragOver={!isTouch ? (e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (dragProjectId && dragProjectId !== p.id) setDropTargetId(p.id) }) : undefined}
-              onDragLeave={!isTouch ? (() => { if (dropTargetId === p.id) setDropTargetId(null) }) : undefined}
-              onDrop={!isTouch ? (e => { e.preventDefault(); handleProjectDrop(p.id) }) : undefined}
-              onDragEnd={!isTouch ? (() => { setDragProjectId(null); setDropTargetId(null) }) : undefined}
-              onClick={() => dispatch({ type: 'SET_VIEW', payload: `project:${p.id}` })}
-              className={`group w-full flex items-center gap-2.5 px-3 py-2.5 md:py-2 min-h-[44px] md:min-h-0 rounded-lg text-sm transition-colors
-                ${dragProjectId === p.id ? 'opacity-40' : ''}
-                ${dropTargetId === p.id ? 'ring-1 ring-td-blue/60 dark:ring-tn-blue/60' : ''}
-                ${active
-                  ? 'bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg font-semibold'
-                  : 'text-td-muted dark:text-tn-nav font-medium hover:text-td-fg dark:hover:text-tn-fg hover:bg-td-surface/50 dark:hover:bg-tn-surface/50'}`}
-            >
-              <span className="w-6 h-6 rounded-md flex items-center justify-center shrink-0"
-                style={{ background: p.color + '25' }}>
-                <ProjectIcon icon={p.icon} size={13} />
-              </span>
-              <span className="flex-1 text-left truncate">{p.name}</span>
-              <span className="flex items-center gap-1.5 shrink-0 group-hover:hidden">
-                {p.shared && <Users size={10} className="text-td-blue/60 dark:text-tn-blue/60" title="Shared project" />}
-                {count > 0 && <span className="text-[10px] text-td-muted/60 dark:text-tn-muted/60">{count}</span>}
-              </span>
-              <button
-                onClick={e => { e.stopPropagation(); setEditingProject(p) }}
-                className="hidden group-hover:flex items-center justify-center w-5 h-5 rounded
-                  text-td-muted/50 dark:text-tn-muted/50 hover:text-td-fg dark:hover:text-tn-fg
-                  hover:bg-td-surface dark:hover:bg-tn-surface transition-all"
-                title="Edit project"
-              >
-                <Settings size={12} />
-              </button>
-            </button>
-          )
-        })}
+        {collapsed
+          ? state.projects.filter(p => p.id !== 'inbox').map(p => {
+              const count = projectCounts[p.id] || 0
+              const active = state.view === `project:${p.id}`
+              return (
+                <button key={p.id}
+                  onClick={() => dispatch({ type: 'SET_VIEW', payload: `project:${p.id}` })}
+                  title={p.name}
+                  className={`relative w-full flex items-center justify-center py-2 rounded-lg transition-colors
+                    ${active
+                      ? 'bg-td-surface dark:bg-tn-surface'
+                      : 'hover:bg-td-surface/50 dark:hover:bg-tn-surface/50'}`}
+                >
+                  <span className="w-6 h-6 rounded-md flex items-center justify-center"
+                    style={{ background: p.color + '25' }}>
+                    <ProjectIcon icon={p.icon} size={13} />
+                  </span>
+                  {count > 0 && (
+                    <span className="absolute top-0.5 right-1 text-[9px] font-bold text-td-muted/60 dark:text-tn-muted/60">
+                      {count > 9 ? '9+' : count}
+                    </span>
+                  )}
+                </button>
+              )
+            })
+          : projectTree.flatMap(root => {
+              const isCollapsedRoot = collapsedProjects.has(root.id)
+              const rows = [
+                <ProjectRow
+                  key={root.id}
+                  project={root}
+                  depth={0}
+                  count={projectCounts[root.id] || 0}
+                  hasChildren={root.children.length > 0}
+                  expanded={!isCollapsedRoot}
+                  onToggleExpand={() => toggleProjectCollapse(root.id)}
+                  active={state.view === `project:${root.id}`}
+                  isTouch={isTouch}
+                  dragProjectId={dragProjectId}
+                  dropTargetId={dropTargetId}
+                  setDragProjectId={setDragProjectId}
+                  setDropTargetId={setDropTargetId}
+                  onDropProject={handleProjectDrop}
+                  onOpen={() => dispatch({ type: 'SET_VIEW', payload: `project:${root.id}` })}
+                  onEdit={() => setEditingProject(root)}
+                />,
+              ]
+              if (!isCollapsedRoot) {
+                for (const child of root.children) {
+                  rows.push(
+                    <ProjectRow
+                      key={child.id}
+                      project={child}
+                      depth={1}
+                      count={projectCounts[child.id] || 0}
+                      hasChildren={false}
+                      expanded={false}
+                      onToggleExpand={null}
+                      active={state.view === `project:${child.id}`}
+                      isTouch={isTouch}
+                      dragProjectId={dragProjectId}
+                      dropTargetId={dropTargetId}
+                      setDragProjectId={setDragProjectId}
+                      setDropTargetId={setDropTargetId}
+                      onDropProject={handleProjectDrop}
+                      onOpen={() => dispatch({ type: 'SET_VIEW', payload: `project:${child.id}` })}
+                      onEdit={() => setEditingProject(child)}
+                    />
+                  )
+                }
+              }
+              return rows
+            })}
       </nav>
 
       {/* Footer */}
