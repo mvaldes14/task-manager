@@ -63,6 +63,10 @@ export function useKeyboardShortcuts() {
           e.preventDefault()
           dispatch({ type: 'SET_VIEW_MODE', payload: 'board' })
           break
+        case 'b':
+          e.preventDefault()
+          dispatch({ type: 'SET_VIEW_MODE', payload: 'table' })
+          break
         case 's':
           e.preventDefault()
           dispatch({ type: 'TOGGLE_SIDEBAR_COLLAPSED' })

@@ -3,6 +3,16 @@ import { isOverdue, isToday } from '../utils'
 
 const AppContext = createContext(null)
 
+// Table mode is desktop-only. A persisted 'table' selection loaded on a narrow
+// viewport falls back to list so a phone never lands in a horizontally-scrolling
+// grid it has no toggle to escape from.
+function initialViewMode() {
+  const saved = localStorage.getItem('td-view-mode')
+  if (!saved) return 'list'
+  if (saved === 'table' && typeof window !== 'undefined' && window.innerWidth < 768) return 'list'
+  return saved
+}
+
 const initialState = {
   // Data
   tasks: [],
@@ -11,7 +21,7 @@ const initialState = {
   users: [],          // [{id, username, display_name, is_admin, has_avatar}]
   // Navigation
   view: localStorage.getItem('td-view') || 'inbox',  // inbox | today | upcoming | overdue | all | calendar | dashboard | project:<id>
-  viewMode: 'list',         // list | board | calendar
+  viewMode: initialViewMode(),   // list | board | table
   // Detail panel
   selectedTaskId: null,
   // UI
@@ -54,7 +64,10 @@ function reducer(state, action) {
       localStorage.setItem('td-view', action.payload)
       return { ...state, view: action.payload, sidebarOpen: false, selectedTaskId: null }
     }
-    case 'SET_VIEW_MODE':   return { ...state, viewMode: action.payload }
+    case 'SET_VIEW_MODE': {
+      localStorage.setItem('td-view-mode', action.payload)
+      return { ...state, viewMode: action.payload }
+    }
     case 'SELECT_TASK':     return { ...state, selectedTaskId: action.payload }
     case 'SET_SIDEBAR':     return { ...state, sidebarOpen: action.payload }
     case 'TOGGLE_SHORTCUTS': return { ...state, showShortcuts: !state.showShortcuts }
