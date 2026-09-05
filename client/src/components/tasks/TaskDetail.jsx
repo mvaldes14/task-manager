@@ -586,7 +586,12 @@ export function TaskDetail() {
   }
 
   // Derived display values for property rows
-  const projectName   = state.projects.find(p => p.id === projectId)?.name || 'No project'
+  const projectName   = (() => {
+    const p = state.projects.find(x => x.id === projectId)
+    if (!p) return 'No project'
+    const parent = p.parent_id ? state.projects.find(x => x.id === p.parent_id) : null
+    return parent ? `${parent.name} / ${p.name}` : p.name
+  })()
   const assigneeUser  = state.users.find(u => u.id === assignedTo)
   const assigneeName  = assigneeUser?.display_name || assigneeUser?.username || 'Unassigned'
   const dueDateOverdue = isOverdue({ due_date: dueDate, status })
@@ -817,9 +822,17 @@ export function TaskDetail() {
                 className="absolute inset-0 opacity-0 cursor-pointer w-full"
               >
                 <option value="">No project</option>
-                {state.projects.filter(p => p.id !== 'inbox').map(p => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
+                {(() => {
+                  const list = state.projects.filter(p => p.id !== 'inbox')
+                  const ids = new Set(list.map(p => p.id))
+                  const roots = list.filter(p => !p.parent_id || !ids.has(p.parent_id))
+                  return roots.flatMap(r => [
+                    <option key={r.id} value={r.id}>{r.name}</option>,
+                    ...list.filter(c => c.parent_id === r.id).map(c => (
+                      <option key={c.id} value={c.id}>{`  — ${c.name}`}</option>
+                    )),
+                  ])
+                })()}
               </select>
             </PropertyRow>
 

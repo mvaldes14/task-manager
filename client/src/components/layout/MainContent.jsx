@@ -452,9 +452,12 @@ export function MainContent() {
     if (view.startsWith('project:')) {
       const pid = view.replace('project:', '')
       const project = projects.find(p => p.id === pid)
+      // Roll up: a parent project's view includes its subprojects' tasks. Group by
+      // Project to separate them again.
+      const scope = new Set([pid, ...projects.filter(p => p.parent_id === pid).map(p => p.id)])
       return {
         title: project ? project.name : 'Project', icon: null,
-        baseTasks: tasks.filter(t => t.project_id === pid),
+        baseTasks: tasks.filter(t => scope.has(t.project_id)),
         emptyMessage: 'No tasks in this project',
       }
     }

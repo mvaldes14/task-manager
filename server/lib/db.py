@@ -117,6 +117,10 @@ def init_db():
         cur.execute("ALTER TABLE projects ADD COLUMN IF NOT EXISTS owner_id TEXT REFERENCES users(id) ON DELETE SET NULL")
         cur.execute("ALTER TABLE projects ADD COLUMN IF NOT EXISTS shared BOOLEAN DEFAULT FALSE")
         cur.execute("ALTER TABLE projects ADD COLUMN IF NOT EXISTS position INTEGER DEFAULT 0")
+        # Subprojects: one level only. parent_id always references a root project.
+        cur.execute("ALTER TABLE projects ADD COLUMN IF NOT EXISTS parent_id TEXT REFERENCES projects(id) ON DELETE SET NULL")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_projects_parent_id ON projects(parent_id)")
+        cur.execute("UPDATE projects SET parent_id=NULL WHERE id='inbox' AND parent_id IS NOT NULL")
         # Backfill position for any projects still at 0 using created_at order (per owner)
         cur.execute("""
             WITH ranked AS (
