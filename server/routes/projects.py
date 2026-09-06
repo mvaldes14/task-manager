@@ -1,11 +1,23 @@
 """Project CRUD routes."""
 
 import uuid
+from datetime import date, datetime, timezone
+
 import psycopg2.extras
 from flask import Blueprint, request, jsonify, g
 from lib.db import get_db, release_db, row_to_dict
 
 bp = Blueprint('projects', __name__)
+
+
+def _normalize_due_date(value):
+    """Return (iso_date_or_None, error_or_None). Empty string clears the deadline."""
+    if value is None or str(value).strip() == '':
+        return None, None
+    try:
+        return date.fromisoformat(str(value).strip()).isoformat(), None
+    except ValueError:
+        return None, 'Invalid due_date: expected YYYY-MM-DD'
 
 
 def _validate_parent(cur, parent_id, child_id=None):
@@ -70,16 +82,21 @@ def create_project():
             "WHERE id != 'inbox' AND owner_id IS NOT DISTINCT FROM %s AND parent_id IS NOT DISTINCT FROM %s",
             (owner_id, parent_id))
         next_pos = cur.fetchone()['next_pos']
+        due_date, due_err = _normalize_due_date(data.get('due_date'))
+        if due_err:
+            return jsonify({'error': due_err}), 400
         cur.execute(
-            "INSERT INTO projects (id,name,color,icon,owner_id,shared,position,parent_id) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *",
-            (pid, data['name'], data.get('color', '#6366f1'), data.get('icon', '📁'), owner_id, False, next_pos, parent_id))
+            "INSERT INTO projects (id,name,color,icon,owner_id,shared,position,parent_id,description,due_date) "
+            "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *",
+            (pid, data['name'], data.get('color', '#6366f1'), data.get('icon', '📁'), owner_id, False,
+             next_pos, parent_id, (data.get('description') or '').strip(), due_date))
         row = row_to_dict(cur.fetchone())
         conn.commit()
     finally:
         release_db(conn)
     return jsonify(row), 201
 
-_ALLOWED_PROJECT_FIELDS = {'name', 'color', 'icon', 'shared', 'parent_id'}
+_ALLOWED_PROJECT_FIELDS = {'name', 'color', 'icon', 'shared', 'parent_id', 'description', 'due_date'}
 
 @bp.route('/api/projects/<pid>', methods=['PUT', 'PATCH'])
 def update_project(pid):
@@ -105,6 +122,17 @@ def update_project(pid):
                     "WHERE id != 'inbox' AND owner_id IS NOT DISTINCT FROM %s AND parent_id IS NOT DISTINCT FROM %s",
                     (current['owner_id'], fields['parent_id']))
                 fields['position'] = cur.fetchone()['next_pos']
+        if 'due_date' in fields:
+            fields['due_date'], due_err = _normalize_due_date(fields['due_date'])
+            if due_err:
+                return jsonify({'error': due_err}), 400
+        if 'description' in fields:
+            fields['description'] = (fields['description'] or '').strip()
+        # Callers send a boolean `archived`; the timestamp is ours to manage.
+        if 'archived' in data:
+            if pid == 'inbox':
+                return jsonify({'error': 'inbox cannot be archived'}), 400
+            fields['archived_at'] = datetime.now(timezone.utc) if data['archived'] else None
         if fields:
             set_clause = ', '.join(f"{f}=%s" for f in fields) + ', updated_at=NOW()'
             values = list(fields.values()) + [pid]

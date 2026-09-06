@@ -32,7 +32,7 @@ def release_db(conn):
 def row_to_dict(row):
     if row is None: return None
     d = dict(row)
-    for field in ('created_at', 'updated_at', 'completed_at', 'reminder_sent_at'):
+    for field in ('created_at', 'updated_at', 'completed_at', 'reminder_sent_at', 'archived_at'):
         if field in d and d[field] is not None: d[field] = str(d[field])
     if 'due_date'       in d and d['due_date']       is not None: d['due_date']       = str(d['due_date'])[:10]
     if 'recurrence_end' in d and d['recurrence_end'] is not None: d['recurrence_end'] = str(d['recurrence_end'])[:10]
@@ -120,6 +120,12 @@ def init_db():
         # Subprojects: one level only. parent_id always references a root project.
         cur.execute("ALTER TABLE projects ADD COLUMN IF NOT EXISTS parent_id TEXT REFERENCES projects(id) ON DELETE SET NULL")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_projects_parent_id ON projects(parent_id)")
+        # Project state: free-text description, an optional deadline, and archiving.
+        # Archiving hides the project and all of its tasks everywhere; it is not a delete.
+        cur.execute("ALTER TABLE projects ADD COLUMN IF NOT EXISTS description TEXT DEFAULT ''")
+        cur.execute("ALTER TABLE projects ADD COLUMN IF NOT EXISTS due_date DATE")
+        cur.execute("ALTER TABLE projects ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_projects_archived_at ON projects(archived_at)")
         cur.execute("UPDATE projects SET parent_id=NULL WHERE id='inbox' AND parent_id IS NOT NULL")
         # Backfill position for any projects still at 0 using created_at order (per owner)
         cur.execute("""
