@@ -16,7 +16,8 @@ bp = Blueprint('dashboard', __name__, url_prefix='/api/dashboard')
 
 # Tasks in archived projects are excluded from every stat, with or without a
 # session user. Unqualified column name: every query using _vis() is single-table.
-_ARCHIVED = " AND project_id NOT IN (SELECT id FROM projects WHERE archived_at IS NOT NULL)"
+_ARCHIVED = (" AND project_id NOT IN (SELECT id FROM projects WHERE archived_at IS NOT NULL)"
+             " AND deleted_at IS NULL")
 
 
 def _vis():
@@ -130,7 +131,8 @@ def get_dashboard_stats():
 
         # ── Projects ───────────────────────────────────────────────
         # For the JOIN query, qualify visibility columns with t.
-        vj = " AND t.project_id NOT IN (SELECT id FROM projects WHERE archived_at IS NOT NULL)"
+        vj = (" AND t.project_id NOT IN (SELECT id FROM projects WHERE archived_at IS NOT NULL)"
+              " AND t.deleted_at IS NULL")
         vjp = []
         uid = getattr(g, 'user_id', None)
         if uid:

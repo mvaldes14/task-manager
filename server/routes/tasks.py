@@ -67,6 +67,8 @@ def _fire_bot_webhook(task: dict) -> bool:
 # rewrite leaves it alone.
 _ARCHIVED_EXCLUSION = (" AND t.project_id NOT IN "
                        "(SELECT id FROM projects WHERE archived_at IS NOT NULL)")
+# Soft-deleted rows are invisible to every read path, with or without a session user.
+_DELETED_EXCLUSION = " AND t.deleted_at IS NULL"
 
 
 def _visibility_clause(user_id):
@@ -76,10 +78,10 @@ def _visibility_clause(user_id):
     passwordless installs, where there is no user_id to filter on.
     """
     if not user_id:
-        return _ARCHIVED_EXCLUSION, []
+        return _ARCHIVED_EXCLUSION + _DELETED_EXCLUSION, []
     return (
         " AND (t.owner_id=%s OR t.assigned_to=%s OR t.project_id IN "
-        "(SELECT id FROM projects WHERE shared=TRUE))" + _ARCHIVED_EXCLUSION,
+        "(SELECT id FROM projects WHERE shared=TRUE))" + _ARCHIVED_EXCLUSION + _DELETED_EXCLUSION,
         [user_id, user_id]
     )
 
@@ -543,18 +545,55 @@ def update_task(tid):
 
 @bp.route('/api/tasks/<tid>', methods=['DELETE'])
 def delete_task(tid):
+    """Soft delete by default. ?purge=true removes the row and its subtasks for good.
+
+    The calendar event is dropped either way — a restored task re-upserts a fresh
+    one on its next update rather than trying to resurrect the old event id.
+    """
+    purge = (request.args.get('purge') or '').strip().lower() == 'true'
     conn = get_db()
     try:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        cur.execute("SELECT gcal_event_id FROM tasks WHERE id=%s", (tid,))
+        cur.execute("SELECT gcal_event_id, deleted_at FROM tasks WHERE id=%s", (tid,))
         row = cur.fetchone()
         if not row: return jsonify({'error': 'Not found'}), 404
         if row['gcal_event_id']: gcal_delete(row['gcal_event_id'])
-        cur.execute("DELETE FROM subtasks WHERE task_id=%s", (tid,))
-        cur.execute("DELETE FROM tasks WHERE id=%s", (tid,)); conn.commit()
+        if purge:
+            cur.execute("DELETE FROM subtasks WHERE task_id=%s", (tid,))
+            cur.execute("DELETE FROM tasks WHERE id=%s", (tid,))
+        else:
+            cur.execute(
+                "UPDATE tasks SET deleted_at=NOW(), gcal_event_id=NULL, updated_at=NOW() "
+                "WHERE id=%s AND deleted_at IS NULL", (tid,))
+        conn.commit()
     finally:
         release_db(conn)
     return '', 204
+
+
+@bp.route('/api/tasks/<tid>/restore', methods=['POST'])
+def restore_task(tid):
+    """Undo a soft delete. Returns the restored task with its subtasks."""
+    conn = get_db()
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT id FROM tasks WHERE id=%s", (tid,))
+        if not cur.fetchone():
+            return jsonify({'error': 'Not found'}), 404
+        cur.execute("UPDATE tasks SET deleted_at=NULL, updated_at=NOW() WHERE id=%s", (tid,))
+        cur.execute("SELECT * FROM tasks WHERE id=%s", (tid,))
+        task = row_to_dict(cur.fetchone())
+        cur.execute("""
+            SELECT s.*, lt.title AS linked_task_title, lt.status AS linked_task_status
+            FROM subtasks s
+            LEFT JOIN tasks lt ON lt.id = s.linked_task_id
+            WHERE s.task_id=%s ORDER BY s.position
+        """, (tid,))
+        task['subtasks'] = [row_to_dict(s) for s in cur.fetchall()]
+        conn.commit()
+    finally:
+        release_db(conn)
+    return jsonify(task)
 
 
 # ── Subtask routes ─────────────────────────────────────────────
@@ -673,7 +712,8 @@ def search_tasks():
         params = [f'%{q}%']
         sql = ("SELECT id, title, status, project_id FROM tasks "
                "WHERE title ILIKE %s AND status != 'done' "
-               "AND project_id NOT IN (SELECT id FROM projects WHERE archived_at IS NOT NULL)")
+               "AND project_id NOT IN (SELECT id FROM projects WHERE archived_at IS NOT NULL) "
+               "AND deleted_at IS NULL")
         if exclude:
             sql += " AND id != %s"
             params.append(exclude)

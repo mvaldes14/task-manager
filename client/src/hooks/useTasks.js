@@ -65,13 +65,25 @@ export function useTasks() {
     try {
       await api.deleteTask(id)
       dispatch({ type: 'DELETE_TASK', payload: id })
-      toast('Task deleted')
+      // ADD_TASK prepends, which would lose the row's original position, so
+      // reload the full list on undo to keep ordering correct.
+      toast('Task deleted', {
+        label: 'Undo',
+        onAction: async () => {
+          try {
+            await api.restoreTask(id)
+            await loadAll()
+          } catch {
+            toast('Could not restore task')
+          }
+        },
+      })
     } catch (e) {
       toast('Failed to delete task')
     } finally {
       pendingMutations--
     }
-  }, [dispatch, toast])
+  }, [dispatch, toast, loadAll])
 
   const toggleTask = useCallback(async (id, currentStatus) => {
     const newStatus = currentStatus === 'done' ? 'todo' : 'done'

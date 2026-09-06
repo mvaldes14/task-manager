@@ -1,12 +1,31 @@
 import { useApp } from '../../context/AppContext'
 
 export function Toast() {
-  const { state } = useApp()
+  const { state, dispatch } = useApp()
   if (!state.toast) return null
+
+  // Backwards compatible: a plain string is still a plain toast.
+  const isAction = typeof state.toast === 'object'
+  const message = isAction ? state.toast.message : state.toast
+
+  const fire = () => {
+    state.toast.onAction?.()
+    dispatch({ type: 'SET_TOAST', payload: null })
+  }
+
   return (
-    <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[200] pointer-events-none animate-toast-in">
-      <div className="bg-td-surface dark:bg-tn-surface border border-td-border dark:border-tn-border text-td-fg dark:text-tn-fg text-sm px-4 py-2.5 rounded-xl shadow-e2 whitespace-nowrap">
-        {state.toast}
+    <div className={`fixed bottom-24 left-1/2 -translate-x-1/2 z-[200] animate-toast-in
+      ${isAction ? '' : 'pointer-events-none'}`}>
+      <div className="bg-td-surface dark:bg-tn-surface border border-td-border dark:border-tn-border
+        text-td-fg dark:text-tn-fg text-sm px-4 py-2.5 rounded-xl shadow-e2 whitespace-nowrap
+        flex items-center gap-3">
+        <span>{message}</span>
+        {isAction && (
+          <button onClick={fire}
+            className="font-semibold text-td-blue dark:text-tn-blue -my-1 py-1 px-1 shrink-0">
+            {state.toast.label}
+          </button>
+        )}
       </div>
     </div>
   )

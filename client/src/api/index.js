@@ -45,6 +45,7 @@ export const api = {
   createTask: (data) => req('/tasks', 'POST', { ...data, timezone: TZ }),
   updateTask: (id, data) => req(`/tasks/${id}`, 'PATCH', { ...data, timezone: TZ }),
   deleteTask: (id) => req(`/tasks/${id}`, 'DELETE'),
+  restoreTask: (id) => req(`/tasks/${id}/restore`, 'POST'),
   reorderTasks: (data) => req('/tasks/reorder', 'POST', data),
 
   // Subtasks
