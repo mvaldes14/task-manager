@@ -118,13 +118,15 @@ export function AppProvider({ children }) {
     }
   }, [state.tasks])
 
-  const toast = useCallback((msg) => {
+  // toast('Saved') or toast('Task deleted', { label: 'Undo', onAction: fn }).
+  // Actionable toasts linger longer and are dismissed as soon as the action fires.
+  const toast = useCallback((msg, action = null) => {
     if (toastTimer.current) clearTimeout(toastTimer.current)
-    dispatch({ type: 'SET_TOAST', payload: msg })
+    dispatch({ type: 'SET_TOAST', payload: action ? { message: msg, ...action } : msg })
     toastTimer.current = setTimeout(() => {
       dispatch({ type: 'SET_TOAST', payload: null })
       toastTimer.current = null
-    }, 3000)
+    }, action ? 7000 : 3000)
   }, [])
 
   const confirm = useCallback((message, onOk) => {

@@ -276,8 +276,29 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
     delete:
       tags: [tasks]
+      summary: "Delete a task. The default is a reversible soft delete (stamps `deleted_at`); pass `purge=true` for a permanent hard delete of the task and its subtasks."
+      parameters:
+        - name: purge
+          in: query
+          required: false
+          schema: { type: boolean, default: false }
+          description: "When true, permanently removes the task row and its subtasks. When false (default), the task is soft-deleted and can be brought back with POST /api/tasks/{tid}/restore."
       responses:
-        '204': { description: Deleted }
+        '204': { description: Deleted (soft-deleted unless `purge=true`) }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/tasks/{tid}/restore:
+    parameters:
+      - $ref: '#/components/parameters/TaskId'
+    post:
+      tags: [tasks]
+      summary: "Undo a soft delete, clearing `deleted_at`. Returns the restored task with its subtasks. A purged task cannot be restored."
+      responses:
+        '200':
+          description: The restored task, including its subtasks
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Task' }
         '404': { $ref: '#/components/responses/NotFound' }
 
   /api/tasks/{tid}/subtasks:
@@ -865,6 +886,7 @@ components:
         created_at:       { type: string, format: date-time }
         updated_at:       { type: string, format: date-time }
         completed_at:     { type: string, format: date-time, nullable: true }
+        deleted_at:       { type: string, format: date-time, nullable: true, readOnly: true, description: "when the task was soft-deleted, or null. Read-only; set via DELETE and cleared via POST /restore. Soft-deleted tasks are excluded from every list, search and stats endpoint." }
         gcal_event_id:    { type: string, nullable: true }
         has_ai_result:    { type: boolean }
         subtasks:         { type: array, items: { $ref: '#/components/schemas/Subtask' } }
