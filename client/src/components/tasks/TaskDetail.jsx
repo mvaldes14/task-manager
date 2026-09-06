@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useApp } from '../../context/AppContext'
 import { useTasks } from '../../hooks/useTasks'
+import { useSheetDismiss } from '../../hooks/useSheetDismiss'
 import { api } from '../../api'
 import { formatDate, fmtTime, isOverdue, recurrenceLabel, getLinkLabel, getLinkStyle, priorityColor } from '../../utils'
 import { X, Trash2, Plus, Check, ChevronRight, Paperclip, GitBranch, Link2, ExternalLink, Sparkles, Pencil } from 'lucide-react'
@@ -505,7 +506,6 @@ export function TaskDetail() {
   const subtaskInputRef = useRef(null)
   const inFlight = useRef(0)
   const saveTimer = useRef(null)
-  const swipeStart = useRef(null)
 
   const autoSave = useCallback(async (id, data) => {
     inFlight.current++
@@ -538,9 +538,13 @@ export function TaskDetail() {
     setRecurrenceEnd(task.recurrence_end || '')
   }, [task?.id])
 
-  if (!task) return null
-
   const close = () => dispatch({ type: 'SELECT_TASK', payload: null })
+
+  const { dragRef, sheetRef, offset: sheetOffset, phase: sheetPhase } = useSheetDismiss({
+    onDismiss: close,
+  })
+
+  if (!task) return null
 
   const handleDelete = () => {
     confirm('Delete this task?', () => {
@@ -599,23 +603,27 @@ export function TaskDetail() {
   return (
     <>
       {/* Mobile backdrop */}
-      <div className="md:hidden fixed inset-0 z-[96] bg-black/40 animate-fade-in" onClick={close} />
+      <div
+        className="md:hidden fixed inset-0 z-[96] bg-black/40 animate-fade-in"
+        style={sheetOffset ? { opacity: Math.max(0, 1 - sheetOffset / 400) } : undefined}
+        onClick={close}
+      />
 
-      <aside className="
+      <aside
+        ref={sheetRef}
+        style={{
+          transform: sheetOffset ? `translateY(${sheetOffset}px)` : undefined,
+          transition: sheetPhase === 'snapping'
+            ? 'transform 260ms cubic-bezier(0.32, 0.72, 0, 1)'
+            : 'none',
+        }}
+        className="
         fixed inset-x-0 bottom-0 top-20 z-[97] animate-slide-up rounded-t-2xl
-        md:relative md:inset-auto md:animate-none md:rounded-none md:w-80 lg:w-96 xl:w-[28rem] 2xl:w-[32rem] md:z-auto md:border-l md:border-td-border dark:border-tn-border
+        md:relative md:inset-auto md:animate-none md:rounded-none md:w-80 lg:w-96 xl:w-[28rem] 2xl:w-[32rem] md:z-auto md:border-l md:border-td-border dark:border-tn-border md:transform-none
         bg-td-bg2 dark:bg-tn-bg2 flex flex-col overflow-hidden
       ">
         {/* Drag-to-dismiss zone — grabber and header act as one pull target on mobile */}
-        <div
-          className="shrink-0"
-          onTouchStart={e => { swipeStart.current = e.touches[0].clientY }}
-          onTouchEnd={e => {
-            const delta = e.changedTouches[0].clientY - (swipeStart.current ?? 0)
-            swipeStart.current = null
-            if (delta > 60 && window.innerWidth < 768) close()
-          }}
-        >
+        <div ref={dragRef} className="shrink-0 touch-pan-y">
           {/* Grabber — mobile only */}
           <div className="md:hidden flex justify-center py-2.5 cursor-grab active:cursor-grabbing">
             <div className="w-10 h-1 rounded-full bg-td-border dark:bg-tn-border" />
