@@ -105,6 +105,44 @@ def _validate_enum(values, allowed, name):
     return None
 
 
+def _validate_write_enums(data):
+    """Return an error string if data carries an invalid status or priority, else None.
+
+    Applies to create and update alike, with or without skip_nlp. A bad value is a
+    caller bug worth surfacing, not something to silently coerce to a default.
+    """
+    if 'status' in data and data['status'] is not None:
+        err = _validate_enum([data['status']], _VALID_STATUS, 'status')
+        if err:
+            return err
+    if 'priority' in data and data['priority'] is not None:
+        err = _validate_enum([data['priority']], _VALID_PRIORITY, 'priority')
+        if err:
+            return err
+    return None
+
+
+def _validate_write_dates(data):
+    """Return an error string if due_date or due_time is malformed, else None."""
+    if data.get('due_date'):
+        try:
+            date.fromisoformat(str(data['due_date']).strip())
+        except ValueError:
+            return 'Invalid due_date: expected YYYY-MM-DD'
+    if data.get('due_time'):
+        raw = str(data['due_time']).strip()
+        try:
+            datetime.strptime(raw[:5], '%H:%M')
+        except ValueError:
+            return 'Invalid due_time: expected HH:MM'
+    return None
+
+
+def _project_exists(cur, pid):
+    cur.execute("SELECT 1 FROM projects WHERE id=%s", (pid,))
+    return cur.fetchone() is not None
+
+
 def _parse_date_param(name):
     """Return (iso_date_string_or_None, error_or_None)."""
     raw = request.args.get(name)
@@ -396,7 +434,21 @@ def create_task():
     data = request.get_json(); tid = str(uuid.uuid4())
     title = data.get('title', '').strip()
     if not title: return jsonify({'error': 'Title required'}), 400
-    nlp            = parse_natural_language(title); title = nlp.get('title', title)
+
+    err = _validate_write_enums(data) or _validate_write_dates(data)
+    if err:
+        return jsonify({'error': err}), 400
+
+    # skip_nlp: take the payload exactly as given. No title rewriting, no #Project
+    # extraction, no @assignee lookup, no project auto-creation. This is the
+    # contract the MCP layer and any other programmatic caller should use.
+    # Without it, behaviour is unchanged — including NLP's project_name winning
+    # over an explicit project_id, which quick-capture relies on.
+    skip_nlp = bool(data.get('skip_nlp'))
+    nlp = {} if skip_nlp else parse_natural_language(title)
+    if not skip_nlp:
+        title = nlp.get('title', title)
+
     tags           = data.get('tags', nlp.get('labels', []))
     due_date       = data.get('due_date', nlp.get('due_date'))
     due_time       = data.get('due_time', nlp.get('due_time'))
@@ -421,6 +473,10 @@ def create_task():
         pname = nlp.get('project_name')
         if pname:
             project_id = _resolve_project_name(cur, pname, getattr(g, 'user_id', None))
+        # With skip_nlp there is no auto-creation fallback, so an unknown project
+        # would otherwise surface as a foreign-key 500.
+        if skip_nlp and not _project_exists(cur, project_id):
+            return jsonify({'error': f'Unknown project_id: {project_id}'}), 400
         cur.execute("SELECT COALESCE(MAX(position),0) FROM tasks WHERE project_id=%s AND status=%s",
                     (project_id, status))
         max_pos = cur.fetchone()['coalesce']
@@ -437,6 +493,8 @@ def create_task():
     finally:
         release_db(conn)
 
+    # nlp is {} under skip_nlp, so no summary is attached — deliberate: a
+    # deterministic create should return the task and nothing else.
     if nlp.get('nlp_summary'): task['nlp_summary'] = nlp['nlp_summary']
     if due_date:
         task['timezone'] = data.get('timezone') or 'UTC'
@@ -472,10 +530,15 @@ def get_task(tid):
 @bp.route('/api/tasks/<tid>', methods=['PUT', 'PATCH'])
 def update_task(tid):
     data = request.get_json(); conn = get_db()
+    err = _validate_write_enums(data) or _validate_write_dates(data)
+    if err:
+        return jsonify({'error': err}), 400
     try:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cur.execute("SELECT * FROM tasks WHERE id=%s", (tid,)); row = cur.fetchone()
         if not row: return jsonify({'error': 'Not found'}), 404
+        if 'project_id' in data and data['project_id'] and not _project_exists(cur, data['project_id']):
+            return jsonify({'error': f"Unknown project_id: {data['project_id']}"}), 400
         t = dict(row)
         old_status = t.get('status')
         old_assigned = t.get('assigned_to')
