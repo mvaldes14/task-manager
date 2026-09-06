@@ -436,6 +436,7 @@ import { TaskCard } from '../tasks/TaskCard'
 import { TaskListSkeleton } from '../tasks/TaskList'
 import { KanbanSkeleton } from '../tasks/KanbanBoard'
 import { TaskTable, TaskTableSkeleton } from '../tasks/TaskTable'
+import { BulkActionBar } from '../tasks/BulkActionBar'
 
 export function MainContent() {
   const { state } = useApp()
@@ -452,6 +453,47 @@ export function MainContent() {
   const [groupBy, setGroupBy] = useState(() => localStorage.getItem('td-group-by') || 'status')
   const [filterSheetOpen, setFilterSheetOpen] = useState(false)
   const { isCollapsed, toggle, collapseAll, expandAll } = useCollapsedGroups()
+
+  // ── Multi-select ──────────────────────────────────────────────────────────
+  const [selectedIds, setSelectedIds] = useState(() => new Set())
+  const selectionActive = selectedIds.size > 0
+  // Only list and table support selection. (A future "Deleted only" view will
+  // disable it too — that view has its own per-row restore/purge.)
+  const selectionEnabled = viewMode === 'list' || viewMode === 'table'
+
+  const toggleSelect = useCallback((id) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }, [])
+  const selectMany = useCallback((ids) => {
+    setSelectedIds(prev => { const next = new Set(prev); ids.forEach(i => next.add(i)); return next })
+  }, [])
+  const deselectMany = useCallback((ids) => {
+    setSelectedIds(prev => { const next = new Set(prev); ids.forEach(i => next.delete(i)); return next })
+  }, [])
+  const clearSelection = useCallback(() => setSelectedIds(new Set()), [])
+
+  // A selection that survives a view or view-mode switch would act on tasks the
+  // user can no longer see. Reset it during render when either changes — React's
+  // documented pattern for deriving state from a changing key, without an effect.
+  const [selectionKey, setSelectionKey] = useState(`${view}|${viewMode}`)
+  if (selectionKey !== `${view}|${viewMode}`) {
+    setSelectionKey(`${view}|${viewMode}`)
+    if (selectedIds.size > 0) setSelectedIds(new Set())
+  }
+
+  const selection = useMemo(() => ({
+    selectedIds,
+    selectionActive,
+    selectionEnabled,
+    onToggleSelect: toggleSelect,
+    onSelectMany: selectMany,
+    onDeselectMany: deselectMany,
+  }), [selectedIds, selectionActive, selectionEnabled, toggleSelect, selectMany, deselectMany])
 
   const handleRefresh = useCallback(async () => { await loadAll() }, [loadAll])
   const { indicatorEl, onTouchStart, onTouchMove, onTouchEnd } = usePullToRefresh(handleRefresh)
@@ -644,7 +686,7 @@ export function MainContent() {
             : viewMode === 'table' ? <TaskTableSkeleton />
             : <TaskListSkeleton />
         ) : isTable ? (
-          <TaskTable tasks={visibleTasks} emptyMessage={emptyMessage} />
+          <TaskTable tasks={visibleTasks} emptyMessage={emptyMessage} selection={selection} />
         ) : view === 'overdue' ? (
           <OverdueView tasks={visibleTasks} />
         ) : view === 'today' && viewMode !== 'board' ? (
@@ -661,9 +703,14 @@ export function MainContent() {
             emptyMessage={emptyMessage}
             isCollapsed={isCollapsed}
             toggle={toggle}
+            selection={selection}
           />
         )}
       </div>
+
+      {selectionActive && selectionEnabled && (
+        <BulkActionBar selectedIds={selectedIds} onClear={clearSelection} />
+      )}
     </div>
   )
 }

@@ -231,6 +231,57 @@ paths:
             application/json:
               schema: { type: object, properties: { ok: { type: boolean } } }
 
+  /api/tasks/bulk:
+    patch:
+      tags: [tasks]
+      summary: Apply the same field updates to many tasks at once
+      description: >-
+        Backs the multi-select action bar, not a general-purpose batch API.
+        Only `project_id` and `status` may be updated; any other field is a 400.
+        Up to 200 ids per request. Soft-deleted tasks (those with `deleted_at`
+        set) are silently skipped by the UPDATE so a stale selection cannot
+        resurrect work into a different project. Completing in bulk stamps
+        `completed_at` (and clears it when the status moves away from `done`),
+        matching the single-task PATCH so dashboard stats stay consistent.
+        Note: bulk complete does not spawn recurrence clones the way the
+        single-task complete path does.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ids, updates]
+              properties:
+                ids:
+                  type: array
+                  minItems: 1
+                  maxItems: 200
+                  items: { type: string }
+                  description: Task ids to update (1–200).
+                updates:
+                  type: object
+                  minProperties: 1
+                  description: "Fields to set. Allowed keys: project_id, status."
+                  properties:
+                    project_id: { type: string }
+                    status:     { $ref: '#/components/schemas/TaskStatus' }
+      responses:
+        '200':
+          description: The affected task rows after the update.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Task' }
+        '400':
+          description: >-
+            Bad request — empty `ids`, more than 200 ids, empty `updates`, an
+            unsupported field, an invalid status enum, or an unknown project_id.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
   /api/tasks/{tid}:
     parameters:
       - $ref: '#/components/parameters/TaskId'

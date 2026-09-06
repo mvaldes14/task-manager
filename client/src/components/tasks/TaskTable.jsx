@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { useApp } from '../../context/AppContext'
 import { useTasks } from '../../hooks/useTasks'
 import { ProjectIcon } from '../shared/ProjectIcon'
@@ -101,9 +101,30 @@ function SortHeader({ col, sort, onSort }) {
   )
 }
 
-function TaskRow({ task }) {
+// Square + blue selection checkbox, distinct from the round green completion
+// control. Always visible in the table — a permanently reserved column has no
+// layout-shift concern.
+function SelectCheckbox({ selected, onToggle, label }) {
+  return (
+    <button
+      onClick={e => { e.stopPropagation(); onToggle() }}
+      aria-label={label}
+      className={`shrink-0 w-4 h-4 rounded border flex items-center justify-center transition-colors duration-fast
+        ${selected
+          ? 'bg-td-blue dark:bg-tn-blue border-td-blue dark:border-tn-blue'
+          : 'border-td-muted/50 dark:border-tn-muted/50 hover:border-td-blue dark:hover:border-tn-blue'}`}
+    >
+      {selected && <span className="text-[8px] text-white font-bold">✓</span>}
+    </button>
+  )
+}
+
+function TaskRow({ task, selection }) {
   const { state, dispatch } = useApp()
   const { toggleTask } = useTasks()
+  const selectionEnabled = !!selection?.selectionEnabled
+  const selectionActive = !!selection?.selectionActive
+  const selected = !!selection?.selectedIds?.has(task.id)
 
   const project = state.projects.find(p => p.id === task.project_id)
   const assignee = state.users.find(u => u.id === task.assigned_to)
@@ -131,12 +152,26 @@ function TaskRow({ task }) {
         e.dataTransfer.setData(TASK_DRAG_TYPE, task.id)
         e.dataTransfer.effectAllowed = 'move'
       }) : undefined}
-      onClick={() => dispatch({ type: 'SELECT_TASK', payload: task.id })}
+      onClick={() => {
+        if (selectionActive) { selection.onToggleSelect(task.id); return }
+        dispatch({ type: 'SELECT_TASK', payload: task.id })
+      }}
       className={`group cursor-pointer border-b border-td-border/40 dark:border-tn-border/40
         transition-colors duration-fast
         hover:bg-td-surface/60 dark:hover:bg-tn-surface/60
         ${done ? 'opacity-50' : ''}`}
     >
+      {/* Selection checkbox — square + blue */}
+      {selectionEnabled && (
+        <td className={`${CELL} w-[40px]`}>
+          <SelectCheckbox
+            selected={selected}
+            onToggle={() => selection.onToggleSelect(task.id)}
+            label={selected ? 'Deselect task' : 'Select task'}
+          />
+        </td>
+      )}
+
       {/* Checkbox */}
       <td className={`${CELL} w-[44px]`}>
         <button
@@ -257,11 +292,13 @@ function TaskRow({ task }) {
   )
 }
 
-export function TaskTable({ tasks, emptyMessage = 'No tasks here' }) {
+export function TaskTable({ tasks, emptyMessage = 'No tasks here', selection = null }) {
   const { state } = useApp()
   const { projects, users } = state
   const [sort, setSort] = useState({ key: 'due', dir: 'asc' })
   const [showDone, setShowDone] = useState(false)
+  const selectAllRef = useRef(null)
+  const selectionEnabled = !!selection?.selectionEnabled
 
   const doneCount = useMemo(() => tasks.filter(t => t.status === 'done').length, [tasks])
 
@@ -282,6 +319,23 @@ export function TaskTable({ tasks, emptyMessage = 'No tasks here' }) {
       ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' }
       : { key, dir: 'asc' })
   }, [])
+
+  // Select-all reflects the currently rendered (filtered) rows only, not the DB.
+  const selectedInRows = selectionEnabled
+    ? rows.reduce((n, t) => n + (selection.selectedIds.has(t.id) ? 1 : 0), 0)
+    : 0
+  const allSelected = rows.length > 0 && selectedInRows === rows.length
+  const someSelected = selectedInRows > 0 && !allSelected
+
+  // React has no `indeterminate` prop — set it on the DOM node via a ref.
+  useEffect(() => {
+    if (selectAllRef.current) selectAllRef.current.indeterminate = someSelected
+  }, [someSelected])
+
+  const toggleSelectAll = useCallback(() => {
+    if (allSelected) selection.onDeselectMany(rows.map(t => t.id))
+    else selection.onSelectMany(rows.map(t => t.id))
+  }, [allSelected, rows, selection])
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -312,6 +366,18 @@ export function TaskTable({ tasks, emptyMessage = 'No tasks here' }) {
           <table className="w-full min-w-[1120px] border-collapse">
             <thead className="sticky top-0 z-10 bg-td-bg dark:bg-tn-bg">
               <tr className="border-b border-td-border dark:border-tn-border">
+                {selectionEnabled && (
+                  <th scope="col" className={`${HEAD} w-[40px]`}>
+                    <input
+                      ref={selectAllRef}
+                      type="checkbox"
+                      checked={allSelected}
+                      onChange={toggleSelectAll}
+                      aria-label="Select all tasks"
+                      className="w-4 h-4 rounded accent-td-blue dark:accent-tn-blue cursor-pointer align-middle"
+                    />
+                  </th>
+                )}
                 <th scope="col" className={`${HEAD} w-[44px]`}>
                   <span className="sr-only">Done</span>
                 </th>
@@ -321,7 +387,7 @@ export function TaskTable({ tasks, emptyMessage = 'No tasks here' }) {
               </tr>
             </thead>
             <tbody>
-              {rows.map(task => <TaskRow key={task.id} task={task} />)}
+              {rows.map(task => <TaskRow key={task.id} task={task} selection={selection} />)}
             </tbody>
           </table>
         </div>

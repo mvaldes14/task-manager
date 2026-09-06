@@ -47,6 +47,7 @@ export const api = {
   deleteTask: (id) => req(`/tasks/${id}`, 'DELETE'),
   restoreTask: (id) => req(`/tasks/${id}/restore`, 'POST'),
   reorderTasks: (data) => req('/tasks/reorder', 'POST', data),
+  bulkUpdateTasks: (ids, updates) => req('/tasks/bulk', 'PATCH', { ids, updates }),
 
   // Subtasks
   createSubtask: (taskId, data) => req(`/tasks/${taskId}/subtasks`, 'POST', data),

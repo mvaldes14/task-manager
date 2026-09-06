@@ -59,7 +59,18 @@ function GroupSection({ label, count, children, isCollapsed, onToggle }) {
   )
 }
 
-export function TaskList({ tasks, groupBy = 'status', projects = [], emptyMessage = 'No tasks here', isCollapsed = () => false, toggle = () => {} }) {
+export function TaskList({ tasks, groupBy = 'status', projects = [], emptyMessage = 'No tasks here', isCollapsed = () => false, toggle = () => {}, selection = null }) {
+  const renderCard = (task) => (
+    <TaskCard
+      key={task.id}
+      task={task}
+      selected={!!selection?.selectedIds?.has(task.id)}
+      onToggleSelect={selection?.onToggleSelect}
+      selectionActive={!!selection?.selectionActive}
+      selectionEnabled={!!selection?.selectionEnabled}
+    />
+  )
+
   if (!tasks.length) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-td-muted dark:text-tn-muted">
@@ -87,7 +98,7 @@ export function TaskList({ tasks, groupBy = 'status', projects = [], emptyMessag
                 isCollapsed={isCollapsed(key)}
                 onToggle={() => toggle(key)}
               >
-                {items.map(task => <TaskCard key={task.id} task={task} />)}
+                {items.map(renderCard)}
               </GroupSection>
             )
           })}
@@ -115,7 +126,7 @@ export function TaskList({ tasks, groupBy = 'status', projects = [], emptyMessag
               isCollapsed={isCollapsed(key)}
               onToggle={() => toggle(key)}
             >
-              {items.map(task => <TaskCard key={task.id} task={task} />)}
+              {items.map(renderCard)}
             </GroupSection>
           ))}
         </div>
@@ -153,7 +164,7 @@ export function TaskList({ tasks, groupBy = 'status', projects = [], emptyMessag
                 isCollapsed={isCollapsed(key)}
                 onToggle={() => toggle(key)}
               >
-                {items.map(task => <TaskCard key={task.id} task={task} />)}
+                {items.map(renderCard)}
               </GroupSection>
             )
           })}
@@ -165,7 +176,7 @@ export function TaskList({ tasks, groupBy = 'status', projects = [], emptyMessag
   // flat list
   return (
     <div>
-      {tasks.map(task => <TaskCard key={task.id} task={task} />)}
+      {tasks.map(renderCard)}
     </div>
   )
 }

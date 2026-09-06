@@ -8,6 +8,7 @@ import { AiResultModal } from './AiResultModal'
 import { SwipeableRow } from './SwipeableRow'
 import { Chip } from '../ui'
 import { TASK_DRAG_TYPE } from '../../constants/dnd'
+import { useLongPress } from '../../hooks/useLongPress'
 
 function LinkIcon({ url }) {
   if (url.startsWith('obsidian://')) return <Paperclip size={10} />
@@ -15,11 +16,14 @@ function LinkIcon({ url }) {
   return <Link2 size={10} />
 }
 
-export function TaskCard({ task }) {
+export function TaskCard({ task, selected = false, onToggleSelect = () => {}, selectionActive = false, selectionEnabled = false }) {
   const { state, dispatch, confirm } = useApp()
   const { toggleTask, updateTask, deleteTask } = useTasks()
   const [aiOpen, setAiOpen] = useState(false)
   const [rescheduleOpen, setRescheduleOpen] = useState(false)
+
+  // Long-press to select on touch; yields to horizontal swipes (see useLongPress).
+  const longPress = useLongPress(() => onToggleSelect(task.id))
 
   const project = state.projects.find(p => p.id === task.project_id)
   const overdue = isOverdue(task)
@@ -58,6 +62,7 @@ export function TaskCard({ task }) {
     >
       {({ wasSwipe, closeSelf, trayOpen }) => (
       <div
+        {...(selectionEnabled ? longPress : {})}
         className={`group flex items-start gap-3 px-4 py-3 cursor-pointer
           bg-td-bg dark:bg-tn-bg
           transition-colors duration-fast
@@ -65,12 +70,31 @@ export function TaskCard({ task }) {
           active:bg-td-surface/70 dark:active:bg-tn-surface/70
           ${done ? 'opacity-50' : ''}`}
         onClick={() => {
+          if (selectionActive) { onToggleSelect(task.id); return }
           if (wasSwipe()) return
           // Tap while tray is open → close tray, don't open task detail
           if (trayOpen) { closeSelf(); return }
           dispatch({ type: 'SELECT_TASK', payload: task.id })
         }}
       >
+        {/* Selection checkbox — square + blue, distinct from the round green
+            completion control. Slot is always in the DOM and fades in so hovering
+            a row never shifts its content sideways. */}
+        {selectionEnabled && (
+          <button
+            onClick={e => { e.stopPropagation(); onToggleSelect(task.id) }}
+            aria-label={selected ? 'Deselect task' : 'Select task'}
+            className={`shrink-0 mt-1 w-4 h-4 rounded border flex items-center justify-center
+              transition-opacity duration-fast
+              ${selected
+                ? 'bg-td-blue dark:bg-tn-blue border-td-blue dark:border-tn-blue opacity-100'
+                : 'border-td-muted/50 dark:border-tn-muted/50 opacity-0 group-hover:opacity-100 focus:opacity-100'}
+              ${selectionActive ? 'opacity-100' : ''}`}
+          >
+            {selected && <span className="text-[8px] text-white font-bold">✓</span>}
+          </button>
+        )}
+
         {/* Checkbox — hit area expanded to ~44px via padding+negative-margin */}
         <button
           className="p-3 -mx-3 mt-0.5 shrink-0 relative z-10 motion-safe:active:scale-90 transition-transform duration-fast"

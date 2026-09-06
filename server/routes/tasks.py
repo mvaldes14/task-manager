@@ -528,6 +528,63 @@ def get_task(tid):
     return jsonify(task)
 
 
+@bp.route('/api/tasks/bulk', methods=['PATCH'])
+def bulk_update_tasks():
+    """Apply the same field updates to many tasks at once.
+
+    Body: {"ids": [...], "updates": {"project_id": "x"}} or {"updates": {"status": "done"}}.
+    Deliberately narrow: only project_id and status are accepted. This backs the
+    multi-select bar, not a general-purpose batch API.
+    """
+    data = request.get_json() or {}
+    ids = data.get('ids') or []
+    updates = data.get('updates') or {}
+    if not isinstance(ids, list) or not ids:
+        return jsonify({'error': 'ids must be a non-empty list'}), 400
+    if len(ids) > 200:
+        return jsonify({'error': 'Too many ids: 200 maximum'}), 400
+
+    allowed = {'project_id', 'status'}
+    unknown = set(updates) - allowed
+    if unknown:
+        return jsonify({'error': f"Unsupported field(s): {', '.join(sorted(unknown))}. "
+                                 f"Allowed: {', '.join(sorted(allowed))}"}), 400
+    if not updates:
+        return jsonify({'error': 'updates must contain at least one field'}), 400
+
+    err = _validate_write_enums(updates)
+    if err:
+        return jsonify({'error': err}), 400
+
+    conn = get_db()
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        if 'project_id' in updates and not _project_exists(cur, updates['project_id']):
+            return jsonify({'error': f"Unknown project_id: {updates['project_id']}"}), 400
+
+        sets, params = [], []
+        for field, value in updates.items():
+            sets.append(f"{field}=%s")
+            params.append(value)
+        # Completing in bulk must stamp completed_at the same way a single
+        # PATCH does, or the dashboard's completion stats drift.
+        if updates.get('status') == 'done':
+            sets.append("completed_at=NOW()")
+        elif 'status' in updates:
+            sets.append("completed_at=NULL")
+        sets.append("updated_at=NOW()")
+
+        cur.execute(f"UPDATE tasks SET {', '.join(sets)} "
+                    f"WHERE id = ANY(%s) AND deleted_at IS NULL",
+                    params + [ids])
+        cur.execute("SELECT * FROM tasks WHERE id = ANY(%s)", (ids,))
+        rows = [row_to_dict(r) for r in cur.fetchall()]
+        conn.commit()
+    finally:
+        release_db(conn)
+    return jsonify(rows)
+
+
 @bp.route('/api/tasks/<tid>', methods=['PUT', 'PATCH'])
 def update_task(tid):
     data = request.get_json(); conn = get_db()
