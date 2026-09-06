@@ -7,6 +7,7 @@ import { Paperclip, GitBranch, Link2, Sparkles, Flag } from 'lucide-react'
 import { AiResultModal } from './AiResultModal'
 import { SwipeableRow } from './SwipeableRow'
 import { Chip } from '../ui'
+import { TASK_DRAG_TYPE } from '../../constants/dnd'
 
 function LinkIcon({ url }) {
   if (url.startsWith('obsidian://')) return <Paperclip size={10} />
@@ -35,8 +36,20 @@ export function TaskCard({ task }) {
     confirm('Delete this task?', () => deleteTask(task.id))
   }, [task.id, confirm, deleteTask])
 
+  // Desktop only: touch devices use the swipe tray instead, and a draggable
+  // ancestor would fight useSwipeRow's non-passive touchmove.
+  const isTouch = typeof window !== 'undefined'
+    && window.matchMedia('(hover: none) and (pointer: coarse)').matches
+
   return (
     <>
+    <div
+      draggable={!isTouch}
+      onDragStart={!isTouch ? (e => {
+        e.dataTransfer.setData(TASK_DRAG_TYPE, task.id)
+        e.dataTransfer.effectAllowed = 'move'
+      }) : undefined}
+    >
     <SwipeableRow
       onComplete={handleComplete}
       onDelete={handleDelete}
@@ -199,6 +212,7 @@ export function TaskCard({ task }) {
       </div>
       )}
     </SwipeableRow>
+    </div>
 
     {/* ── Reschedule bottom sheet (fixed — not clipped by overflow-hidden) ── */}
     {rescheduleOpen && (

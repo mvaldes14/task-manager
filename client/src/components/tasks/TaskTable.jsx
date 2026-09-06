@@ -6,6 +6,7 @@ import { Skeleton } from '../ui'
 import { formatDate, fmtTime, isOverdue, priorityColor } from '../../utils'
 import { STATUS_LABELS, STATUS_ORDER } from './grouping'
 import { ArrowUp, ArrowDown, Eye, EyeOff } from 'lucide-react'
+import { TASK_DRAG_TYPE } from '../../constants/dnd'
 
 // Mirrors KanbanBoard's column colours so a task reads the same in both modes.
 const STATUS_COLORS = {
@@ -118,8 +119,18 @@ function TaskRow({ task }) {
     ? (isDark ? '#89b4fa' : '#2e7de9')
     : STATUS_COLORS[task.status] || STATUS_COLORS.todo
 
+  // Desktop only: touch devices use the swipe tray instead, and a draggable
+  // ancestor would fight useSwipeRow's non-passive touchmove.
+  const isTouch = typeof window !== 'undefined'
+    && window.matchMedia('(hover: none) and (pointer: coarse)').matches
+
   return (
     <tr
+      draggable={!isTouch}
+      onDragStart={!isTouch ? (e => {
+        e.dataTransfer.setData(TASK_DRAG_TYPE, task.id)
+        e.dataTransfer.effectAllowed = 'move'
+      }) : undefined}
       onClick={() => dispatch({ type: 'SELECT_TASK', payload: task.id })}
       className={`group cursor-pointer border-b border-td-border/40 dark:border-tn-border/40
         transition-colors duration-fast

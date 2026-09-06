@@ -7,6 +7,7 @@ import { api } from '../../api'
 import { ProjectIcon, PROJECT_ICON_OPTIONS } from '../shared/ProjectIcon'
 import { SettingsModal } from '../settings/SettingsModal'
 import { Logo } from '../ui'
+import { TASK_DRAG_TYPE } from '../../constants/dnd'
 
 const PROJECT_COLORS = ['#f7768e','#ff9e64','#e0af68','#9ece6a','#73daca','#7dcfff','#7aa2f7','#bb9af7','#c0caf5']
 
@@ -246,15 +247,29 @@ function ProjectFormModal({ project, onClose }) {
 
 function ProjectRow({
   project: p, depth, count, hasChildren, expanded, onToggleExpand, active, isTouch,
-  dragProjectId, dropTargetId, setDragProjectId, setDropTargetId, onDropProject, onOpen, onEdit,
+  dragProjectId, dropTargetId, setDragProjectId, setDropTargetId, onDropProject, onDropTask, onOpen, onEdit,
 }) {
   return (
     <div
       draggable={!isTouch}
       onDragStart={!isTouch ? (e => { setDragProjectId(p.id); e.dataTransfer.effectAllowed = 'move' }) : undefined}
-      onDragOver={!isTouch ? (e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (dragProjectId && dragProjectId !== p.id) setDropTargetId(p.id) }) : undefined}
+      onDragOver={!isTouch ? (e => {
+        e.preventDefault()
+        e.dataTransfer.dropEffect = 'move'
+        // Two drag kinds land here. Project reorder tracks its source in React
+        // state; task drags carry a payload type. getData() is unreadable during
+        // dragover, so detection goes through types.
+        const isTaskDrag = e.dataTransfer.types.includes(TASK_DRAG_TYPE)
+        if (isTaskDrag || (dragProjectId && dragProjectId !== p.id)) setDropTargetId(p.id)
+      }) : undefined}
       onDragLeave={!isTouch ? (() => { if (dropTargetId === p.id) setDropTargetId(null) }) : undefined}
-      onDrop={!isTouch ? (e => { e.preventDefault(); onDropProject(p.id) }) : undefined}
+      onDrop={!isTouch ? (e => {
+        e.preventDefault()
+        const taskId = e.dataTransfer.getData(TASK_DRAG_TYPE)
+        setDropTargetId(null)
+        if (taskId) { onDropTask(p.id, taskId); return }
+        onDropProject(p.id)
+      }) : undefined}
       onDragEnd={!isTouch ? (() => { setDragProjectId(null); setDropTargetId(null) }) : undefined}
       onClick={onOpen}
       role="button"
@@ -380,6 +395,30 @@ export function Sidebar() {
       await api.reorderProjects(reordered.map(p => p.id))
     } catch {
       toast('Failed to reorder projects')
+    }
+  }
+
+  const handleTaskDrop = async (projectId, taskId) => {
+    const task = state.tasks.find(t => t.id === taskId)
+    if (!task || task.project_id === projectId) return
+    const previousProjectId = task.project_id
+    const target = state.projects.find(p => p.id === projectId)
+    try {
+      const updated = await api.updateTask(taskId, { project_id: projectId })
+      dispatch({ type: 'UPDATE_TASK', payload: updated })
+      toast(`Moved to ${target?.name || 'project'}`, {
+        label: 'Undo',
+        onAction: async () => {
+          try {
+            const reverted = await api.updateTask(taskId, { project_id: previousProjectId })
+            dispatch({ type: 'UPDATE_TASK', payload: reverted })
+          } catch {
+            toast('Could not undo move')
+          }
+        },
+      })
+    } catch {
+      toast('Could not move task')
     }
   }
 
@@ -608,6 +647,7 @@ export function Sidebar() {
                   setDragProjectId={setDragProjectId}
                   setDropTargetId={setDropTargetId}
                   onDropProject={handleProjectDrop}
+                  onDropTask={handleTaskDrop}
                   onOpen={() => dispatch({ type: 'SET_VIEW', payload: `project:${root.id}` })}
                   onEdit={() => setEditingProject(root)}
                 />,
@@ -630,6 +670,7 @@ export function Sidebar() {
                       setDragProjectId={setDragProjectId}
                       setDropTargetId={setDropTargetId}
                       onDropProject={handleProjectDrop}
+                      onDropTask={handleTaskDrop}
                       onOpen={() => dispatch({ type: 'SET_VIEW', payload: `project:${child.id}` })}
                       onEdit={() => setEditingProject(child)}
                     />
