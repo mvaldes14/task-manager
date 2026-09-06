@@ -73,6 +73,67 @@ def _visibility_clause(user_id):
     )
 
 
+# ── Query-param filter helpers ─────────────────────────────────
+_VALID_STATUS   = ('todo', 'doing', 'blocked', 'done')
+_VALID_PRIORITY = ('low', 'medium', 'high')
+
+
+def _csv_param(name):
+    """Split a comma-separated query param into a clean list. Missing/empty -> []."""
+    raw = request.args.get(name)
+    if not raw:
+        return []
+    return [v.strip() for v in raw.split(',') if v.strip()]
+
+
+def _validate_enum(values, allowed, name):
+    """Return an error string if any value is outside `allowed`, else None."""
+    bad = [v for v in values if v not in allowed]
+    if bad:
+        return f"Invalid {name}: {', '.join(bad)}. Allowed: {', '.join(allowed)}"
+    return None
+
+
+def _parse_date_param(name):
+    """Return (iso_date_string_or_None, error_or_None)."""
+    raw = request.args.get(name)
+    if not raw:
+        return None, None
+    try:
+        return date.fromisoformat(raw.strip()).isoformat(), None
+    except ValueError:
+        return None, f"Invalid {name}: expected YYYY-MM-DD"
+
+
+def _parse_int_param(name, default, lo, hi):
+    """Return (int_or_default, error_or_None)."""
+    raw = request.args.get(name)
+    if raw is None:
+        return default, None
+    try:
+        v = int(raw)
+    except ValueError:
+        return None, f"Invalid {name}: expected an integer"
+    if v < lo or v > hi:
+        return None, f"Invalid {name}: must be between {lo} and {hi}"
+    return v, None
+
+
+def _project_scope_ids(pid):
+    """A project id plus its direct children. Subprojects are one level only.
+
+    Mirrors the scoping already done client-side in MainContent.jsx, so an agent
+    querying ?project_id=X sees the same set the UI shows for project X.
+    """
+    conn = get_db()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT id FROM projects WHERE id=%s OR parent_id=%s", (pid, pid))
+        return [r[0] for r in cur.fetchall()] or [pid]
+    finally:
+        release_db(conn)
+
+
 def _fetch_tasks(query, params=()):
     """Execute query, injecting user visibility filter before any ORDER BY."""
     user_id = getattr(g, 'user_id', None)
@@ -114,6 +175,13 @@ def _fetch_tasks(query, params=()):
 
 
 def _clone_recurring_task(task: dict, next_date) -> dict:
+    """Spawn the next instance of a recurring task.
+
+    Carries priority, assignee, links and the subtask checklist forward.
+    Subtasks are copied uncompleted. Two things are deliberately NOT copied:
+      - linked_task_id: it points at one promoted instance, not at the series
+      - subtask due_date/due_time: they would be stale dates from the prior cycle
+    """
     new_id = str(uuid.uuid4())
     conn = get_db()
     try:
@@ -124,17 +192,29 @@ def _clone_recurring_task(task: dict, next_date) -> dict:
         cur.execute("""
             INSERT INTO tasks (id, title, description, project_id, status,
                                due_date, due_time, tags, position, recurrence, recurrence_end, parent_task_id,
-                               owner_id)
-            VALUES (%s,%s,%s,%s,'todo',%s,%s,%s,%s,%s,%s,%s,%s)
+                               owner_id, assigned_to, priority, links)
+            VALUES (%s,%s,%s,%s,'todo',%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         """, (new_id, task['title'], task.get('description', ''), task['project_id'],
               next_date.isoformat(), task.get('due_time'),
               json.dumps(task.get('tags', [])), max_pos + 1,
               task.get('recurrence'), task.get('recurrence_end'),
               task.get('parent_task_id') or task['id'],
-              task.get('owner_id')))
+              task.get('owner_id'), task.get('assigned_to'),
+              task.get('priority') or 'medium',
+              json.dumps(task.get('links') or [])))
+        # Carry the checklist forward, reset to uncompleted
+        cur.execute("SELECT title, position, priority, labels FROM subtasks "
+                    "WHERE task_id=%s ORDER BY position", (task['id'],))
+        for s in cur.fetchall():
+            cur.execute(
+                "INSERT INTO subtasks (id, task_id, title, completed, position, priority, labels) "
+                "VALUES (%s,%s,%s,FALSE,%s,%s,%s)",
+                (str(uuid.uuid4()), new_id, s['title'], s['position'],
+                 s['priority'] or 'medium', json.dumps(s['labels'] or [])))
         cur.execute("SELECT * FROM tasks WHERE id=%s", (new_id,))
         new_task = row_to_dict(cur.fetchone())
-        new_task['subtasks'] = []
+        cur.execute("SELECT * FROM subtasks WHERE task_id=%s ORDER BY position", (new_id,))
+        new_task['subtasks'] = [row_to_dict(s) for s in cur.fetchall()]
         conn.commit()
     finally:
         release_db(conn)
@@ -153,15 +233,96 @@ def nlp_parse():
 # ── Task routes ────────────────────────────────────────────────
 @bp.route('/api/tasks', methods=['GET'])
 def get_tasks():
-    pid = request.args.get('project_id')
-    status = request.args.get('status')
-    search = request.args.get('search')
+    """List tasks with optional filters.
+
+    Multi-value params are comma-separated. `status` and `priority` are OR-ed
+    (match any). `tag` is AND-ed (task must carry every tag listed).
+
+    ?project_id   project id; also includes its subprojects
+    ?status       todo,doing,blocked,done
+    ?priority     low,medium,high
+    ?tag          work,urgent            (AND)
+    ?assigned_to  <user_id> | me | none
+    ?due_after    YYYY-MM-DD (inclusive)
+    ?due_before   YYYY-MM-DD (inclusive)
+    ?has_due_date true | false
+    ?search       substring of title or description
+    ?limit        1..500
+    ?offset       >= 0
+
+    Default behaviour with no params is unchanged: every visible task,
+    done included, ordered by position then created_at. The client relies
+    on this — do not start filtering out done tasks here.
+    """
+    pid        = request.args.get('project_id')
+    search     = request.args.get('search')
+    statuses   = _csv_param('status')
+    priorities = _csv_param('priority')
+    tags       = _csv_param('tag')
+    assignee   = (request.args.get('assigned_to') or '').strip()
+
+    err = (_validate_enum(statuses, _VALID_STATUS, 'status')
+           or _validate_enum(priorities, _VALID_PRIORITY, 'priority'))
+    if err:
+        return jsonify({'error': err}), 400
+
+    due_after, err = _parse_date_param('due_after')
+    if err:
+        return jsonify({'error': err}), 400
+    due_before, err = _parse_date_param('due_before')
+    if err:
+        return jsonify({'error': err}), 400
+    limit, err = _parse_int_param('limit', None, 1, 500)
+    if err:
+        return jsonify({'error': err}), 400
+    offset, err = _parse_int_param('offset', 0, 0, 1000000)
+    if err:
+        return jsonify({'error': err}), 400
+
+    has_due = request.args.get('has_due_date')
+    if has_due is not None and has_due.strip().lower() not in ('true', 'false'):
+        return jsonify({'error': 'Invalid has_due_date: expected true or false'}), 400
+
     q = "SELECT * FROM tasks WHERE 1=1"; p = []
-    if pid:    q += " AND project_id=%s"; p.append(pid)
-    if status: q += " AND status=%s";     p.append(status)
-    if search: q += " AND (title ILIKE %s OR description ILIKE %s)"; p += [f'%{search}%', f'%{search}%']
+    if pid:
+        q += " AND project_id = ANY(%s)"; p.append(_project_scope_ids(pid))
+    if statuses:
+        q += " AND status = ANY(%s)";     p.append(statuses)
+    if priorities:
+        q += " AND priority = ANY(%s)";   p.append(priorities)
+    for tag in tags:
+        q += " AND tags @> %s::jsonb";    p.append(json.dumps([tag]))
+    if assignee:
+        if assignee in ('none', 'unassigned'):
+            q += " AND assigned_to IS NULL"
+        elif assignee == 'me':
+            _me = getattr(g, 'user_id', None)
+            # Passwordless install has no session user: 'me' is meaningless, so skip
+            # the filter rather than silently returning nothing.
+            if _me:
+                q += " AND assigned_to=%s"; p.append(_me)
+        else:
+            q += " AND assigned_to=%s";   p.append(assignee)
+    if due_after:
+        q += " AND due_date >= %s";       p.append(due_after)
+    if due_before:
+        q += " AND due_date <= %s";       p.append(due_before)
+    if has_due is not None:
+        q += (" AND due_date IS NOT NULL" if has_due.strip().lower() == 'true'
+              else " AND due_date IS NULL")
+    if search:
+        q += " AND (title ILIKE %s OR description ILIKE %s)"; p += [f'%{search}%', f'%{search}%']
     q += " ORDER BY position,created_at"
-    return jsonify(_fetch_tasks(q, p))
+
+    # Pagination is applied post-fetch on purpose: _fetch_tasks() appends its
+    # visibility params after ours, so trailing LIMIT/OFFSET placeholders would
+    # bind to the wrong values. Row counts here are small.
+    tasks = _fetch_tasks(q, p)
+    if offset:
+        tasks = tasks[offset:]
+    if limit is not None:
+        tasks = tasks[:limit]
+    return jsonify(tasks)
 
 
 _PROJECT_PALETTE = ['#7c6af7', '#f87171', '#fbbf24', '#4ade80', '#60a5fa', '#f472b6', '#34d399', '#fb923c']
