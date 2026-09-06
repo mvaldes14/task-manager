@@ -306,7 +306,7 @@ paths:
       - $ref: '#/components/parameters/TaskId'
     post:
       tags: [subtasks]
-      summary: Add a subtask (free-form title runs through NLP, or pass `linked_task_id`)
+      summary: Add a subtask (title stored verbatim, or pass `linked_task_id`)
       requestBody:
         required: true
         content:
@@ -314,7 +314,7 @@ paths:
             schema:
               type: object
               properties:
-                title:          { type: string }
+                title:          { type: string, description: "Stored exactly as typed. Unlike task titles, subtask titles are NOT run through natural language parsing — every word is kept. A whitespace-only title is rejected with 400." }
                 linked_task_id: { type: string, description: Link to an existing task; title is taken from that task }
       responses:
         '201':
@@ -340,9 +340,6 @@ paths:
               properties:
                 title:     { type: string }
                 completed: { type: boolean }
-                due_date:  { type: string, format: date }
-                due_time:  { type: string, example: "14:30" }
-                labels:    { type: array, items: { type: string } }
       responses:
         '200':
           description: OK
@@ -857,9 +854,6 @@ components:
         title:               { type: string }
         completed:           { type: boolean }
         position:            { type: integer }
-        due_date:            { type: string, format: date, nullable: true }
-        due_time:            { type: string, nullable: true }
-        labels:              { type: array, items: { type: string } }
         linked_task_id:      { type: string, format: uuid, nullable: true }
         linked_task_title:   { type: string, nullable: true }
         linked_task_status:  { allOf: [{ $ref: '#/components/schemas/TaskStatus' }], nullable: true }

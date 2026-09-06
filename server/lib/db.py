@@ -85,8 +85,7 @@ def init_db():
         cur.execute("""
             CREATE TABLE IF NOT EXISTS subtasks (
                 id TEXT PRIMARY KEY, task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
-                title TEXT NOT NULL, completed BOOLEAN DEFAULT FALSE, position INTEGER DEFAULT 0,
-                due_date DATE, due_time TIME, priority TEXT DEFAULT 'medium', labels JSONB DEFAULT '[]'
+                title TEXT NOT NULL, completed BOOLEAN DEFAULT FALSE, position INTEGER DEFAULT 0
             )""")
         cur.execute("""
             CREATE TABLE IF NOT EXISTS sessions (
@@ -129,6 +128,10 @@ def init_db():
         cur.execute("CREATE INDEX IF NOT EXISTS idx_projects_archived_at ON projects(archived_at)")
         # Deadline reminder guard, mirroring tasks.reminder_sent_at.
         cur.execute("ALTER TABLE projects ADD COLUMN IF NOT EXISTS deadline_notified_at TIMESTAMPTZ")
+        # Dead subtask columns: written by the old NLP pass on subtask titles,
+        # never rendered anywhere in client/src. Dropped along with that pass.
+        for _dead in ('due_date', 'due_time', 'priority', 'labels'):
+            cur.execute(f"ALTER TABLE subtasks DROP COLUMN IF EXISTS {_dead}")
         # Soft delete. DELETE /api/tasks/<id> stamps this; ?purge=true really removes the row.
         cur.execute("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_tasks_deleted_at ON tasks(deleted_at)")

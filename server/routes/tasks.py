@@ -229,9 +229,9 @@ def _clone_recurring_task(task: dict, next_date) -> dict:
     """Spawn the next instance of a recurring task.
 
     Carries priority, assignee, links and the subtask checklist forward.
-    Subtasks are copied uncompleted. Two things are deliberately NOT copied:
-      - linked_task_id: it points at one promoted instance, not at the series
-      - subtask due_date/due_time: they would be stale dates from the prior cycle
+    Subtasks are copied uncompleted, title and position only — the other subtask
+    columns were dropped as dead weight. linked_task_id is deliberately not
+    copied: it points at one promoted instance, not at the series.
     """
     new_id = str(uuid.uuid4())
     conn = get_db()
@@ -254,14 +254,13 @@ def _clone_recurring_task(task: dict, next_date) -> dict:
               task.get('priority') or 'medium',
               json.dumps(task.get('links') or [])))
         # Carry the checklist forward, reset to uncompleted
-        cur.execute("SELECT title, position, priority, labels FROM subtasks "
+        cur.execute("SELECT title, position FROM subtasks "
                     "WHERE task_id=%s ORDER BY position", (task['id'],))
         for s in cur.fetchall():
             cur.execute(
-                "INSERT INTO subtasks (id, task_id, title, completed, position, priority, labels) "
-                "VALUES (%s,%s,%s,FALSE,%s,%s,%s)",
-                (str(uuid.uuid4()), new_id, s['title'], s['position'],
-                 s['priority'] or 'medium', json.dumps(s['labels'] or [])))
+                "INSERT INTO subtasks (id, task_id, title, completed, position) "
+                "VALUES (%s,%s,%s,FALSE,%s)",
+                (str(uuid.uuid4()), new_id, s['title'], s['position']))
         cur.execute("SELECT * FROM tasks WHERE id=%s", (new_id,))
         new_task = row_to_dict(cur.fetchone())
         cur.execute("SELECT * FROM subtasks WHERE task_id=%s ORDER BY position", (new_id,))
@@ -672,17 +671,19 @@ def add_subtask(tid):
             linked = cur.fetchone()
             if not linked: return jsonify({'error': 'Linked task not found'}), 404
             title = linked['title']
-            nlp = {}
         else:
-            nlp = parse_natural_language(data.get('title', '').strip())
-            title = nlp.get('title') or data.get('title', '')
+            # No NLP pass. It used to strip date and label tokens out of the title
+            # and file them into columns the UI never rendered, so "call plumber
+            # tomorrow" silently became "call plumber". Subtasks are checklist
+            # lines; the text is the whole point.
+            title = data.get('title', '').strip()
+        if not title:
+            return jsonify({'error': 'Title required'}), 400
         cur.execute("SELECT COALESCE(MAX(position),0) FROM subtasks WHERE task_id=%s", (tid,))
         max_pos = cur.fetchone()['coalesce']
-        cur.execute("""INSERT INTO subtasks (id, task_id, title, position, due_date, due_time, labels, linked_task_id)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s)""",
-            (sid, tid, title, max_pos + 1,
-             nlp.get('due_date'), nlp.get('due_time'), json.dumps(nlp.get('labels', [])),
-             linked_task_id))
+        cur.execute("""INSERT INTO subtasks (id, task_id, title, position, linked_task_id)
+            VALUES (%s,%s,%s,%s,%s)""",
+            (sid, tid, title, max_pos + 1, linked_task_id))
         # Return the full parent task so frontend can update in one dispatch
         cur.execute("SELECT * FROM tasks WHERE id=%s", (tid,))
         task = row_to_dict(cur.fetchone())
@@ -704,7 +705,7 @@ def update_subtask(tid, sid):
     data = request.get_json(); conn = get_db()
     try:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        _ALLOWED_SUBTASK_FIELDS = ('title', 'due_date', 'due_time')
+        _ALLOWED_SUBTASK_FIELDS = ('title',)
         for f in _ALLOWED_SUBTASK_FIELDS:
             if f in data: cur.execute(f"UPDATE subtasks SET {f}=%s WHERE id=%s", (data[f], sid))
         if 'completed' in data:
@@ -715,8 +716,6 @@ def update_subtask(tid, sid):
                 if sub_row and sub_row['linked_task_id']:
                     cur.execute("UPDATE tasks SET status='done', completed_at=NOW(), updated_at=NOW() WHERE id=%s",
                                 (sub_row['linked_task_id'],))
-        if 'labels' in data:
-            cur.execute("UPDATE subtasks SET labels=%s WHERE id=%s", (json.dumps(data['labels']), sid))
         cur.execute("SELECT * FROM subtasks WHERE id=%s", (sid,)); row = cur.fetchone(); conn.commit()
     finally:
         release_db(conn)
