@@ -62,13 +62,24 @@ def _fire_bot_webhook(task: dict) -> bool:
     return True
 
 # ── Helper ─────────────────────────────────────────────────────
+# Archiving a project hides its work everywhere, so this applies with or without
+# a session user. Subquery targets `projects`, so _fetch_tasks' `FROM tasks`
+# rewrite leaves it alone.
+_ARCHIVED_EXCLUSION = (" AND t.project_id NOT IN "
+                       "(SELECT id FROM projects WHERE archived_at IS NOT NULL)")
+
+
 def _visibility_clause(user_id):
-    """Return (sql_fragment, params) restricting tasks to those visible to user_id."""
+    """Return (sql_fragment, params) restricting tasks to those visible to user_id.
+
+    Tasks in archived projects are excluded unconditionally — including on
+    passwordless installs, where there is no user_id to filter on.
+    """
     if not user_id:
-        return '', []
+        return _ARCHIVED_EXCLUSION, []
     return (
         " AND (t.owner_id=%s OR t.assigned_to=%s OR t.project_id IN "
-        "(SELECT id FROM projects WHERE shared=TRUE))",
+        "(SELECT id FROM projects WHERE shared=TRUE))" + _ARCHIVED_EXCLUSION,
         [user_id, user_id]
     )
 
@@ -660,7 +671,9 @@ def search_tasks():
     try:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         params = [f'%{q}%']
-        sql = "SELECT id, title, status, project_id FROM tasks WHERE title ILIKE %s AND status != 'done'"
+        sql = ("SELECT id, title, status, project_id FROM tasks "
+               "WHERE title ILIKE %s AND status != 'done' "
+               "AND project_id NOT IN (SELECT id FROM projects WHERE archived_at IS NOT NULL)")
         if exclude:
             sql += " AND id != %s"
             params.append(exclude)

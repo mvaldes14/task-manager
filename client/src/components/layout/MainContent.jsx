@@ -3,7 +3,7 @@ import { useApp } from '../../context/AppContext'
 import { useTasks } from '../../hooks/useTasks'
 import { usePullToRefresh } from '../../hooks/usePullToRefresh'
 import { useCollapsedGroups } from '../../hooks/useCollapsedGroups'
-import { isOverdue, isToday } from '../../utils'
+import { isOverdue, isToday, formatDate } from '../../utils'
 import { TaskList } from '../tasks/TaskList'
 import { getGroupKeys } from '../tasks/grouping'
 import { KanbanBoard } from '../tasks/KanbanBoard'
@@ -14,12 +14,28 @@ import { ProjectIcon } from '../shared/ProjectIcon'
 import { PriorityTodayView } from '../tasks/PriorityTodayView'
 import { UpcomingView } from '../tasks/UpcomingView'
 
+const isOverdueDate = (d) => !!d && d < new Date().toISOString().slice(0, 10)
+
 function ViewHeader({ title, icon: Icon, count }) {
   const { state, dispatch } = useApp()
 
   const project = state.view.startsWith('project:')
     ? state.projects.find(p => p.id === state.view.replace('project:', ''))
     : null
+
+  // Rolls up subproject tasks, matching the scope the project view already uses
+  // for its task list, so the fraction here always agrees with the list below.
+  const progress = useMemo(() => {
+    if (!project) return null
+    const scope = new Set([
+      project.id,
+      ...state.projects.filter(p => p.parent_id === project.id).map(p => p.id),
+    ])
+    const scoped = state.tasks.filter(t => scope.has(t.project_id))
+    if (scoped.length === 0) return null
+    const done = scoped.filter(t => t.status === 'done').length
+    return { done, total: scoped.length, pct: Math.round((done / scoped.length) * 100) }
+  }, [project, state.tasks, state.projects])
 
   return (
     <div className="flex items-center justify-between px-4 py-3.5 border-b border-td-border/50 dark:border-tn-border/50 shrink-0 gap-2">
@@ -34,9 +50,40 @@ function ViewHeader({ title, icon: Icon, count }) {
             <Icon size={14} />
           </span>
         )}
-        <h1 className="text-td-fg dark:text-tn-fg font-semibold text-base truncate">
-          {project ? project.name : title}
-        </h1>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-td-fg dark:text-tn-fg font-semibold text-base truncate">
+            {project ? project.name : title}
+          </h1>
+          {project && (progress || project.due_date) && (
+            <div className="flex items-center gap-2.5 mt-1">
+              {progress && (
+                <>
+                  <div className="w-16 h-1 rounded-full bg-td-surface dark:bg-tn-surface overflow-hidden shrink-0">
+                    <div className="h-full rounded-full transition-all"
+                      style={{ width: `${progress.pct}%`, background: project.color }} />
+                  </div>
+                  <span className="text-[11px] tabular-nums text-td-muted/70 dark:text-tn-muted/70 shrink-0">
+                    {progress.done}/{progress.total}
+                  </span>
+                </>
+              )}
+              {project.due_date && (
+                <span className={`text-[11px] flex items-center gap-1 shrink-0
+                  ${isOverdueDate(project.due_date)
+                    ? 'text-td-red dark:text-tn-red'
+                    : 'text-td-muted/70 dark:text-tn-muted/70'}`}>
+                  <CalendarClock size={11} />
+                  {formatDate(project.due_date)}
+                </span>
+              )}
+            </div>
+          )}
+          {project && project.description && (
+            <p className="text-[11px] text-td-muted/60 dark:text-tn-muted/60 truncate">
+              {project.description}
+            </p>
+          )}
+        </div>
       </div>
 
       <div className="flex items-center gap-1 shrink-0">

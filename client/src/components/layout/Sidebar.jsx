@@ -1,7 +1,8 @@
 import { useMemo, useState, useEffect, useRef } from 'react'
 import { useApp } from '../../context/AppContext'
+import { useTasks } from '../../hooks/useTasks'
 import { isOverdue, isToday } from '../../utils'
-import { Plus, LogOut, Sun, Moon, Settings, Trash2, CheckCircle2, RefreshCw, CalendarDays, CalendarClock, Inbox, Layers, AlertCircle, PanelLeftClose, PanelLeftOpen, LayoutDashboard, Users, Search, ChevronRight } from 'lucide-react'
+import { Plus, LogOut, Sun, Moon, Settings, Trash2, CheckCircle2, RefreshCw, CalendarDays, CalendarClock, Inbox, Layers, AlertCircle, PanelLeftClose, PanelLeftOpen, LayoutDashboard, Users, Search, ChevronRight, Archive, ArchiveRestore } from 'lucide-react'
 import { api } from '../../api'
 import { ProjectIcon, PROJECT_ICON_OPTIONS } from '../shared/ProjectIcon'
 import { SettingsModal } from '../settings/SettingsModal'
@@ -62,13 +63,17 @@ function SearchNavItem({ collapsed }) {
 
 function ProjectFormModal({ project, onClose }) {
   const { state, dispatch, confirm, toast } = useApp()
+  const { loadAll } = useTasks()
   const isEdit = !!project
   const [name, setName] = useState(project?.name || '')
   const [color, setColor] = useState(project?.color || PROJECT_COLORS[6])
   const [icon, setIcon] = useState(project?.icon || '📁')
   const [shared, setShared] = useState(project?.shared || false)
   const [parentId, setParentId] = useState(project?.parent_id || '')
+  const [description, setDescription] = useState(project?.description || '')
+  const [dueDate, setDueDate] = useState(project?.due_date || '')
   const [saving, setSaving] = useState(false)
+  const isArchived = !!project?.archived_at
 
   // One level only: eligible parents are root projects other than this one, and
   // a project that already has children cannot be moved under another.
@@ -80,7 +85,10 @@ function ProjectFormModal({ project, onClose }) {
     if (!name.trim()) return
     setSaving(true)
     try {
-      const payload = { name: name.trim(), color, icon, shared, parent_id: parentId || null }
+      const payload = {
+        name: name.trim(), color, icon, shared, parent_id: parentId || null,
+        description: description.trim(), due_date: dueDate || null,
+      }
       if (isEdit) {
         const p = await api.updateProject(project.id, payload)
         dispatch({ type: 'UPDATE_PROJECT', payload: p })
@@ -93,6 +101,22 @@ function ProjectFormModal({ project, onClose }) {
       onClose()
     } catch { toast(`Failed to ${isEdit ? 'update' : 'create'} project`) }
     setSaving(false)
+  }
+
+  const handleArchive = async () => {
+    const next = !isArchived
+    try {
+      const p = await api.updateProject(project.id, { archived: next })
+      dispatch({ type: 'UPDATE_PROJECT', payload: p })
+      if (next && state.view === `project:${project.id}`) {
+        dispatch({ type: 'SET_VIEW', payload: 'inbox' })
+      }
+      await loadAll()
+      toast(next ? 'Project archived' : 'Project restored')
+      onClose()
+    } catch {
+      toast(next ? 'Failed to archive project' : 'Failed to restore project')
+    }
   }
 
   const handleDelete = () => {
@@ -149,6 +173,26 @@ function ProjectFormModal({ project, onClose }) {
               style={{ background: c }} />
           ))}
         </div>
+        <textarea
+          value={description}
+          onChange={e => setDescription(e.target.value)}
+          placeholder="Description (optional)"
+          rows={2}
+          className="w-full bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg placeholder-td-muted/50 dark:placeholder-tn-muted/50 text-sm rounded-lg px-3 py-2.5 outline-none mb-3 border border-td-border/50 dark:border-tn-border/50 resize-none"
+        />
+        <div className="flex items-center gap-2 mb-4">
+          <label className="text-xs text-td-muted dark:text-tn-muted shrink-0">Deadline</label>
+          <input
+            type="date" value={dueDate} onChange={e => setDueDate(e.target.value)}
+            className="flex-1 bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-sm rounded-lg px-3 py-2 outline-none border border-td-border/50 dark:border-tn-border/50"
+          />
+          {dueDate && (
+            <button onClick={() => setDueDate('')}
+              className="text-xs text-td-muted/60 dark:text-tn-muted/60 px-2 py-1 rounded-lg hover:text-td-red dark:hover:text-tn-red">
+              Clear
+            </button>
+          )}
+        </div>
         {!hasChildren && parentOptions.length > 0 && (
           <select
             value={parentId}
@@ -179,6 +223,15 @@ function ProjectFormModal({ project, onClose }) {
             {shared ? 'ON' : 'OFF'}
           </span>
         </button>
+        {isEdit && project.id !== 'inbox' && (
+          <button onClick={handleArchive}
+            className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm mb-3 transition-colors border bg-td-surface dark:bg-tn-surface border-td-border/50 dark:border-tn-border/50 text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg">
+            {isArchived ? <ArchiveRestore size={14} /> : <Archive size={14} />}
+            <span className="flex-1 text-left font-medium">
+              {isArchived ? 'Restore project' : 'Archive project'}
+            </span>
+          </button>
+        )}
         <div className="flex gap-2">
           <button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-td-muted dark:text-tn-muted text-sm bg-td-surface dark:bg-tn-surface">Cancel</button>
           <button onClick={save} disabled={!name.trim() || saving}
@@ -283,6 +336,8 @@ export function Sidebar() {
   const [showSettings, setShowSettings] = useState(false)
   const [dragProjectId, setDragProjectId] = useState(null)
   const [dropTargetId, setDropTargetId] = useState(null)
+  const [archivedOpen, setArchivedOpen] = useState(false)
+  const archivedProjects = state.projects.filter(p => p.archived_at)
   const [collapsedProjects, setCollapsedProjects] = useState(() => {
     try { return new Set(JSON.parse(localStorage.getItem('td-collapsed-projects') || '[]')) }
     catch { return new Set() }
@@ -407,7 +462,7 @@ export function Sidebar() {
   // Roots first, each with its children. A project whose parent isn't visible to
   // this user (shared-project edge case) is rendered as a root so it never vanishes.
   const projectTree = useMemo(() => {
-    const list = state.projects.filter(p => p.id !== 'inbox')
+    const list = state.projects.filter(p => p.id !== 'inbox' && !p.archived_at)
     const ids = new Set(list.map(p => p.id))
     const roots = list.filter(p => !p.parent_id || !ids.has(p.parent_id))
     return roots.map(p => ({ ...p, children: list.filter(c => c.parent_id === p.id) }))
@@ -511,7 +566,7 @@ export function Sidebar() {
         )}
 
         {collapsed
-          ? state.projects.filter(p => p.id !== 'inbox').map(p => {
+          ? state.projects.filter(p => p.id !== 'inbox' && !p.archived_at).map(p => {
               const count = projectCounts[p.id] || 0
               const active = state.view === `project:${p.id}`
               return (
@@ -583,6 +638,34 @@ export function Sidebar() {
               }
               return rows
             })}
+
+        {!collapsed && archivedProjects.length > 0 && (
+          <div className="mt-2 px-2">
+            <button
+              onClick={() => setArchivedOpen(o => !o)}
+              className="w-full flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium
+                text-td-muted/60 dark:text-tn-muted/60 hover:text-td-fg dark:hover:text-tn-fg
+                hover:bg-td-surface/70 dark:hover:bg-tn-surface/70 transition-colors"
+            >
+              <ChevronRight size={12} className={`transition-transform ${archivedOpen ? 'rotate-90' : ''}`} />
+              <Archive size={12} />
+              <span className="flex-1 text-left">Archived</span>
+              <span className="tabular-nums">{archivedProjects.length}</span>
+            </button>
+            {archivedOpen && archivedProjects.map(p => (
+              <button
+                key={p.id}
+                onClick={() => setEditingProject(p)}
+                className="w-full flex items-center gap-2 pl-6 pr-2 py-1.5 rounded-lg text-xs
+                  text-td-muted/60 dark:text-tn-muted/60 hover:text-td-fg dark:hover:text-tn-fg
+                  hover:bg-td-surface/70 dark:hover:bg-tn-surface/70 transition-colors"
+              >
+                <ProjectIcon icon={p.icon} size={12} />
+                <span className="flex-1 text-left truncate">{p.name}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </nav>
 
       {/* Footer */}

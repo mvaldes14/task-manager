@@ -14,13 +14,18 @@ logger = logging.getLogger(__name__)
 bp = Blueprint('dashboard', __name__, url_prefix='/api/dashboard')
 
 
+# Tasks in archived projects are excluded from every stat, with or without a
+# session user. Unqualified column name: every query using _vis() is single-table.
+_ARCHIVED = " AND project_id NOT IN (SELECT id FROM projects WHERE archived_at IS NOT NULL)"
+
+
 def _vis():
     """Return (sql, params) to filter tasks visible to the current user."""
     uid = getattr(g, 'user_id', None)
     if not uid:
-        return '', []
+        return _ARCHIVED, []
     return (
-        " AND (owner_id=%s OR assigned_to=%s OR project_id IN (SELECT id FROM projects WHERE shared=TRUE))",
+        " AND (owner_id=%s OR assigned_to=%s OR project_id IN (SELECT id FROM projects WHERE shared=TRUE))" + _ARCHIVED,
         [uid, uid]
     )
 
@@ -125,11 +130,12 @@ def get_dashboard_stats():
 
         # ── Projects ───────────────────────────────────────────────
         # For the JOIN query, qualify visibility columns with t.
-        vj, vjp = '', []
+        vj = " AND t.project_id NOT IN (SELECT id FROM projects WHERE archived_at IS NOT NULL)"
+        vjp = []
         uid = getattr(g, 'user_id', None)
         if uid:
             vj = (" AND (t.owner_id=%s OR t.assigned_to=%s OR t.project_id IN "
-                   "(SELECT id FROM projects WHERE shared=TRUE))")
+                   "(SELECT id FROM projects WHERE shared=TRUE))") + vj
             vjp = [uid, uid]
         cur.execute(
             "SELECT COALESCE(p.id, t.project_id) as id,"
