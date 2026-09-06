@@ -257,6 +257,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Task' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
     patch:
       tags: [tasks]
@@ -271,6 +272,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Task' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
     delete:
       tags: [tasks]
@@ -877,7 +879,7 @@ components:
         title:          { type: string, description: "NLP-parsed. #Project or #Parent/Child (one level; created if missing), @label, +assignee, p1|p2|p3 priority, dates, recurrence, !url=…" }
         description:    { type: string }
         status:         { $ref: '#/components/schemas/TaskStatus' }
-        priority:       { $ref: '#/components/schemas/Priority' }
+        priority:       { $ref: '#/components/schemas/TaskPriority' }
         project_id:     { type: string, default: inbox }
         due_date:       { type: string, format: date }
         due_time:       { type: string }
@@ -887,6 +889,7 @@ components:
         recurrence_end: { type: string, format: date }
         assigned_to:    { type: string, format: uuid }
         timezone:       { type: string, description: IANA TZ used when syncing to GCal }
+        skip_nlp:       { type: boolean, default: false, description: "Take the payload verbatim: disables title rewriting, #Project extraction, @assignee resolution and project auto-creation. When set, project_id must reference an existing project (an unknown id returns 400)." }
 
     TaskUpdate:
       type: object
@@ -896,7 +899,7 @@ components:
         description:    { type: string }
         project_id:     { type: string }
         status:         { $ref: '#/components/schemas/TaskStatus' }
-        priority:       { $ref: '#/components/schemas/Priority' }
+        priority:       { $ref: '#/components/schemas/TaskPriority' }
         due_date:       { type: string, format: date, nullable: true }
         due_time:       { type: string, nullable: true }
         position:       { type: integer }
