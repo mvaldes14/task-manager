@@ -392,7 +392,7 @@ def _create_project(cur, name, owner_id, parent_id=None):
         (owner_id, parent_id))
     next_pos = cur.fetchone()['next_pos']
     cur.execute(
-        "INSERT INTO projects (id,name,color,icon,owner_id,position,parent_id) VALUES (%s,%s,%s,'📁',%s,%s,%s)",
+        "INSERT INTO projects (id,name,color,icon,owner_id,position,parent_id) VALUES (%s,%s,%s,'folder',%s,%s,%s)",
         (new_pid, name.capitalize(), _PROJECT_PALETTE[hash(name) % len(_PROJECT_PALETTE)],
          owner_id, next_pos, parent_id))
     return new_pid

@@ -64,7 +64,7 @@ def init_db():
         cur.execute("""
             CREATE TABLE IF NOT EXISTS projects (
                 id TEXT PRIMARY KEY, name TEXT NOT NULL,
-                color TEXT DEFAULT '#6366f1', icon TEXT DEFAULT '📁',
+                color TEXT DEFAULT '#6366f1', icon TEXT DEFAULT 'folder',
                 owner_id TEXT REFERENCES users(id) ON DELETE SET NULL,
                 shared BOOLEAN DEFAULT FALSE,
                 created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -106,13 +106,19 @@ def init_db():
                 CONSTRAINT single_row CHECK (id = 1)
             )""")
         cur.execute("INSERT INTO settings (id, data) VALUES (1, '{}') ON CONFLICT (id) DO NOTHING")
-        cur.execute("INSERT INTO projects (id,name,color,icon) VALUES ('inbox','Inbox','#6366f1','📥') ON CONFLICT (id) DO NOTHING")
+        cur.execute("INSERT INTO projects (id,name,color,icon) VALUES ('inbox','Inbox','#6366f1','inbox') ON CONFLICT (id) DO NOTHING")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_tasks_project_id ON tasks(project_id)")
         cur.execute("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS links JSONB DEFAULT '[]'")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_tasks_due_date ON tasks(due_date)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_subtasks_task_id ON subtasks(task_id)")
         cur.execute("ALTER TABLE subtasks ADD COLUMN IF NOT EXISTS linked_task_id TEXT REFERENCES tasks(id) ON DELETE SET NULL")
+        # Icon values are lucide names resolved by client ProjectIcon; legacy rows stored
+        # emoji literals that fall through to the Folder fallback. Normalize both the
+        # column default and existing rows. Idempotent.
+        cur.execute("ALTER TABLE projects ALTER COLUMN icon SET DEFAULT 'folder'")
+        cur.execute("UPDATE projects SET icon = 'inbox' WHERE id = 'inbox' AND icon = '📥'")
+        cur.execute("UPDATE projects SET icon = 'folder' WHERE icon = '📁'")
         # Multi-user columns (additive migrations)
         cur.execute("ALTER TABLE projects ADD COLUMN IF NOT EXISTS owner_id TEXT REFERENCES users(id) ON DELETE SET NULL")
         cur.execute("ALTER TABLE projects ADD COLUMN IF NOT EXISTS shared BOOLEAN DEFAULT FALSE")

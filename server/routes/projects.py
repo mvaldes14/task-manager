@@ -88,7 +88,7 @@ def create_project():
         cur.execute(
             "INSERT INTO projects (id,name,color,icon,owner_id,shared,position,parent_id,description,due_date) "
             "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *",
-            (pid, data['name'], data.get('color', '#6366f1'), data.get('icon', '📁'), owner_id, False,
+            (pid, data['name'], data.get('color', '#6366f1'), data.get('icon', 'folder'), owner_id, False,
              next_pos, parent_id, (data.get('description') or '').strip(), due_date))
         row = row_to_dict(cur.fetchone())
         conn.commit()
