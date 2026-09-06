@@ -119,6 +119,42 @@ def check_and_send_reminders() -> None:
     finally:
         release_db(conn)
 
+    # ── Project deadlines ──────────────────────────────────────────
+    # All-day only: projects have no due_time. Same clock-crossing window as the
+    # all-day task branch above, so the ±1 minute band matches the scan interval.
+    conn = get_db()
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("""
+            SELECT id, name, due_date
+            FROM projects
+            WHERE archived_at IS NULL
+              AND deadline_notified_at IS NULL
+              AND due_date IS NOT NULL
+              AND (due_date + CAST(%s AS TIME)) AT TIME ZONE %s
+                  BETWEEN NOW() - INTERVAL '1 minute'
+                      AND NOW() + INTERVAL '1 minute'
+        """, (allday_time, tz_name))
+        due_projects = cur.fetchall()
+    finally:
+        release_db(conn)
+
+    for project in due_projects:
+        try:
+            _dispatch(settings,
+                      f"Project due: {project['name']}",
+                      f"{project['name']} is due today")
+            conn2 = get_db()
+            try:
+                cur2 = conn2.cursor()
+                cur2.execute("UPDATE projects SET deadline_notified_at = NOW() WHERE id = %s",
+                             (project['id'],))
+                conn2.commit()
+            finally:
+                release_db(conn2)
+        except Exception:
+            logger.exception('[notifications] project deadline dispatch failed for %s', project['id'])
+
     if not due_tasks:
         return
 

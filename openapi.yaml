@@ -943,8 +943,9 @@ components:
         parent_id:  { type: string, nullable: true, description: parent project id, or null for a top-level project }
         shared:     { type: boolean }
         description: { type: string, description: free-text project description }
-        due_date:   { type: string, format: date, nullable: true, description: "optional display-only deadline (YYYY-MM-DD)" }
-        archived_at: { type: string, format: date-time, nullable: true, readOnly: true, description: "when the project was archived, or null. Read-only; set via the boolean `archived` field on PATCH. Archiving hides the project and all of its tasks everywhere." }
+        due_date:   { type: string, format: date, nullable: true, description: "optional deadline (YYYY-MM-DD). Fires a once-only all-day reminder at the configured `reminder_allday_time` and surfaces on the Dashboard at-risk list. Setting it clears `deadline_notified_at`, re-arming the reminder." }
+        archived_at: { type: string, format: date-time, nullable: true, readOnly: true, description: "when the project was archived, or null. Read-only; set via the boolean `archived` field on PATCH. Archiving hides the project and all of its tasks everywhere. Archived projects never notify and never appear in the at-risk list." }
+        deadline_notified_at: { type: string, format: date-time, nullable: true, readOnly: true, description: "when the deadline reminder last fired, or null while still armed. Read-only; the server stamps it after dispatching and clears it whenever `due_date` is set." }
         owner_id:   { type: string, format: uuid, nullable: true }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
@@ -959,7 +960,7 @@ components:
         shared:    { type: boolean }
         parent_id: { type: string, nullable: true, description: "Set to a root project id to nest, or null to promote to top level. Rejected with 400 if it would create a second level." }
         description: { type: string, description: "free-text description; trimmed server-side" }
-        due_date:  { type: string, nullable: true, description: "deadline as YYYY-MM-DD; empty string or null clears it. An unparseable value is rejected with 400." }
+        due_date:  { type: string, nullable: true, description: "deadline as YYYY-MM-DD; empty string or null clears it. An unparseable value is rejected with 400. Setting this clears `deadline_notified_at`, re-arming the deadline reminder." }
         archived:  { type: boolean, description: "true archives the project (and hides all of its tasks everywhere), false restores it; the server manages the `archived_at` timestamp. `inbox` cannot be archived and is rejected with 400." }
 
     User:
@@ -1024,6 +1025,20 @@ components:
               name:      { type: string }
               total:     { type: integer }
               completed: { type: integer }
+        at_risk:
+          type: array
+          description: "Non-archived projects with a deadline within 14 days (or already past) that still have incomplete tasks, ordered by deadline. Omitted rows: archived projects, projects without a deadline, and projects with no open tasks."
+          items:
+            type: object
+            properties:
+              id:       { type: string }
+              name:     { type: string }
+              color:    { type: string }
+              icon:     { type: string }
+              due_date: { type: string, format: date }
+              open:     { type: integer, description: "number of tasks not yet done" }
+              total:    { type: integer, description: "total tasks in the project" }
+              overdue:  { type: boolean, description: "true if the deadline is already past" }
         tags:
           type: array
           items:

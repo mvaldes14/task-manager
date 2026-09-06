@@ -126,6 +126,9 @@ def update_project(pid):
             fields['due_date'], due_err = _normalize_due_date(fields['due_date'])
             if due_err:
                 return jsonify({'error': due_err}), 400
+            # Moving the deadline re-arms the reminder, matching how tasks reset
+            # reminder_sent_at when due_date or due_time changes.
+            fields['deadline_notified_at'] = None
         if 'description' in fields:
             fields['description'] = (fields['description'] or '').strip()
         # Callers send a boolean `archived`; the timestamp is ours to manage.

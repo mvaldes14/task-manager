@@ -32,7 +32,8 @@ def release_db(conn):
 def row_to_dict(row):
     if row is None: return None
     d = dict(row)
-    for field in ('created_at', 'updated_at', 'completed_at', 'reminder_sent_at', 'archived_at', 'deleted_at'):
+    for field in ('created_at', 'updated_at', 'completed_at', 'reminder_sent_at', 'archived_at',
+                  'deleted_at', 'deadline_notified_at'):
         if field in d and d[field] is not None: d[field] = str(d[field])
     if 'due_date'       in d and d['due_date']       is not None: d['due_date']       = str(d['due_date'])[:10]
     if 'recurrence_end' in d and d['recurrence_end'] is not None: d['recurrence_end'] = str(d['recurrence_end'])[:10]
@@ -126,6 +127,8 @@ def init_db():
         cur.execute("ALTER TABLE projects ADD COLUMN IF NOT EXISTS due_date DATE")
         cur.execute("ALTER TABLE projects ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_projects_archived_at ON projects(archived_at)")
+        # Deadline reminder guard, mirroring tasks.reminder_sent_at.
+        cur.execute("ALTER TABLE projects ADD COLUMN IF NOT EXISTS deadline_notified_at TIMESTAMPTZ")
         # Soft delete. DELETE /api/tasks/<id> stamps this; ?purge=true really removes the row.
         cur.execute("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_tasks_deleted_at ON tasks(deleted_at)")

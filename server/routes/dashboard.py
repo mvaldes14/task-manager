@@ -19,6 +19,9 @@ bp = Blueprint('dashboard', __name__, url_prefix='/api/dashboard')
 _ARCHIVED = (" AND project_id NOT IN (SELECT id FROM projects WHERE archived_at IS NOT NULL)"
              " AND deleted_at IS NULL")
 
+# Task-side exclusions for projects-first LEFT JOINs. Must stay in step with _ARCHIVED.
+_TASK_JOIN_EXCLUSIONS = " AND t.deleted_at IS NULL"
+
 
 def _vis():
     """Return (sql, params) to filter tasks visible to the current user."""
@@ -159,6 +162,41 @@ def get_dashboard_stats():
             for row in cur.fetchall()
         ]
 
+        # ── At-risk projects ───────────────────────────────────────
+        # Projects with a deadline inside 14 days (or already past) that still have
+        # incomplete work. Projects-first query, so it needs its own visibility rule
+        # rather than the task-oriented _vis() fragment.
+        uid_p = getattr(g, 'user_id', None)
+        pvis, pvis_p = '', []
+        if uid_p:
+            pvis = " AND (p.id='inbox' OR p.owner_id=%s OR p.shared=TRUE)"
+            pvis_p = [uid_p]
+        cur.execute(
+            "SELECT p.id, p.name, p.color, p.icon, p.due_date,"
+            " COUNT(t.id) FILTER (WHERE t.status != 'done') AS open_count,"
+            " COUNT(t.id) AS total_count"
+            " FROM projects p LEFT JOIN tasks t ON t.project_id = p.id" + _TASK_JOIN_EXCLUSIONS +
+            " WHERE p.archived_at IS NULL"
+            "   AND p.due_date IS NOT NULL"
+            "   AND p.due_date <= CURRENT_DATE + INTERVAL '14 days'" + pvis +
+            " GROUP BY p.id, p.name, p.color, p.icon, p.due_date"
+            " HAVING COUNT(t.id) FILTER (WHERE t.status != 'done') > 0"
+            " ORDER BY p.due_date",
+            pvis_p)
+        at_risk = [
+            {
+                'id': r['id'],
+                'name': r['name'],
+                'color': r['color'],
+                'icon': r['icon'],
+                'due_date': str(r['due_date']),
+                'open': r['open_count'],
+                'total': r['total_count'],
+                'overdue': r['due_date'] < date.today(),
+            }
+            for r in cur.fetchall()
+        ]
+
         # ── Tags ───────────────────────────────────────────────────
         cur.execute("SELECT tags FROM tasks WHERE tags IS NOT NULL AND tags != '[]'" + v, vp)
         tag_counts = defaultdict(int)
@@ -250,6 +288,7 @@ def get_dashboard_stats():
             'completion_trend': completion_trend,
             'activity_heatmap': activity_heatmap,
             'projects': projects,
+            'at_risk': at_risk,
             'tags': tags,
             'insights': insights
         })

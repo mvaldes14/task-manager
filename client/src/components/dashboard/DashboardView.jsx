@@ -2,13 +2,14 @@ import { useState, useEffect, useMemo } from 'react'
 import { useApp } from '../../context/AppContext'
 import { useTasks } from '../../hooks/useTasks'
 import { api } from '../../api'
-import { isOverdue, isToday, fmtTime } from '../../utils'
+import { isOverdue, isToday, fmtTime, formatDate } from '../../utils'
 import { CompletionTrendChart } from './CompletionTrendChart'
 import { StatusDonutChart } from './StatusDonutChart'
+import { ProjectIcon } from '../shared/ProjectIcon'
 import { Skeleton } from '../ui'
 import {
   Sun, Flame, ChevronDown, ChevronUp, ArrowRight, Plus, Clock,
-  CheckCircle2, ListTodo, Target,
+  CheckCircle2, ListTodo, Target, AlertTriangle,
 } from 'lucide-react'
 
 function DashboardSkeleton() {
@@ -414,6 +415,39 @@ export function DashboardView() {
             )}
           </section>
         </div>
+
+        {stats?.at_risk?.length > 0 && (
+          <section className="bg-td-bg2 dark:bg-tn-bg2 rounded-xl border border-td-border/50 dark:border-tn-border/50 overflow-hidden">
+            <div className="flex items-center gap-2 px-4 py-3.5 border-b border-td-border/30 dark:border-tn-border/30">
+              <AlertTriangle size={14} className="text-td-red dark:text-tn-red shrink-0" />
+              <span className="text-sm font-semibold text-td-fg dark:text-tn-fg">At risk</span>
+              <span className="text-xs text-td-muted dark:text-tn-muted">{stats.at_risk.length} project{stats.at_risk.length !== 1 ? 's' : ''}</span>
+            </div>
+            <div className="p-1.5">
+              {stats.at_risk.map(p => (
+                <button
+                  key={p.id}
+                  onClick={() => dispatch({ type: 'SET_VIEW', payload: `project:${p.id}` })}
+                  className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left
+                    hover:bg-td-surface/70 dark:hover:bg-tn-surface/70 transition-colors"
+                >
+                  <span className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+                    style={{ background: p.color + '25' }}>
+                    <ProjectIcon icon={p.icon} size={14} />
+                  </span>
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-sm text-td-fg dark:text-tn-fg truncate">{p.name}</span>
+                    <span className={`block text-[11px] ${p.overdue
+                      ? 'text-td-red dark:text-tn-red'
+                      : 'text-td-muted/70 dark:text-tn-muted/70'}`}>
+                      {p.overdue ? 'Overdue — ' : ''}{formatDate(p.due_date)} · {p.open} open
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
 
         <div className="rounded-xl border border-td-border/40 dark:border-tn-border/40 overflow-hidden">
           <button
