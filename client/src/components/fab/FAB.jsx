@@ -63,18 +63,18 @@ function shelfDates() {
   ]
 }
 
-function SmartShelf({ projects, tags, onInsert }) {
+function SmartShelf({ projects, tags, onInsert, isDark }) {
   const dates = shelfDates()
   const priorities = [
-    { label: 'P1 High', text: 'p1', color: '#f7768e' },
-    { label: 'P2 Med',  text: 'p2', color: '#e0af68' },
+    { label: 'P1 High', text: 'p1', color: isDark ? '#f7768e' : '#f52a65' },
+    { label: 'P2 Med',  text: 'p2', color: isDark ? '#e0af68' : '#d97706' },
   ]
   const shownProjects = projects.slice(0, 4)
   const shownTags = tags.slice(0, 4)
 
   const Row = ({ label, items, type }) => (
     <div className="flex items-center gap-2 px-4 py-1.5 overflow-x-auto no-scrollbar">
-      <span className="text-[10px] font-semibold tracking-wider text-tn-muted/60 shrink-0 w-8 uppercase">{label}</span>
+      <span className="text-[10px] font-semibold tracking-wider text-td-muted/70 dark:text-tn-muted/60 shrink-0 w-8 uppercase">{label}</span>
       {items.map(item => (
         <Chip
           key={item.text}
@@ -83,20 +83,20 @@ function SmartShelf({ projects, tags, onInsert }) {
           bg={item.color ? item.color + '15' : undefined}
           onMouseDown={e => { e.preventDefault(); onInsert(item.text, type) }}
           onTouchStart={e => { e.preventDefault(); onInsert(item.text, type) }}
-          className={!item.color ? 'border border-tn-border bg-tn-surface text-tn-fg' : ''}
+          className={!item.color ? 'border border-td-border dark:border-tn-border bg-td-bg2 dark:bg-tn-surface text-td-muted dark:text-tn-muted' : ''}
         />
       ))}
     </div>
   )
 
   return (
-    <div className="border-t border-tn-border/50 py-1">
+    <div className="border-t border-td-border/40 dark:border-tn-border/50 py-1">
       <Row label="Date" type="date" items={dates} />
       {shownProjects.length > 0 && (
         <Row label="Proj" type="project" items={shownProjects.map(p => ({ label: p.name, text: '#' + p.name, color: p.color }))} />
       )}
       {shownTags.length > 0 && (
-        <Row label="Tag" type="tag" items={shownTags.map(t => ({ label: '@' + t, text: '@' + t, color: '#bb9af7' }))} />
+        <Row label="Tag" type="tag" items={shownTags.map(t => ({ label: '@' + t, text: '@' + t, color: isDark ? '#bb9af7' : '#9854f1' }))} />
       )}
       <Row label="Pri" type="priority" items={priorities} />
     </div>
@@ -323,6 +323,7 @@ export function FAB() {
             projects={state.projects}
             tags={allTags}
             onInsert={insertShelfText}
+            isDark={isDark}
           />
 
           {/* Action row */}
