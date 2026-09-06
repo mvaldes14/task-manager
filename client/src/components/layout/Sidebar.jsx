@@ -213,7 +213,7 @@ function ProjectRow({
         ${active
           ? 'bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg font-semibold'
           : 'text-td-muted dark:text-tn-nav font-medium hover:text-td-fg dark:hover:text-tn-fg hover:bg-td-surface/50 dark:hover:bg-tn-surface/50'}`}
-      style={{ paddingLeft: depth === 0 ? '0.75rem' : '1.75rem' }}
+      style={{ paddingLeft: depth === 0 ? '0.75rem' : '2rem' }}
     >
       {hasChildren ? (
         <button
@@ -226,7 +226,11 @@ function ProjectRow({
         </button>
       ) : depth === 0 ? (
         <span className="shrink-0 -ml-1 w-4 h-4" aria-hidden="true" />
-      ) : null}
+      ) : (
+        <span className="shrink-0 -ml-1 w-4 h-4 flex items-center justify-center" aria-hidden="true">
+          <span className="w-px h-3.5 rounded-full bg-td-border dark:bg-tn-border" />
+        </span>
+      )}
       <span className="w-6 h-6 rounded-md flex items-center justify-center shrink-0"
         style={{ background: p.color + '25' }}>
         <ProjectIcon icon={p.icon} size={13} />

@@ -303,10 +303,14 @@ def parse_natural_language(text):
     rrule_str, text = rrule_from_text(text)
 
     # 2. Project / labels / assignee
-    m = re.search(r'#(\w+)', text)
+    # Accepts a bare name (#Work) or a one-level subproject path (#Work/Q3).
+    # A second slash is deliberately not matched — the data model is one level
+    # deep, so '#a/b/c' captures 'a/b' and leaves '/c' in the title where it is
+    # visible rather than silently swallowed.
+    m = re.search(r'#(\w+(?:/\w+)?)', text)
     if m:
         result['project_name'] = m.group(1)
-        text = re.sub(r'#\w+', '', text).strip()
+        text = re.sub(r'#\w+(?:/\w+)?', '', text).strip()
     labels = re.findall(r'@(\w+)', text)
     if labels:
         result['labels'] = labels
