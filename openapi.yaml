@@ -111,11 +111,24 @@ paths:
     get:
       tags: [tasks]
       summary: List tasks (filterable)
+      description: >
+        Multi-value params are comma-separated. `status` and `priority` match any
+        of the listed values. `tag` requires all listed tags. `project_id` also
+        includes that project's subprojects.
       parameters:
-        - { in: query, name: project_id, schema: { type: string } }
-        - { in: query, name: status,     schema: { $ref: '#/components/schemas/TaskStatus' } }
-        - { in: query, name: search,     schema: { type: string } }
+        - { in: query, name: project_id,   description: Project id; includes its subprojects, schema: { type: string } }
+        - { in: query, name: status,       description: Comma-separated; matches any, schema: { type: string, example: 'todo,doing' } }
+        - { in: query, name: priority,     description: Comma-separated; matches any, schema: { type: string, example: 'high,medium' } }
+        - { in: query, name: tag,          description: Comma-separated; task must carry all, schema: { type: string, example: 'work,urgent' } }
+        - { in: query, name: assigned_to,  description: User id, or `me`, or `none`, schema: { type: string } }
+        - { in: query, name: due_after,    description: Inclusive lower bound, schema: { type: string, format: date } }
+        - { in: query, name: due_before,   description: Inclusive upper bound, schema: { type: string, format: date } }
+        - { in: query, name: has_due_date, schema: { type: boolean } }
+        - { in: query, name: search,       schema: { type: string } }
+        - { in: query, name: limit,        schema: { type: integer, minimum: 1, maximum: 500 } }
+        - { in: query, name: offset,       schema: { type: integer, minimum: 0 } }
       responses:
+        '400': { $ref: '#/components/responses/BadRequest' }
         '200':
           description: OK
           content:
@@ -792,7 +805,11 @@ components:
 
     TaskStatus:
       type: string
-      enum: [todo, doing, done]
+      enum: [todo, doing, blocked, done]
+
+    TaskPriority:
+      type: string
+      enum: [low, medium, high]
 
     Priority:
       type: string
