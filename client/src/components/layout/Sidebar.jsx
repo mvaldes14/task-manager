@@ -69,6 +69,15 @@ function ProjectFormModal({ project, onClose }) {
   const [name, setName] = useState(project?.name || '')
   const [color, setColor] = useState(project?.color || PROJECT_COLORS[6])
   const [icon, setIcon] = useState(project?.icon || '📁')
+  const iconGridRef = useRef(null)
+
+  // Scroll the current icon into view once when the modal opens — otherwise editing a
+  // project whose icon sits in a lower row shows an apparently empty selection.
+  useEffect(() => {
+    const el = iconGridRef.current?.querySelector('[aria-pressed="true"]')
+    el?.scrollIntoView({ block: 'nearest' })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const [shared, setShared] = useState(project?.shared || false)
   const [parentId, setParentId] = useState(project?.parent_id || '')
   const [description, setDescription] = useState(project?.description || '')
@@ -156,9 +165,16 @@ function ProjectFormModal({ project, onClose }) {
           onKeyDown={e => e.key === 'Enter' && save()}
           className="w-full bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg placeholder-td-muted/50 dark:placeholder-tn-muted/50 text-sm rounded-lg px-3 py-2.5 outline-none mb-3 border border-td-border/50 dark:border-tn-border/50"
         />
-        <div className="flex flex-wrap gap-1.5 mb-3">
+        <div
+          ref={iconGridRef}
+          className="grid grid-cols-8 gap-1.5 mb-3 max-h-[132px] overflow-y-auto overscroll-contain rounded-lg border border-td-border/50 dark:border-tn-border/50 p-2"
+        >
           {PROJECT_ICON_OPTIONS.map(({ name, Icon }) => (
             <button key={name} onClick={() => setIcon(name)}
+              data-icon={name}
+              title={name}
+              aria-label={name}
+              aria-pressed={icon === name}
               className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors
                 ${icon === name
                   ? 'bg-td-surface dark:bg-tn-surface ring-2 ring-td-blue dark:ring-tn-blue text-td-fg dark:text-tn-fg'
