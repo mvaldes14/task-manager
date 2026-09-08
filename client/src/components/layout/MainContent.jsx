@@ -37,10 +37,40 @@ function ViewHeader({ title, icon: Icon, count }) {
     return { done, total: scoped.length, pct: Math.round((done / scoped.length) * 100) }
   }, [project, state.tasks, state.projects])
 
+  const metadata = project && (progress || project.due_date || project.description) && (
+    <>
+      {progress && (
+        <div className="flex items-center gap-2.5 shrink-0">
+          <div className="w-24 md:w-20 h-1.5 rounded-full bg-td-surface dark:bg-tn-surface overflow-hidden shrink-0">
+            <div className="h-full rounded-full transition-all"
+              style={{ width: `${progress.pct}%`, background: project.color }} />
+          </div>
+          <span className="text-xs font-medium text-td-fg/80 dark:text-tn-fg/80 tabular-nums">
+            {progress.done}/{progress.total}
+          </span>
+        </div>
+      )}
+      {project.due_date && (
+        <span className={`text-xs font-medium flex items-center gap-1 shrink-0
+          ${isOverdueDate(project.due_date)
+            ? 'text-td-red dark:text-tn-red'
+            : 'text-td-muted dark:text-tn-muted'}`}>
+          <CalendarClock size={13} />
+          {formatDate(project.due_date)}
+        </span>
+      )}
+      {project.description && (
+        <p className="flex-1 md:w-0 min-w-0 truncate text-xs text-td-muted/90 dark:text-tn-muted/90">
+          {project.description}
+        </p>
+      )}
+    </>
+  )
+
   return (
     <div className="border-b border-td-border/50 dark:border-tn-border/50 shrink-0">
       <div className="flex items-center justify-between px-4 py-3.5 gap-2">
-      <div className="flex-1 flex items-center gap-2.5 min-w-0">
+      <div className="flex-1 md:flex-initial flex items-center gap-2.5 min-w-0">
         {project ? (
           <span className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
             style={{ background: project.color + '25' }}>
@@ -51,12 +81,19 @@ function ViewHeader({ title, icon: Icon, count }) {
             <Icon size={18} />
           </span>
         )}
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 md:flex-initial min-w-0 md:max-w-[200px] lg:max-w-[280px]">
           <h1 className="text-td-fg dark:text-tn-fg font-semibold text-lg truncate">
             {project ? project.name : title}
           </h1>
         </div>
       </div>
+
+      {metadata && (
+        // Reserve the fixed segments before allocating space to the title and description.
+        <div className="hidden md:flex items-center gap-4 flex-1 basis-auto shrink-0 min-w-0">
+          {metadata}
+        </div>
+      )}
 
       <div className="flex items-center gap-1 shrink-0">
         <button
@@ -138,34 +175,10 @@ function ViewHeader({ title, icon: Icon, count }) {
         )}
       </div>
       </div>
-      {project && (progress || project.due_date || project.description) && (
-        <div className="px-4 py-2 flex items-center gap-4"
+      {metadata && (
+        <div className="md:hidden px-4 py-2 flex items-center gap-4"
           style={{ background: project.color + '0d' }}>
-          {progress && (
-            <div className="flex items-center gap-2.5 shrink-0">
-              <div className="w-24 h-1.5 rounded-full bg-td-surface dark:bg-tn-surface overflow-hidden shrink-0">
-                <div className="h-full rounded-full transition-all"
-                  style={{ width: `${progress.pct}%`, background: project.color }} />
-              </div>
-              <span className="text-xs font-medium text-td-fg/80 dark:text-tn-fg/80 tabular-nums">
-                {progress.done}/{progress.total}
-              </span>
-            </div>
-          )}
-          {project.due_date && (
-            <span className={`text-xs font-medium flex items-center gap-1 shrink-0
-              ${isOverdueDate(project.due_date)
-                ? 'text-td-red dark:text-tn-red'
-                : 'text-td-muted dark:text-tn-muted'}`}>
-              <CalendarClock size={13} />
-              {formatDate(project.due_date)}
-            </span>
-          )}
-          {project.description && (
-            <p className="flex-1 min-w-0 truncate text-xs text-td-muted/90 dark:text-tn-muted/90">
-              {project.description}
-            </p>
-          )}
+          {metadata}
         </div>
       )}
     </div>
