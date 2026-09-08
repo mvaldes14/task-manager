@@ -38,51 +38,23 @@ function ViewHeader({ title, icon: Icon, count }) {
   }, [project, state.tasks, state.projects])
 
   return (
-    <div className="flex items-center justify-between px-4 py-3.5 border-b border-td-border/50 dark:border-tn-border/50 shrink-0 gap-2">
+    <div className="border-b border-td-border/50 dark:border-tn-border/50 shrink-0">
+      <div className="flex items-center justify-between px-4 py-3.5 gap-2">
       <div className="flex-1 flex items-center gap-2.5 min-w-0">
         {project ? (
-          <span className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+          <span className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
             style={{ background: project.color + '25' }}>
-            <ProjectIcon icon={project.icon} size={14} />
+            <ProjectIcon icon={project.icon} size={18} />
           </span>
         ) : Icon && (
-          <span className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-td-surface dark:bg-tn-surface text-td-muted dark:text-tn-muted">
-            <Icon size={14} />
+          <span className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-td-surface dark:bg-tn-surface text-td-muted dark:text-tn-muted">
+            <Icon size={18} />
           </span>
         )}
         <div className="flex-1 min-w-0">
-          <h1 className="text-td-fg dark:text-tn-fg font-semibold text-base truncate">
+          <h1 className="text-td-fg dark:text-tn-fg font-semibold text-lg truncate">
             {project ? project.name : title}
           </h1>
-          {project && (progress || project.due_date) && (
-            <div className="flex items-center gap-2.5 mt-1">
-              {progress && (
-                <>
-                  <div className="w-16 h-1 rounded-full bg-td-surface dark:bg-tn-surface overflow-hidden shrink-0">
-                    <div className="h-full rounded-full transition-all"
-                      style={{ width: `${progress.pct}%`, background: project.color }} />
-                  </div>
-                  <span className="text-[11px] tabular-nums text-td-muted/70 dark:text-tn-muted/70 shrink-0">
-                    {progress.done}/{progress.total}
-                  </span>
-                </>
-              )}
-              {project.due_date && (
-                <span className={`text-[11px] flex items-center gap-1 shrink-0
-                  ${isOverdueDate(project.due_date)
-                    ? 'text-td-red dark:text-tn-red'
-                    : 'text-td-muted/70 dark:text-tn-muted/70'}`}>
-                  <CalendarClock size={11} />
-                  {formatDate(project.due_date)}
-                </span>
-              )}
-            </div>
-          )}
-          {project && project.description && (
-            <p className="text-[11px] text-td-muted/60 dark:text-tn-muted/60 truncate">
-              {project.description}
-            </p>
-          )}
         </div>
       </div>
 
@@ -165,6 +137,37 @@ function ViewHeader({ title, icon: Icon, count }) {
           </div>
         )}
       </div>
+      </div>
+      {project && (progress || project.due_date || project.description) && (
+        <div className="px-4 py-2 flex items-center gap-4"
+          style={{ background: project.color + '0d' }}>
+          {progress && (
+            <div className="flex items-center gap-2.5 shrink-0">
+              <div className="w-24 h-1.5 rounded-full bg-td-surface dark:bg-tn-surface overflow-hidden shrink-0">
+                <div className="h-full rounded-full transition-all"
+                  style={{ width: `${progress.pct}%`, background: project.color }} />
+              </div>
+              <span className="text-xs font-medium text-td-fg/80 dark:text-tn-fg/80 tabular-nums">
+                {progress.done}/{progress.total}
+              </span>
+            </div>
+          )}
+          {project.due_date && (
+            <span className={`text-xs font-medium flex items-center gap-1 shrink-0
+              ${isOverdueDate(project.due_date)
+                ? 'text-td-red dark:text-tn-red'
+                : 'text-td-muted dark:text-tn-muted'}`}>
+              <CalendarClock size={13} />
+              {formatDate(project.due_date)}
+            </span>
+          )}
+          {project.description && (
+            <p className="flex-1 min-w-0 truncate text-xs text-td-muted/90 dark:text-tn-muted/90">
+              {project.description}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   )
 }
