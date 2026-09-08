@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useApp } from '../../context/AppContext'
 import { useTasks } from '../../hooks/useTasks'
 import { isOverdue, isToday } from '../../utils'
@@ -143,11 +144,16 @@ function ProjectFormModal({ project, onClose }) {
     })
   }
 
-  return (
+  return createPortal(
     <>
       <div className="fixed inset-0 z-[110] bg-black/50" onClick={onClose} />
-      <div className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-[111] bg-td-bg2 dark:bg-tn-bg2 rounded-2xl p-5 max-w-sm mx-auto">
-        <div className="flex items-center justify-between mb-4">
+      <div className="fixed inset-0 z-[111] flex items-center justify-center p-4 pointer-events-none">
+        <div
+          className="pointer-events-auto w-full max-w-sm bg-td-bg2 dark:bg-tn-bg2 rounded-2xl
+            border border-td-border dark:border-tn-border shadow-e3 flex flex-col max-h-[88vh] overflow-hidden"
+          style={{ animation: 'slideUp 0.18s ease-out' }}
+        >
+        <div className="flex items-center justify-between px-5 py-4 border-b border-td-border/50 dark:border-tn-border/50 shrink-0">
           <h3 className="text-td-fg dark:text-tn-fg font-semibold">
             {isEdit ? 'Edit Project' : 'New Project'}
           </h3>
@@ -158,6 +164,8 @@ function ProjectFormModal({ project, onClose }) {
             </button>
           )}
         </div>
+
+        <div className="flex-1 overflow-y-auto px-5 py-4">
         <input
           autoFocus
           type="text" value={name} onChange={e => setName(e.target.value)}
@@ -249,7 +257,9 @@ function ProjectFormModal({ project, onClose }) {
             </span>
           </button>
         )}
-        <div className="flex gap-2">
+        </div>
+
+        <div className="flex gap-2 px-5 py-4 border-t border-td-border/50 dark:border-tn-border/50 shrink-0">
           <button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-td-muted dark:text-tn-muted text-sm bg-td-surface dark:bg-tn-surface">Cancel</button>
           <button onClick={save} disabled={!name.trim() || saving}
             className="flex-1 py-2.5 rounded-xl text-white text-sm font-semibold bg-td-blue dark:bg-tn-blue disabled:opacity-40">
@@ -257,7 +267,16 @@ function ProjectFormModal({ project, onClose }) {
           </button>
         </div>
       </div>
-    </>
+    </div>
+
+    <style>{`
+      @keyframes slideUp {
+        from { opacity: 0; transform: translateY(12px) scale(0.97); }
+        to   { opacity: 1; transform: translateY(0)    scale(1); }
+      }
+    `}</style>
+  </>,
+  document.body
   )
 }
 
