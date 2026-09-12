@@ -485,6 +485,7 @@ export function TaskDetail() {
   const { state, dispatch, confirm, toast } = useApp()
   const { updateTask, deleteTask } = useTasks()
   const task = state.tasks.find(t => t.id === state.selectedTaskId)
+  const taskOpen = !!state.selectedTaskId
 
   const [title, setTitle]               = useState('')
   const [description, setDescription]   = useState('')
@@ -501,6 +502,7 @@ export function TaskDetail() {
   const [subtaskInput, setSubtaskInput] = useState('')
   const [subtaskResults, setSubtaskResults] = useState([])
   const [aiOpen, setAiOpen] = useState(false)
+  const [keyboardHeight, setKeyboardHeight] = useState(0)
   const [saveIndicator, setSaveIndicator] = useState('idle') // 'idle' | 'saving' | 'saved'
   const subtaskDebounce = useRef(null)
   const subtaskInputRef = useRef(null)
@@ -537,6 +539,28 @@ export function TaskDetail() {
     setRecurrence(task.recurrence || null)
     setRecurrenceEnd(task.recurrence_end || '')
   }, [task?.id])
+
+  // Track mobile keyboard height via visualViewport so the fixed sheet is pinned
+  // to the visual viewport instead of extending under the iOS on-screen keyboard.
+  useEffect(() => {
+    if (!taskOpen) {
+      setKeyboardHeight(0)
+      return
+    }
+    const vv = window.visualViewport
+    if (!vv) return
+    const update = () => {
+      const kh = Math.max(0, window.innerHeight - vv.height - vv.offsetTop)
+      setKeyboardHeight(kh)
+    }
+    vv.addEventListener('resize', update)
+    vv.addEventListener('scroll', update)
+    update()
+    return () => {
+      vv.removeEventListener('resize', update)
+      vv.removeEventListener('scroll', update)
+    }
+  }, [taskOpen])
 
   const close = () => dispatch({ type: 'SELECT_TASK', payload: null })
 
@@ -612,6 +636,7 @@ export function TaskDetail() {
       <aside
         ref={sheetRef}
         style={{
+          bottom: keyboardHeight,
           transform: sheetOffset ? `translateY(${sheetOffset}px)` : undefined,
           transition: sheetPhase === 'snapping'
             ? 'transform 260ms cubic-bezier(0.32, 0.72, 0, 1)'
