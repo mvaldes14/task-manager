@@ -202,10 +202,14 @@ export function TaskCard({ task, selected = false, onToggleSelect = () => {}, se
             )}
           </div>
 
-          {/* Reschedule pills — always visible on touch, revealed on hover for pointer devices */}
+          {/* Reschedule pills — always visible below the row for overdue
+              tasks, consistent with the Inbox/Today (PriorityTodayView)
+              pattern. No hover-hide: opacity toggling left a reserved-but-
+              invisible gap on non-hovered rows, so overdue tasks just show
+              the pills outright instead. */}
           {overdue && !done && (
             <div
-              className="flex flex-wrap gap-1.5 mt-2 transition-opacity duration-fast [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100"
+              className="flex flex-wrap gap-1.5 mt-2"
               onClick={e => e.stopPropagation()}
             >
               {rescheduleOptions().map(({ label, isoDate }) => (
