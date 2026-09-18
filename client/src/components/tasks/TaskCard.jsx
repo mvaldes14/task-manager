@@ -200,28 +200,31 @@ export function TaskCard({ task, selected = false, onToggleSelect = () => {}, se
                 ◦ {subtasksDone}/{subtasksTotal}
               </span>
             )}
-          </div>
 
-          {/* Reschedule pills — always visible on touch, revealed on hover for pointer devices */}
-          {overdue && !done && (
-            <div
-              className="flex flex-wrap gap-1.5 mt-2 transition-opacity duration-fast [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100"
-              onClick={e => e.stopPropagation()}
-            >
-              {rescheduleOptions().map(({ label, isoDate }) => (
-                <button
-                  key={label}
-                  onClick={() => updateTask(task.id, { due_date: isoDate })}
-                  className="inline-flex items-center min-h-[40px] text-[10px] font-medium px-2 rounded-full border
-                    border-td-red/40 dark:border-tn-red/40 text-td-red dark:text-tn-red
-                    hover:bg-td-red/10 dark:hover:bg-tn-red/10 active:bg-td-red/20 dark:active:bg-tn-red/20
-                    motion-safe:active:scale-95 transition-all duration-fast"
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          )}
+            {/* Reschedule pills — merged into the meta row so they reuse
+                existing horizontal space instead of reserving a separate
+                row when hidden. Always visible on touch, revealed on
+                hover for pointer devices. */}
+            {overdue && !done && (
+              <div
+                className="flex flex-wrap gap-1.5 ml-auto transition-opacity duration-fast [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100"
+                onClick={e => e.stopPropagation()}
+              >
+                {rescheduleOptions().map(({ label, isoDate }) => (
+                  <button
+                    key={label}
+                    onClick={() => updateTask(task.id, { due_date: isoDate })}
+                    className="inline-flex items-center min-h-[40px] text-[10px] font-medium px-2 rounded-full border
+                      border-td-red/40 dark:border-tn-red/40 text-td-red dark:text-tn-red
+                      hover:bg-td-red/10 dark:hover:bg-tn-red/10 active:bg-td-red/20 dark:active:bg-tn-red/20
+                      motion-safe:active:scale-95 transition-all duration-fast"
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Chevron — hidden at rest, revealed on row hover */}
