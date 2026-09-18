@@ -200,7 +200,6 @@ export function TaskCard({ task, selected = false, onToggleSelect = () => {}, se
                 ◦ {subtasksDone}/{subtasksTotal}
               </span>
             )}
-          </div>
 
           {/* Reschedule pills — always visible below the row for overdue
               tasks, consistent with the Inbox/Today (PriorityTodayView)
