@@ -5,6 +5,7 @@ import { api } from '../../api'
 import { isOverdue, fmtTime, priorityColor, rescheduleOptions } from '../../utils'
 import { Clock, ChevronRight } from 'lucide-react'
 import { SwipeableRow } from './SwipeableRow'
+import { LinkPills } from '../ui'
 
 function RescheduleSheet({ taskId, onClose }) {
   const { updateTask } = useTasks()
@@ -143,6 +144,7 @@ function FocusCard({ task }) {
                     {(task.tags || []).map(tag => (
                       <span key={tag} className="text-td-purple dark:text-tn-purple">@{tag}</span>
                     ))}
+                    <LinkPills links={task.links} className="text-[11px]" />
                   </div>
 
                   {subtasksTotal > 0 && (
@@ -267,6 +269,7 @@ function SupportingRow({ task, isLast }) {
                 {overdue && (
                   <span className="text-[11px] text-td-red dark:text-tn-red font-medium">overdue</span>
                 )}
+                <LinkPills links={task.links} className="text-[11px]" />
               </div>
             </div>
 

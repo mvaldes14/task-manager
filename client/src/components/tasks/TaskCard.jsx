@@ -2,19 +2,13 @@ import { useState, useCallback } from 'react'
 import { useApp } from '../../context/AppContext'
 import { ProjectIcon } from '../shared/ProjectIcon'
 import { useTasks } from '../../hooks/useTasks'
-import { formatDate, isOverdue, priorityColor, recurrenceLabel, fmtTime, getLinkLabel, rescheduleOptions } from '../../utils'
-import { Paperclip, GitBranch, Link2, Sparkles, Flag } from 'lucide-react'
+import { formatDate, isOverdue, priorityColor, recurrenceLabel, fmtTime, rescheduleOptions } from '../../utils'
+import { Sparkles, Flag } from 'lucide-react'
 import { AiResultModal } from './AiResultModal'
 import { SwipeableRow } from './SwipeableRow'
-import { Chip } from '../ui'
+import { Chip, LinkPills } from '../ui'
 import { TASK_DRAG_TYPE } from '../../constants/dnd'
 import { useLongPress } from '../../hooks/useLongPress'
-
-function LinkIcon({ url }) {
-  if (url.startsWith('obsidian://')) return <Paperclip size={10} />
-  if (url.includes('github.com'))   return <GitBranch size={10} />
-  return <Link2 size={10} />
-}
 
 export function TaskCard({ task, selected = false, onToggleSelect = () => {}, selectionActive = false, selectionEnabled = false }) {
   const { state, dispatch, confirm } = useApp()
@@ -172,18 +166,8 @@ export function TaskCard({ task, selected = false, onToggleSelect = () => {}, se
               <Chip variant="neutral" label={recurrenceLabel(task.recurrence)} className="px-1.5 py-0.5 rounded-md" />
             )}
 
-            {/* Links — neutral chips; stop propagation so row click doesn't fire */}
-            {(task.links || []).map((link, i) => (
-              <Chip
-                key={i}
-                variant="neutral"
-                icon={<LinkIcon url={link.url} />}
-                label={getLinkLabel(link.url)}
-                href={link.url}
-                onClick={e => e.stopPropagation()}
-                className="px-1.5 py-0.5 rounded-md"
-              />
-            ))}
+            {/* Links */}
+            <LinkPills links={task.links} />
 
             {/* Assignee — neutral chip, only shown when assigned to someone else */}
             {task.assigned_to && task.assigned_to !== state.currentUser?.id && (() => {
@@ -200,6 +184,7 @@ export function TaskCard({ task, selected = false, onToggleSelect = () => {}, se
                 ◦ {subtasksDone}/{subtasksTotal}
               </span>
             )}
+          </div>
 
           {/* Reschedule pills — always visible below the row for overdue
               tasks, consistent with the Inbox/Today (PriorityTodayView)

@@ -4,9 +4,10 @@ import { useTasks } from '../../hooks/useTasks'
 import { useSheetDismiss } from '../../hooks/useSheetDismiss'
 import { api } from '../../api'
 import { formatDate, fmtTime, isOverdue, recurrenceLabel, getLinkLabel, getLinkStyle, priorityColor } from '../../utils'
-import { X, Trash2, Plus, Check, ChevronRight, Paperclip, GitBranch, Link2, ExternalLink, Sparkles, Pencil } from 'lucide-react'
+import { X, Trash2, Plus, Check, ChevronRight, ExternalLink, Sparkles, Pencil } from 'lucide-react'
 import { DateTimePicker } from '../shared/DateTimePicker'
 import { AiResultModal } from './AiResultModal'
+import { LinkIcon } from '../ui'
 
 const STATUSES = ['todo', 'doing', 'blocked', 'done']
 const PRIORITIES = ['low', 'medium', 'high']
@@ -324,12 +325,6 @@ function SubtaskRow({ sub, taskId }) {
   )
 }
 
-function LinkIcon({ url }) {
-  if (url.startsWith('obsidian://')) return <Paperclip size={12} />
-  if (url.includes('github.com'))   return <GitBranch size={12} />
-  return <Link2 size={12} />
-}
-
 function LinksSection({ task, onUpdate }) {
   const { state } = useApp()
   const isDark = state.theme === 'dark'
@@ -373,7 +368,7 @@ function LinksSection({ task, onUpdate }) {
             <a href={link.url} target="_blank" rel="noopener noreferrer"
               className="flex-1 flex items-center gap-2 text-xs px-3 py-2 rounded-lg hover:opacity-80 transition-opacity"
               style={{ color: s.color, background: s.bg }}>
-              <LinkIcon url={link.url} />
+              <LinkIcon url={link.url} size={12} />
               <span>{getLinkLabel(link.url)}</span>
               <ChevronRight size={12} className="ml-auto shrink-0 opacity-50" />
             </a>
