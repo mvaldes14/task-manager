@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { useApp } from '../../context/AppContext'
 import { useTasks } from '../../hooks/useTasks'
 import { ProjectIcon } from '../shared/ProjectIcon'
-import { Skeleton } from '../ui'
+import { LinkPills, Skeleton } from '../ui'
 import { formatDate, fmtTime, isOverdue, priorityColor } from '../../utils'
 import { STATUS_LABELS, STATUS_ORDER } from './grouping'
 import { ArrowUp, ArrowDown, Eye, EyeOff } from 'lucide-react'
@@ -27,6 +27,7 @@ const COLUMNS = [
   { key: 'due',      label: 'Due',      sortable: true,  width: 'w-[155px]' },
   { key: 'project',  label: 'Project',  sortable: true,  width: 'w-[165px]' },
   { key: 'tags',     label: 'Tags',     sortable: false, width: 'w-[175px]' },
+  { key: 'links',    label: 'Links',    sortable: false, width: 'w-[190px]' },
   { key: 'assignee', label: 'Assignee', sortable: true,  width: 'w-[140px]' },
 ]
 
@@ -278,6 +279,17 @@ function TaskRow({ task, selection }) {
         </div>
       </td>
 
+      {/* Links */}
+      <td className={CELL}>
+        <div className="flex items-center gap-1 min-w-0">
+          {(task.links || []).some(link => link?.url) ? (
+            <LinkPills links={task.links} max={2} />
+          ) : (
+            <span className="text-xs text-td-muted/40 dark:text-tn-muted/40">—</span>
+          )}
+        </div>
+      </td>
+
       {/* Assignee */}
       <td className={CELL}>
         {assignee ? (
@@ -363,7 +375,7 @@ export function TaskTable({ tasks, emptyMessage = 'No tasks here', selection = n
         </div>
       ) : (
         <div className="flex-1 min-h-0 overflow-auto overscroll-contain px-4 pb-6">
-          <table className="w-full min-w-[1120px] border-collapse">
+          <table className="w-full min-w-[1270px] border-collapse">
             <thead className="sticky top-0 z-10 bg-td-bg dark:bg-tn-bg">
               <tr className="border-b border-td-border dark:border-tn-border">
                 {selectionEnabled && (
