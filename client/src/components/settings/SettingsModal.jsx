@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { X, CalendarDays, Puzzle, Bell, Link, Upload, Trash2, Plus, CheckCircle2, RefreshCw, UserCircle, Users } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { api } from '../../api'
+import { Select } from '../ui'
 
 const TABS = [
   { id: 'account',       label: 'Account',       icon: UserCircle },
@@ -506,11 +507,15 @@ function NotificationsTab() {
         {reminderEnabled && (
           <div className="space-y-3 pl-0.5">
             <Field label="Timezone">
-              <select value={tz} onChange={e => setTz(e.target.value)} className={inputCls}>
-                {TIMEZONES.map(([val, lbl]) => (
-                  <option key={val} value={val}>{lbl}</option>
-                ))}
-              </select>
+              <Select
+                value={tz}
+                onChange={setTz}
+                options={TIMEZONES.map(([val, lbl]) => ({ value: val, label: lbl }))}
+                variant="field"
+                ariaLabel="Timezone"
+                title="Timezone"
+                className={inputCls}
+              />
             </Field>
 
             <Field label="Remind before due time (timed tasks)" hint="Minutes before the task's due time to send the notification">

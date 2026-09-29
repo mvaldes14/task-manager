@@ -9,7 +9,7 @@ export function useKeyboardShortcuts() {
       // Desktop only — no shortcuts on mobile/touch devices
       if (window.innerWidth < 768) return
       const tag = e.target.tagName
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable || e.target.closest('[role="combobox"]')) return
       if (e.metaKey || e.ctrlKey || e.altKey) return
 
       switch (e.key) {

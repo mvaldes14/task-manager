@@ -7,7 +7,7 @@ import { Plus, LogOut, Sun, Moon, Settings, Trash2, CheckCircle2, RefreshCw, Cal
 import { api } from '../../api'
 import { ProjectIcon, PROJECT_ICON_OPTIONS } from '../shared/ProjectIcon'
 import { SettingsModal } from '../settings/SettingsModal'
-import { Logo } from '../ui'
+import { Logo, Select } from '../ui'
 import { TASK_DRAG_TYPE } from '../../constants/dnd'
 
 const PROJECT_COLORS = ['#f7768e','#ff9e64','#e0af68','#9ece6a','#73daca','#7dcfff','#7aa2f7','#bb9af7','#c0caf5']
@@ -219,16 +219,15 @@ function ProjectFormModal({ project, onClose }) {
           )}
         </div>
         {!hasChildren && parentOptions.length > 0 && (
-          <select
+          <Select
             value={parentId}
-            onChange={e => setParentId(e.target.value)}
-            className="w-full bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg text-sm rounded-lg px-3 py-2.5 outline-none mb-4 border border-td-border/50 dark:border-tn-border/50"
-          >
-            <option value="">No parent (top level)</option>
-            {parentOptions.map(p => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
-          </select>
+            onChange={setParentId}
+            options={[{ value: '', label: 'No parent (top level)' }, ...parentOptions.map(p => ({ value: p.id, label: p.name }))]}
+            variant="field"
+            ariaLabel="Parent project"
+            title="Parent project"
+            className="rounded-lg mb-4 border-td-border/50 dark:border-tn-border/50"
+          />
         )}
         {hasChildren && (
           <p className="text-[11px] text-td-muted/60 dark:text-tn-muted/60 mb-4 px-1">

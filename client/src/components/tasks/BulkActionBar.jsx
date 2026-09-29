@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo } from 'react'
 import { Check, X, FolderInput, ChevronDown } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { api } from '../../api'
+import { Select } from '../ui'
 
 /**
  * Floating bar shown while tasks are selected. Two actions only — move to a
@@ -84,10 +85,8 @@ export function BulkActionBar({ selectedIds, onClear }) {
     const idSet = new Set(list.map(p => p.id))
     const roots = list.filter(p => !p.parent_id || !idSet.has(p.parent_id))
     return roots.flatMap(r => [
-      <option key={r.id} value={r.id}>{r.name}</option>,
-      ...list.filter(c => c.parent_id === r.id).map(c => (
-        <option key={c.id} value={c.id}>{`  — ${c.name}`}</option>
-      )),
+      { value: r.id, label: r.name, depth: 0 },
+      ...list.filter(c => c.parent_id === r.id).map(c => ({ value: c.id, label: c.name, depth: 1 })),
     ])
   })()
 
@@ -99,7 +98,7 @@ export function BulkActionBar({ selectedIds, onClear }) {
         {count} selected
       </span>
 
-      {/* Move to… — overlay <select> matching TaskDetail's picker */}
+      {/* Move to… — overlay Select matching TaskDetail's picker */}
       <div className="relative">
         <button
           className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg
@@ -111,15 +110,14 @@ export function BulkActionBar({ selectedIds, onClear }) {
           Move to…
           <ChevronDown size={12} className="text-td-muted dark:text-tn-muted" />
         </button>
-        <select
-          aria-label="Move selected tasks to a project"
+        <Select
+          ariaLabel="Move selected tasks to a project"
+          title="Move to…"
           value=""
-          onChange={e => handleMove(e.target.value)}
-          className="absolute inset-0 opacity-0 cursor-pointer w-full"
-        >
-          <option value="" disabled>Move to…</option>
-          {projectOptions}
-        </select>
+          onChange={handleMove}
+          options={projectOptions}
+          variant="overlay"
+        />
       </div>
 
       {/* Complete */}
