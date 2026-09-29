@@ -9,8 +9,9 @@ import { getGroupKeys } from '../tasks/grouping'
 import { KanbanBoard } from '../tasks/KanbanBoard'
 import { CalendarView } from '../calendar/CalendarView'
 import { DashboardView } from '../dashboard/DashboardView'
-import { LayoutList, Columns, Table2, Search, X, ChevronDown, Inbox, Sun, Layers, CalendarDays, CalendarClock, AlertCircle, SlidersHorizontal } from 'lucide-react'
+import { LayoutList, Columns, Table2, Search, X, Inbox, Sun, Layers, CalendarDays, CalendarClock, AlertCircle, SlidersHorizontal } from 'lucide-react'
 import { ProjectIcon } from '../shared/ProjectIcon'
+import { Select } from '../ui'
 import { PriorityTodayView } from '../tasks/PriorityTodayView'
 import { UpcomingView } from '../tasks/UpcomingView'
 
@@ -260,18 +261,14 @@ function ListToolbar({ showDone, onToggleDone, sortBy, onSortBy, groupBy, onGrou
       {/* Group */}
       <div className="flex items-center gap-1.5 text-xs text-td-muted dark:text-tn-muted">
         <span>Group:</span>
-        <div className="relative">
-          <select
-            value={groupBy}
-            onChange={e => onGroupBy(e.target.value)}
-            className="appearance-none bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg
-              text-xs pl-2.5 pr-6 min-h-[40px] rounded-lg outline-none cursor-pointer
-              border border-td-border/50 dark:border-tn-border/50"
-          >
-            {GROUP_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
-          <ChevronDown size={10} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-td-muted dark:text-tn-muted pointer-events-none" />
-        </div>
+        <Select
+          value={groupBy}
+          onChange={onGroupBy}
+          options={GROUP_OPTIONS}
+          variant="compact"
+          ariaLabel="Group tasks"
+          title="Group"
+        />
       </div>
 
       <div className="h-3.5 w-px bg-td-border dark:bg-tn-border" />
@@ -279,18 +276,14 @@ function ListToolbar({ showDone, onToggleDone, sortBy, onSortBy, groupBy, onGrou
       {/* Sort */}
       <div className="flex items-center gap-1.5 text-xs text-td-muted dark:text-tn-muted">
         <span>Sort:</span>
-        <div className="relative">
-          <select
-            value={sortBy}
-            onChange={e => onSortBy(e.target.value)}
-            className="appearance-none bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg
-              text-xs pl-2.5 pr-6 min-h-[40px] rounded-lg outline-none cursor-pointer
-              border border-td-border/50 dark:border-tn-border/50"
-          >
-            {SORT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
-          <ChevronDown size={10} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-td-muted dark:text-tn-muted pointer-events-none" />
-        </div>
+        <Select
+          value={sortBy}
+          onChange={onSortBy}
+          options={SORT_OPTIONS}
+          variant="compact"
+          ariaLabel="Sort tasks"
+          title="Sort"
+        />
       </div>
 
       {/* Collapse / expand all groups */}

@@ -7,7 +7,7 @@ import { formatDate, fmtTime, isOverdue, recurrenceLabel, getLinkLabel, getLinkS
 import { X, Trash2, Plus, Check, ChevronRight, ExternalLink, Sparkles, Pencil } from 'lucide-react'
 import { DateTimePicker } from '../shared/DateTimePicker'
 import { AiResultModal } from './AiResultModal'
-import { LinkIcon, TaskKey } from '../ui'
+import { LinkIcon, Select, TaskKey } from '../ui'
 import { STATUS_DISPLAY_LABELS, STATUS_ORDER } from './grouping'
 
 const STATUSES = STATUS_ORDER
@@ -52,8 +52,8 @@ function _rruleProps(str) {
 
 // ── PropertyRow ───────────────────────────────────────────────────────────────
 // Single horizontal row in the property sheet: label-left (fixed width),
-// value-right (flexible). Wrapping div is `relative` so overlay <select>
-// children can use `absolute inset-0` to make the whole row tappable.
+// value-right (flexible). Wrapping div is `relative` so overlay controls
+// can use `absolute inset-0` to make the whole row tappable.
 function PropertyRow({ label, children }) {
   return (
     <div className="relative flex items-center min-h-[44px] px-3.5 gap-3">
@@ -619,6 +619,27 @@ export function TaskDetail() {
   const assigneeUser  = state.users.find(u => u.id === assignedTo)
   const assigneeName  = assigneeUser?.display_name || assigneeUser?.username || 'Unassigned'
   const dueDateOverdue = isOverdue({ due_date: dueDate, status })
+  const statusOptions = STATUSES.map(s => ({
+    value: s,
+    label: STATUS_DISPLAY_LABELS[s] || s,
+    dotClass: STATUS_DOT[s],
+  }))
+  const projectOptions = (() => {
+    const list = state.projects.filter(p => p.id !== 'inbox')
+    const ids = new Set(list.map(p => p.id))
+    const roots = list.filter(p => !p.parent_id || !ids.has(p.parent_id))
+    return [
+      { value: '', label: 'No project' },
+      ...roots.flatMap(r => [
+        { value: r.id, label: r.name, depth: 0 },
+        ...list.filter(c => c.parent_id === r.id).map(c => ({ value: c.id, label: c.name, depth: 1 })),
+      ]),
+    ]
+  })()
+  const assigneeOptions = [
+    { value: '', label: 'Unassigned' },
+    ...state.users.map(u => ({ value: u.id, label: u.display_name || u.username })),
+  ]
 
   return (
     <>
@@ -777,18 +798,19 @@ export function TaskDetail() {
           {/* No overflow-hidden so absolute popover (DateTimePicker) isn't clipped */}
           <div className="rounded-xl border border-td-border/50 dark:border-tn-border/50 divide-y divide-td-border/30 dark:divide-tn-border/30 bg-td-surface dark:bg-tn-surface">
 
-            {/* Status — overlay <select> makes the whole row tappable */}
+            {/* Status — overlay Select makes the whole row tappable */}
             <PropertyRow label="Status">
               <span className={`w-2 h-2 rounded-full shrink-0 ${STATUS_DOT[status]}`} />
               <span>{STATUS_DISPLAY_LABELS[status] || status}</span>
               <ChevronRight size={12} className="text-td-muted/30 dark:text-tn-muted/30 shrink-0" />
-              <select
+              <Select
                 value={status}
-                onChange={e => { const v = e.target.value; setStatus(v); autoSave(task.id, { status: v }) }}
-                className="absolute inset-0 opacity-0 cursor-pointer w-full"
-              >
-                {STATUSES.map(s => <option key={s} value={s}>{STATUS_DISPLAY_LABELS[s] || s}</option>)}
-              </select>
+                onChange={v => { setStatus(v); autoSave(task.id, { status: v }) }}
+                options={statusOptions}
+                variant="overlay"
+                ariaLabel="Status"
+                title="Status"
+              />
             </PropertyRow>
 
             {/* Due Date — renderTrigger gives DateTimePicker a property-row trigger */}
@@ -844,52 +866,42 @@ export function TaskDetail() {
               }}
             />
 
-            {/* Project — overlay <select> */}
+            {/* Project — overlay Select */}
             <PropertyRow label="Project">
               <span className="truncate text-td-fg dark:text-tn-fg">{projectName}</span>
               <ChevronRight size={12} className="text-td-muted/30 dark:text-tn-muted/30 shrink-0" />
-              <select
+              <Select
                 value={projectId}
-                onChange={e => { const v = e.target.value; setProjectId(v); autoSave(task.id, { project_id: v || null }) }}
-                className="absolute inset-0 opacity-0 cursor-pointer w-full"
-              >
-                <option value="">No project</option>
-                {(() => {
-                  const list = state.projects.filter(p => p.id !== 'inbox')
-                  const ids = new Set(list.map(p => p.id))
-                  const roots = list.filter(p => !p.parent_id || !ids.has(p.parent_id))
-                  return roots.flatMap(r => [
-                    <option key={r.id} value={r.id}>{r.name}</option>,
-                    ...list.filter(c => c.parent_id === r.id).map(c => (
-                      <option key={c.id} value={c.id}>{`  — ${c.name}`}</option>
-                    )),
-                  ])
-                })()}
-              </select>
+                onChange={v => {
+                  const next = v || 'inbox'
+                  setProjectId(next)
+                  autoSave(task.id, { project_id: next })
+                }}
+                options={projectOptions}
+                variant="overlay"
+                ariaLabel="Project"
+                title="Project"
+              />
             </PropertyRow>
 
-            {/* Assignee — overlay <select> */}
+            {/* Assignee — overlay Select */}
             <PropertyRow label="Assignee">
               <span className={`truncate ${assignedTo ? 'text-td-fg dark:text-tn-fg' : 'text-td-muted/40 dark:text-tn-muted/40'}`}>
                 {assigneeName}
               </span>
               <ChevronRight size={12} className="text-td-muted/30 dark:text-tn-muted/30 shrink-0" />
-              <select
+              <Select
                 value={assignedTo}
-                onChange={e => {
-                  const v = e.target.value || null
-                  setAssignedTo(v || '')
-                  autoSave(task.id, { assigned_to: v })
+                onChange={v => {
+                  const next = v || null
+                  setAssignedTo(next || '')
+                  autoSave(task.id, { assigned_to: next })
                 }}
-                className="absolute inset-0 opacity-0 cursor-pointer w-full"
-              >
-                <option value="">Unassigned</option>
-                {state.users.map(u => (
-                  <option key={u.id} value={u.id}>
-                    {u.display_name || u.username}
-                  </option>
-                ))}
-              </select>
+                options={assigneeOptions}
+                variant="overlay"
+                ariaLabel="Assignee"
+                title="Assignee"
+              />
             </PropertyRow>
 
           </div>
