@@ -124,7 +124,7 @@ paths:
         - { in: query, name: due_after,    description: Inclusive lower bound, schema: { type: string, format: date } }
         - { in: query, name: due_before,   description: Inclusive upper bound, schema: { type: string, format: date } }
         - { in: query, name: has_due_date, schema: { type: boolean } }
-        - { in: query, name: search,       schema: { type: string } }
+        - { in: query, name: search,       description: Matches title/description; a task key like DO-123 also matches seq, schema: { type: string } }
         - { in: query, name: limit,        schema: { type: integer, minimum: 1, maximum: 500 } }
         - { in: query, name: offset,       schema: { type: integer, minimum: 0 } }
       responses:
@@ -849,7 +849,7 @@ components:
       name: tid
       in: path
       required: true
-      schema: { type: string, format: uuid }
+      schema: { type: string, description: Accepts a canonical task UUID, DO-142, or 142. }
     SubtaskId:
       name: sid
       in: path
@@ -913,6 +913,7 @@ components:
       type: object
       properties:
         id:               { type: string, format: uuid }
+        seq:              { type: integer, readOnly: true, description: "Permanent human-readable task number. Display as <task_key_prefix>-<seq>." }
         title:            { type: string }
         description:      { type: string }
         status:           { $ref: '#/components/schemas/TaskStatus' }
@@ -1032,6 +1033,7 @@ components:
         reminder_allday_time:    { type: string, example: "08:00" }
         reminder_timezone:       { type: string, example: "America/Chicago" }
         gcal_enabled:            { type: boolean, readOnly: true }
+        task_key_prefix:         { type: string, default: "DO", description: Prefix used by clients when formatting task seq values }
 
     DashboardStats:
       type: object

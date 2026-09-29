@@ -1,13 +1,13 @@
 """Task, subtask, and reorder routes."""
 
-import json, logging, uuid, threading
+import json, logging, uuid, threading, re
 import urllib.request as _urllib_req
 from datetime import datetime, date, timezone
 
 import psycopg2.extras
 from flask import Blueprint, request, jsonify, g
 
-from lib.db import get_db, release_db, row_to_dict, get_settings
+from lib.db import get_db, release_db, row_to_dict, get_settings, resolve_task_id
 from lib.nlp import parse_natural_language, next_due_date
 from lib.gcal import gcal_upsert, gcal_delete, gcal_save, GCAL_CALENDAR_ID, is_enabled as gcal_is_enabled
 
@@ -17,6 +17,7 @@ bp = Blueprint('tasks', __name__)
 
 _BOT_USERNAME = 'bot'
 _bot_id_cache = None
+_TASK_KEY_RE = re.compile(r'^(?:[A-Za-z][A-Za-z0-9]*-)?(\d+)$')
 
 def _get_bot_user_id():
     """Resolve the id of the reserved 'bot' user, memoizing positive hits."""
@@ -41,7 +42,11 @@ def _fire_bot_webhook(task: dict) -> bool:
     if not url:
         logger.warning('Bot webhook skipped — no ai_webhook_url in settings')
         return False
-    payload = json.dumps({'event': 'task.assigned_to_bot', 'task': task}).encode()
+    payload_task = dict(task)
+    if payload_task.get('seq') is not None:
+        prefix = (settings.get('task_key_prefix') or 'DO').strip().upper() or 'DO'
+        payload_task['key'] = f"{prefix}-{payload_task['seq']}"
+    payload = json.dumps({'event': 'task.assigned_to_bot', 'task': payload_task}).encode()
     def _call():
         try:
             req = _urllib_req.Request(url, data=payload,
@@ -361,7 +366,11 @@ def get_tasks():
         q += (" AND due_date IS NOT NULL" if has_due.strip().lower() == 'true'
               else " AND due_date IS NULL")
     if search:
-        q += " AND (title ILIKE %s OR description ILIKE %s)"; p += [f'%{search}%', f'%{search}%']
+        sm = _TASK_KEY_RE.match(search.strip())
+        if sm:
+            q += " AND (title ILIKE %s OR description ILIKE %s OR seq = %s)"; p += [f'%{search}%', f'%{search}%', int(sm.group(1))]
+        else:
+            q += " AND (title ILIKE %s OR description ILIKE %s)"; p += [f'%{search}%', f'%{search}%']
     q += " ORDER BY position,created_at"
 
     # Pagination is applied post-fetch on purpose: _fetch_tasks() appends its
@@ -513,6 +522,8 @@ def get_task(tid):
     conn = get_db()
     try:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        tid = resolve_task_id(cur, tid)
+        if not tid: return jsonify({'error': 'Not found'}), 404
         cur.execute("SELECT * FROM tasks WHERE id=%s", (tid,)); row = cur.fetchone()
         if not row: return jsonify({'error': 'Not found'}), 404
         task = row_to_dict(row)
@@ -559,6 +570,16 @@ def bulk_update_tasks():
     conn = get_db()
     try:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        resolved_ids = []
+        seen_ids = set()
+        for raw_id in ids:
+            resolved_id = resolve_task_id(cur, raw_id)
+            if resolved_id not in seen_ids:
+                seen_ids.add(resolved_id)
+                resolved_ids.append(resolved_id)
+        ids = resolved_ids
+        if not ids:
+            return jsonify({'error': 'No matching task ids'}), 404
         if 'project_id' in updates and not _project_exists(cur, updates['project_id']):
             return jsonify({'error': f"Unknown project_id: {updates['project_id']}"}), 400
 
@@ -593,6 +614,8 @@ def update_task(tid):
         return jsonify({'error': err}), 400
     try:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        tid = resolve_task_id(cur, tid)
+        if not tid: return jsonify({'error': 'Not found'}), 404
         cur.execute("SELECT * FROM tasks WHERE id=%s", (tid,)); row = cur.fetchone()
         if not row: return jsonify({'error': 'Not found'}), 404
         if 'project_id' in data and data['project_id'] and not _project_exists(cur, data['project_id']):
@@ -673,6 +696,8 @@ def delete_task(tid):
     conn = get_db()
     try:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        tid = resolve_task_id(cur, tid)
+        if not tid: return jsonify({'error': 'Not found'}), 404
         cur.execute("SELECT gcal_event_id, deleted_at FROM tasks WHERE id=%s", (tid,))
         row = cur.fetchone()
         if not row: return jsonify({'error': 'Not found'}), 404
@@ -696,6 +721,8 @@ def restore_task(tid):
     conn = get_db()
     try:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        tid = resolve_task_id(cur, tid)
+        if not tid: return jsonify({'error': 'Not found'}), 404
         cur.execute("SELECT id FROM tasks WHERE id=%s", (tid,))
         if not cur.fetchone():
             return jsonify({'error': 'Not found'}), 404
@@ -723,7 +750,11 @@ def add_subtask(tid):
     conn = get_db()
     try:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        tid = resolve_task_id(cur, tid)
+        if not tid: return jsonify({'error': 'Not found'}), 404
         if linked_task_id:
+            linked_task_id = resolve_task_id(cur, linked_task_id)
+            if not linked_task_id: return jsonify({'error': 'Linked task not found'}), 404
             cur.execute("SELECT title FROM tasks WHERE id=%s", (linked_task_id,))
             linked = cur.fetchone()
             if not linked: return jsonify({'error': 'Linked task not found'}), 404
@@ -762,6 +793,8 @@ def update_subtask(tid, sid):
     data = request.get_json(); conn = get_db()
     try:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        tid = resolve_task_id(cur, tid)
+        if not tid: return jsonify({'error': 'Not found'}), 404
         _ALLOWED_SUBTASK_FIELDS = ('title',)
         for f in _ALLOWED_SUBTASK_FIELDS:
             if f in data: cur.execute(f"UPDATE subtasks SET {f}=%s WHERE id=%s", (data[f], sid))
@@ -784,6 +817,8 @@ def delete_subtask(tid, sid):
     conn = get_db()
     try:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        tid = resolve_task_id(cur, tid)
+        if not tid: return jsonify({'error': 'Not found'}), 404
         cur.execute("SELECT id FROM subtasks WHERE id=%s", (sid,))
         if not cur.fetchone(): return jsonify({'error': 'Not found'}), 404
         cur.execute("DELETE FROM subtasks WHERE id=%s", (sid,)); conn.commit()

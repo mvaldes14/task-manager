@@ -7,7 +7,7 @@ import { formatDate, fmtTime, isOverdue, recurrenceLabel, getLinkLabel, getLinkS
 import { X, Trash2, Plus, Check, ChevronRight, ExternalLink, Sparkles, Pencil } from 'lucide-react'
 import { DateTimePicker } from '../shared/DateTimePicker'
 import { AiResultModal } from './AiResultModal'
-import { LinkIcon } from '../ui'
+import { LinkIcon, TaskKey } from '../ui'
 
 const STATUSES = ['todo', 'doing', 'blocked', 'done']
 const PRIORITIES = ['low', 'medium', 'high']
@@ -672,7 +672,10 @@ export function TaskDetail() {
 
           {/* Title */}
           <div className="space-y-1">
-            <label className={MICRO_LABEL}>Task Name</label>
+            <div className="flex items-center justify-between gap-2">
+              <label className={MICRO_LABEL}>Task Name</label>
+              <TaskKey task={task} copyable />
+            </div>
             <textarea
               value={title}
               onChange={e => setTitle(e.target.value)}

@@ -2,8 +2,8 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useApp } from '../../context/AppContext'
 import { Search, X } from 'lucide-react'
 import { ProjectIcon } from '../shared/ProjectIcon'
-import { Input, Chip, Kbd, Skeleton } from '../ui'
-import { formatDate, isOverdue, tasksForView } from '../../utils'
+import { Input, Chip, Kbd, Skeleton, TaskKey } from '../ui'
+import { formatDate, isOverdue, tasksForView, formatTaskKey } from '../../utils'
 
 function highlightMatch(text, query) {
   if (!query) return text
@@ -32,6 +32,7 @@ const idleChip = 'bg-td-surface dark:bg-tn-surface text-td-muted dark:text-tn-mu
 export function SearchOverlay() {
   const { state, dispatch } = useApp()
   const { searchOpen, view, tasks, projects } = state
+  const prefix = state.taskKeyPrefix || 'DO'
   const [query, setQuery] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
   const [scope, setScope] = useState('all') // 'all' | 'view'
@@ -89,6 +90,7 @@ export function SearchOverlay() {
       .filter(t =>
         t.title?.toLowerCase().includes(q) ||
         t.description?.toLowerCase().includes(q) ||
+        formatTaskKey(t, prefix)?.toLowerCase().includes(q) ||
         t.tags?.some(tag => tag.toLowerCase().includes(q))
       )
       .sort((a, b) => {
@@ -97,7 +99,7 @@ export function SearchOverlay() {
         return aTitle - bTitle
       })
       .slice(0, 50)
-  }, [pool, debouncedQuery])
+  }, [pool, debouncedQuery, prefix])
 
   // Reset the highlighted result whenever the query or scope changes.
   const resultsKey = `${debouncedQuery}|${scope}`
@@ -223,8 +225,11 @@ export function SearchOverlay() {
                         className={`w-full flex flex-col items-start gap-1 px-4 py-3 min-h-[44px] text-left transition-colors
                           ${i === selectedIndex ? 'bg-td-surface dark:bg-tn-surface' : 'hover:bg-td-surface/60 dark:hover:bg-tn-surface/60'}`}
                       >
-                        <span className={`text-sm ${t.status === 'done' ? 'line-through text-td-muted dark:text-tn-muted' : 'text-td-fg dark:text-tn-fg'}`}>
-                          {highlightMatch(t.title || '', trimmed)}
+                        <span className="flex items-center gap-2 min-w-0 w-full">
+                          <TaskKey task={t} className="shrink-0" />
+                          <span className={`text-sm truncate ${t.status === 'done' ? 'line-through text-td-muted dark:text-tn-muted' : 'text-td-fg dark:text-tn-fg'}`}>
+                            {highlightMatch(t.title || '', trimmed)}
+                          </span>
                         </span>
                         <span className="flex items-center gap-2 flex-wrap text-xs text-td-muted dark:text-tn-muted">
                           {project && (
