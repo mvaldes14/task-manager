@@ -46,6 +46,7 @@ const initialState = {
   theme: localStorage.getItem('td-theme') || 'dark',
   otelEndpoint: '',
   aiWebhookUrl: '',
+  taskKeyPrefix: 'DO',
 }
 
 function reducer(state, action) {
@@ -91,7 +92,7 @@ function reducer(state, action) {
       localStorage.setItem('td-upcoming-range', action.payload)
       return { ...state, upcomingRange: action.payload }
     }
-    case 'SET_SETTINGS':    return { ...state, gcalEnabled: action.payload.gcal_enabled || false, otelEndpoint: action.payload.otel_frontend_endpoint || '', aiWebhookUrl: action.payload.ai_webhook_url || '' }
+    case 'SET_SETTINGS':    return { ...state, gcalEnabled: action.payload.gcal_enabled || false, otelEndpoint: action.payload.otel_frontend_endpoint || '', aiWebhookUrl: action.payload.ai_webhook_url || '', taskKeyPrefix: action.payload.task_key_prefix || 'DO' }
     case 'SET_TASKS_LOADED': return { ...state, tasksLoaded: true }
     default:                return state
   }

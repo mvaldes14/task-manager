@@ -6,7 +6,7 @@ import { formatDate, isOverdue, priorityColor, recurrenceLabel, fmtTime, resched
 import { Sparkles, Flag } from 'lucide-react'
 import { AiResultModal } from './AiResultModal'
 import { SwipeableRow } from './SwipeableRow'
-import { Chip, LinkPills } from '../ui'
+import { Chip, LinkPills, TaskKey } from '../ui'
 import { TASK_DRAG_TYPE } from '../../constants/dnd'
 import { useLongPress } from '../../hooks/useLongPress'
 
@@ -111,7 +111,8 @@ export function TaskCard({ task, selected = false, onToggleSelect = () => {}, se
 
         {/* Content */}
         <div className="flex-1 min-w-0">
-          <p className={`text-sm leading-snug ${done ? 'line-through text-td-muted dark:text-tn-muted' : 'text-td-fg dark:text-tn-fg'}`}>
+          <TaskKey task={task} className="mb-0.5" />
+          <p className={`text-sm leading-snug min-w-0 ${done ? 'line-through text-td-muted dark:text-tn-muted' : 'text-td-fg dark:text-tn-fg'}`}>
             {task.title}
           </p>
 

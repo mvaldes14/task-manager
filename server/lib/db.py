@@ -1,6 +1,6 @@
 """Database connection pool and helpers."""
 
-import json, os, threading, logging, uuid
+import json, os, threading, logging, uuid, re
 
 import psycopg2, psycopg2.extras
 from psycopg2 import pool as psycopg2_pool
@@ -29,6 +29,9 @@ def get_db():
 def release_db(conn):
     get_pool().putconn(conn)
 
+_TASK_KEY_RE = re.compile(r'^(?:[A-Za-z][A-Za-z0-9]*-)?(\d+)$')
+
+
 def row_to_dict(row):
     if row is None: return None
     d = dict(row)
@@ -48,6 +51,27 @@ def row_to_dict(row):
             elif d[field] is None: d[field] = []
     if 'completed' in d: d['completed'] = bool(d['completed'])
     return d
+
+
+def resolve_task_id(cur, raw):
+    """Resolve a UUID, human task key, or bare sequence number to tasks.id."""
+    if not raw:
+        return raw
+    raw = str(raw).strip()
+    m = _TASK_KEY_RE.match(raw)
+    n = int(m.group(1)) if m else None
+    cur.execute(
+        "SELECT id FROM tasks WHERE id = %s OR seq = %s ORDER BY (id = %s) DESC LIMIT 1",
+        (raw, n, raw)
+    )
+    row = cur.fetchone()
+    if not row:
+        return raw
+    try:
+        return row['id']
+    except (TypeError, KeyError):
+        return row[0]
+
 
 def init_db():
     logger.info("creating tables...")
@@ -141,6 +165,32 @@ def init_db():
         # Soft delete. DELETE /api/tasks/<id> stamps this; ?purge=true really removes the row.
         cur.execute("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_tasks_deleted_at ON tasks(deleted_at)")
+        cur.execute("""
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name='tasks' AND column_name='seq'
+            )
+        """)
+        seq_is_new = not cur.fetchone()[0]
+        cur.execute("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS seq INTEGER")
+        cur.execute("CREATE SEQUENCE IF NOT EXISTS tasks_seq_seq")
+        if seq_is_new:
+            cur.execute("""
+                UPDATE tasks t SET seq = n.rn
+                FROM (
+                    SELECT id, ROW_NUMBER() OVER (ORDER BY created_at, id) AS rn
+                    FROM tasks
+                ) n
+                WHERE t.id = n.id
+            """)
+            cur.execute("SELECT MAX(seq) FROM tasks")
+            max_seq = cur.fetchone()[0]
+            if max_seq is None:
+                cur.execute("SELECT setval('tasks_seq_seq', 1, false)")
+            else:
+                cur.execute("SELECT setval('tasks_seq_seq', %s, true)", (max_seq,))
+        cur.execute("ALTER TABLE tasks ALTER COLUMN seq SET DEFAULT nextval('tasks_seq_seq')")
+        cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_tasks_seq ON tasks(seq)")
         cur.execute("UPDATE projects SET parent_id=NULL WHERE id='inbox' AND parent_id IS NOT NULL")
         # Backfill position for any projects still at 0 using created_at order (per owner)
         cur.execute("""

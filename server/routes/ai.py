@@ -2,7 +2,7 @@
 
 import logging
 from flask import Blueprint, jsonify, request
-from lib.db import get_db, release_db
+from lib.db import get_db, release_db, resolve_task_id
 
 logger = logging.getLogger(__name__)
 bp = Blueprint('ai', __name__)
@@ -13,6 +13,9 @@ def get_ai_result(tid):
     conn = get_db()
     try:
         cur = conn.cursor()
+        tid = resolve_task_id(cur, tid)
+        if not tid:
+            return jsonify({'error': 'Not found'}), 404
         cur.execute(
             "SELECT content, model, created_at, updated_at FROM task_ai_results WHERE task_id=%s",
             (tid,)
@@ -40,6 +43,9 @@ def put_ai_result(tid):
     conn = get_db()
     try:
         cur = conn.cursor()
+        tid = resolve_task_id(cur, tid)
+        if not tid:
+            return jsonify({'error': 'Task not found'}), 404
         cur.execute("SELECT id FROM tasks WHERE id=%s", (tid,))
         if not cur.fetchone():
             return jsonify({'error': 'Task not found'}), 404

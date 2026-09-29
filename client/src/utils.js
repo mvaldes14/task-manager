@@ -128,6 +128,10 @@ export function fmtTime(t) {
   return `${hr}:${String(m).padStart(2,'0')}${ampm}`
 }
 
+export function formatTaskKey(task, prefix = 'DO') {
+  return typeof task?.seq === 'number' ? `${prefix}-${task.seq}` : null
+}
+
 // ── Shared link utilities (used by TaskCard and TaskDetail) ────────────────
 
 // Returns [{label, isoDate}] quick-reschedule options for overdue tasks

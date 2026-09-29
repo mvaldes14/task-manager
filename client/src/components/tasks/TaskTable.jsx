@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { useApp } from '../../context/AppContext'
 import { useTasks } from '../../hooks/useTasks'
 import { ProjectIcon } from '../shared/ProjectIcon'
-import { LinkPills, Skeleton } from '../ui'
+import { LinkPills, Skeleton, TaskKey } from '../ui'
 import { formatDate, fmtTime, isOverdue, priorityColor } from '../../utils'
 import { STATUS_LABELS, STATUS_ORDER } from './grouping'
 import { ArrowUp, ArrowDown, Eye, EyeOff } from 'lucide-react'
@@ -21,6 +21,7 @@ const PRIORITY_RANK = { high: 0, medium: 1, low: 2 }
 const STATUS_RANK = STATUS_ORDER.reduce((acc, s, i) => { acc[s] = i; return acc }, {})
 
 const COLUMNS = [
+  { key: 'key',      label: 'ID',       sortable: true,  width: 'w-[84px]' },
   { key: 'title',    label: 'Task',     sortable: true,  width: 'w-[34%] min-w-[280px]' },
   { key: 'status',   label: 'Status',   sortable: true,  width: 'w-[130px]' },
   { key: 'priority', label: 'Priority', sortable: true,  width: 'w-[115px]' },
@@ -35,6 +36,8 @@ const COLUMNS = [
 // on an ascending sort regardless of column.
 function sortValue(task, key, projects, users) {
   switch (key) {
+    case 'key':
+      return task.seq != null ? String(task.seq).padStart(10, '0') : '\uffff'
     case 'title':
       return (task.title || '').toLowerCase()
     case 'status':
@@ -192,6 +195,10 @@ function TaskRow({ task, selection }) {
             )}
           </div>
         </button>
+      </td>
+
+      <td className={CELL}>
+        <TaskKey task={task} copyable />
       </td>
 
       {/* Title (+ subtask progress) */}
