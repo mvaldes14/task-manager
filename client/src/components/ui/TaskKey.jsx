@@ -47,7 +47,7 @@ export function TaskKey({ task, copyable = false, className = '' }) {
       className={`${baseCls} hover:text-td-fg dark:hover:text-tn-fg transition-colors`}
     >
       <span>{key}</span>
-      {copied ? <Check size={11} className="text-td-green dark:text-tn-green" /> : <span className="text-[10px]">copy</span>}
+      {copied && <Check size={11} className="text-td-green dark:text-tn-green" />}
     </button>
   )
 }
