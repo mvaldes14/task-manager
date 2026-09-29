@@ -4,6 +4,7 @@ import { useTasks } from '../../hooks/useTasks'
 import { TaskCard } from './TaskCard'
 import { Skeleton } from '../ui'
 import { Plus, Eye, EyeOff } from 'lucide-react'
+import { STATUS_DISPLAY_LABELS } from './grouping'
 
 function KanbanColumnSkeleton({ color }) {
   return (
@@ -33,10 +34,10 @@ export function KanbanSkeleton() {
 }
 
 const COLUMNS = [
-  { status: 'todo',    label: 'To Do',      color: '#565f89' },
-  { status: 'doing',  label: 'In Progress', color: '#89b4fa' },
-  { status: 'blocked', label: 'Blocked',    color: '#f7768e' },
-  { status: 'done',   label: 'Done',        color: '#9ece6a' },
+  { status: 'todo',    color: '#565f89' },
+  { status: 'doing',   color: '#89b4fa' },
+  { status: 'blocked', color: '#f7768e' },
+  { status: 'done',    color: '#9ece6a' },
 ]
 
 export function KanbanBoard({ tasks }) {
@@ -171,7 +172,8 @@ export function KanbanBoard({ tasks }) {
       </div>
 
     <div className="flex gap-3 px-4 pb-6 overflow-x-auto flex-1 min-h-0">
-      {COLUMNS.map(({ status, label, color }) => {
+      {COLUMNS.map(({ status, color }) => {
+        const label = STATUS_DISPLAY_LABELS[status] || status
         const items = filteredTasks.filter(t => t.status === status)
         const isOver = overColumn === status
         const themedColor = status === 'doing' ? (isDark ? '#89b4fa' : '#2e7de9') : color
@@ -180,7 +182,7 @@ export function KanbanBoard({ tasks }) {
             {/* Column header */}
             <div className="flex items-center gap-2 mb-3 px-1">
               <span className="w-2 h-2 rounded-full shrink-0" style={{ background: themedColor }} />
-              <span className="text-[11px] font-semibold tracking-wider uppercase text-td-muted dark:text-tn-muted">
+              <span className="text-[11px] font-semibold tracking-wider text-td-muted dark:text-tn-muted">
                 {label}
               </span>
               <span className="text-[10px] text-td-muted/60 dark:text-tn-muted/60 bg-td-surface dark:bg-tn-surface px-1.5 rounded-full ml-auto">

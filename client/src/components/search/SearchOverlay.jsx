@@ -4,6 +4,7 @@ import { Search, X } from 'lucide-react'
 import { ProjectIcon } from '../shared/ProjectIcon'
 import { Input, Chip, Kbd, Skeleton, TaskKey } from '../ui'
 import { formatDate, isOverdue, tasksForView, formatTaskKey } from '../../utils'
+import { STATUS_DISPLAY_LABELS } from '../tasks/grouping'
 
 function highlightMatch(text, query) {
   if (!query) return text
@@ -21,9 +22,7 @@ function highlightMatch(text, query) {
 }
 
 function statusLabel(status) {
-  if (status === 'done') return 'Done'
-  if (status === 'doing') return 'In progress'
-  return null
+  return STATUS_DISPLAY_LABELS[status] || null
 }
 
 const activeChip = 'bg-td-blue/15 dark:bg-tn-blue/15 text-td-blue dark:text-tn-blue border border-td-blue/30 dark:border-tn-blue/30'

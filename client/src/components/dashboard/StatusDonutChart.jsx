@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useApp } from '../../context/AppContext'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
+import { STATUS_DISPLAY_LABELS } from '../tasks/grouping'
 
 export function StatusDonutChart({ data }) {
   const { state } = useApp()
@@ -18,7 +19,7 @@ export function StatusDonutChart({ data }) {
     return Object.entries(data)
       .filter(([_, count]) => count > 0)
       .map(([status, count]) => ({
-        name: status.charAt(0).toUpperCase() + status.slice(1),
+        name: STATUS_DISPLAY_LABELS[status] || status,
         value: count,
         status,
         color: STATUS_COLORS[status] || STATUS_COLORS.todo

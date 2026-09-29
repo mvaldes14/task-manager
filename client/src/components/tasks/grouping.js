@@ -1,7 +1,13 @@
 // Grouping helpers shared between TaskList (renders the groups) and MainContent
 // (owns the collapsed-groups state + the toolbar "Collapse all" toggle).
 
+// Persisted group keys use these legacy all-caps labels. Do not change them
+// without migrating `td-collapsed-groups` in localStorage.
 export const STATUS_LABELS = { todo: 'TO DO', doing: 'IN PROGRESS', blocked: 'BLOCKED', done: 'DONE' }
+
+// Display labels should use these everywhere user-facing. The API/storage value
+// remains `doing`; the UI label is `In progress`.
+export const STATUS_DISPLAY_LABELS = { todo: 'To do', doing: 'In progress', blocked: 'Blocked', done: 'Done' }
 export const STATUS_ORDER = ['todo', 'doing', 'blocked', 'done']
 
 export function groupKey(groupBy, label) {

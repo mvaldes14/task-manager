@@ -2,9 +2,9 @@ import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { useApp } from '../../context/AppContext'
 import { useTasks } from '../../hooks/useTasks'
 import { ProjectIcon } from '../shared/ProjectIcon'
-import { LinkPills, Skeleton, TaskKey } from '../ui'
-import { formatDate, fmtTime, isOverdue, priorityColor } from '../../utils'
-import { STATUS_LABELS, STATUS_ORDER } from './grouping'
+import { LinkIcon, Skeleton, TaskKey } from '../ui'
+import { formatDate, fmtTime, getLinkLabel, isOverdue, priorityColor } from '../../utils'
+import { STATUS_DISPLAY_LABELS, STATUS_ORDER } from './grouping'
 import { ArrowUp, ArrowDown, Eye, EyeOff } from 'lucide-react'
 import { TASK_DRAG_TYPE } from '../../constants/dnd'
 
@@ -21,15 +21,15 @@ const PRIORITY_RANK = { high: 0, medium: 1, low: 2 }
 const STATUS_RANK = STATUS_ORDER.reduce((acc, s, i) => { acc[s] = i; return acc }, {})
 
 const COLUMNS = [
-  { key: 'key',      label: 'ID',       sortable: true,  width: 'w-[84px]' },
-  { key: 'title',    label: 'Task',     sortable: true,  width: 'w-[34%] min-w-[280px]' },
-  { key: 'status',   label: 'Status',   sortable: true,  width: 'w-[130px]' },
-  { key: 'priority', label: 'Priority', sortable: true,  width: 'w-[115px]' },
-  { key: 'due',      label: 'Due',      sortable: true,  width: 'w-[155px]' },
-  { key: 'project',  label: 'Project',  sortable: true,  width: 'w-[165px]' },
-  { key: 'tags',     label: 'Tags',     sortable: false, width: 'w-[175px]' },
-  { key: 'links',    label: 'Links',    sortable: false, width: 'w-[190px]' },
-  { key: 'assignee', label: 'Assignee', sortable: true,  width: 'w-[140px]' },
+  { key: 'key',      label: 'ID',       sortable: true,  width: '76px' },
+  { key: 'title',    label: 'Task',     sortable: true,  width: 'auto' },
+  { key: 'status',   label: 'Status',   sortable: true,  width: '112px' },
+  { key: 'priority', label: 'Priority', sortable: true,  width: '90px' },
+  { key: 'due',      label: 'Due',      sortable: true,  width: '124px' },
+  { key: 'project',  label: 'Project',  sortable: true,  width: '130px' },
+  { key: 'tags',     label: 'Tags',     sortable: false, width: '96px' },
+  { key: 'links',    label: 'Links',    sortable: false, width: '110px' },
+  { key: 'assignee', label: 'Assignee', sortable: true,  width: '110px' },
 ]
 
 // '\uffff' sorts last for every missing value, so blanks always sink to the bottom
@@ -57,8 +57,8 @@ function sortValue(task, key, projects, users) {
   }
 }
 
-const CELL = 'px-3 py-2.5 align-middle'
-const HEAD = 'px-3 py-2 text-left text-[10px] font-semibold tracking-widest uppercase text-td-muted dark:text-tn-muted'
+const CELL = 'px-3 py-2.5 align-middle overflow-hidden'
+const HEAD = 'px-3 py-2 text-left text-[10px] font-semibold tracking-widest uppercase text-td-muted dark:text-tn-muted overflow-hidden'
 
 export function TaskTableSkeleton({ rows = 8 }) {
   return (
@@ -84,11 +84,11 @@ function SortHeader({ col, sort, onSort }) {
   const Arrow = sort.dir === 'asc' ? ArrowUp : ArrowDown
 
   if (!col.sortable) {
-    return <th scope="col" className={`${HEAD} ${col.width}`}>{col.label}</th>
+    return <th scope="col" className={HEAD}>{col.label}</th>
   }
 
   return (
-    <th scope="col" className={`${HEAD} ${col.width} p-0`}>
+    <th scope="col" className={`${HEAD} p-0`}>
       <button
         type="button"
         onClick={() => onSort(col.key)}
@@ -105,15 +105,73 @@ function SortHeader({ col, sort, onSort }) {
   )
 }
 
+function tableDate(d) {
+  return (formatDate(d) || '').replace(/^📅\s*/, '')
+}
+
+function PriorityBars({ priority }) {
+  const count = priority === 'high' ? 3 : priority === 'medium' ? 2 : 1
+  const color = priorityColor(priority)
+  return (
+    <span className="inline-flex items-end gap-0.5 h-3 shrink-0" aria-hidden="true">
+      {[1, 2, 3].map(i => (
+        <span
+          key={i}
+          className="w-1 rounded-sm"
+          style={{
+            height: `${i * 3 + 3}px`,
+            background: i <= count ? color : 'currentColor',
+            opacity: i <= count ? 1 : 0.18,
+          }}
+        />
+      ))}
+    </span>
+  )
+}
+
+function NeutralLinks({ links, max = 1 }) {
+  const validLinks = (links || []).filter(link => link?.url)
+  if (validLinks.length === 0) return null
+
+  const visibleLinks = validLinks.slice(0, max)
+  const hiddenCount = Math.max(0, validLinks.length - max)
+
+  return (
+    <span className="inline-flex items-center gap-1 min-w-0 text-td-muted dark:text-tn-muted">
+      {visibleLinks.map((link, i) => {
+        const label = getLinkLabel(link.url)
+        return (
+          <a
+            key={`${link.url}-${i}`}
+            href={link.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            draggable={false}
+            onClick={e => e.stopPropagation()}
+            title={link.url}
+            aria-label={`Open ${label}`}
+            className="inline-flex items-center gap-1 min-w-0 text-xs hover:text-td-fg dark:hover:text-tn-fg transition-colors"
+          >
+            <LinkIcon url={link.url} size={11} />
+            <span className="truncate">{label}</span>
+          </a>
+        )
+      })}
+      {hiddenCount > 0 && <span className="text-[10px] text-td-muted/60 dark:text-tn-muted/60 shrink-0">+{hiddenCount}</span>}
+    </span>
+  )
+}
+
 // Square + blue selection checkbox, distinct from the round green completion
-// control. Always visible in the table — a permanently reserved column has no
-// layout-shift concern.
-function SelectCheckbox({ selected, onToggle, label }) {
+// control. The column is reserved, but the checkbox stays quiet until hover or
+// active selection.
+function SelectCheckbox({ selected, selectionActive, onToggle, label }) {
   return (
     <button
       onClick={e => { e.stopPropagation(); onToggle() }}
       aria-label={label}
-      className={`shrink-0 w-4 h-4 rounded border flex items-center justify-center transition-colors duration-fast
+      className={`shrink-0 w-4 h-4 rounded border flex items-center justify-center transition-all duration-fast
+        ${selected || selectionActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 focus:opacity-100'}
         ${selected
           ? 'bg-td-blue dark:bg-tn-blue border-td-blue dark:border-tn-blue'
           : 'border-td-muted/50 dark:border-tn-muted/50 hover:border-td-blue dark:hover:border-tn-blue'}`}
@@ -170,6 +228,7 @@ function TaskRow({ task, selection }) {
         <td className={`${CELL} w-[40px]`}>
           <SelectCheckbox
             selected={selected}
+            selectionActive={selectionActive}
             onToggle={() => selection.onToggleSelect(task.id)}
             label={selected ? 'Deselect task' : 'Select task'}
           />
@@ -177,7 +236,7 @@ function TaskRow({ task, selection }) {
       )}
 
       {/* Checkbox */}
-      <td className={`${CELL} w-[44px]`}>
+      <td className={CELL}>
         <button
           onClick={e => { e.stopPropagation(); toggleTask(task.id, task.status) }}
           aria-label="Toggle task"
@@ -202,7 +261,7 @@ function TaskRow({ task, selection }) {
       </td>
 
       {/* Title (+ subtask progress) */}
-      <td className={CELL}>
+      <td className={`${CELL} max-w-0`}>
         <div className="flex items-center gap-2 min-w-0">
           <span className={`text-sm leading-snug truncate
             ${done ? 'line-through text-td-muted dark:text-tn-muted' : 'text-td-fg dark:text-tn-fg'}`}>
@@ -218,22 +277,20 @@ function TaskRow({ task, selection }) {
 
       {/* Status */}
       <td className={CELL}>
-        <span className="flex items-center gap-1.5 text-xs text-td-muted dark:text-tn-muted">
+        <span className="flex items-center gap-1.5 text-xs text-td-muted dark:text-tn-muted whitespace-nowrap">
           <span className="w-2 h-2 rounded-full shrink-0" style={{ background: statusColor }} />
-          {STATUS_LABELS[task.status] || task.status}
+          {STATUS_DISPLAY_LABELS[task.status] || task.status}
         </span>
       </td>
 
       {/* Priority */}
       <td className={CELL}>
         {task.priority ? (
-          <span className="flex items-center gap-1.5 text-xs text-td-muted dark:text-tn-muted">
-            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: priorityColor(task.priority) }} />
+          <span className="flex items-center gap-1.5 text-xs text-td-muted dark:text-tn-muted whitespace-nowrap">
+            <PriorityBars priority={task.priority} />
             {PRIORITY_LABELS[task.priority] || task.priority}
           </span>
-        ) : (
-          <span className="text-xs text-td-muted/40 dark:text-tn-muted/40">—</span>
-        )}
+        ) : null}
       </td>
 
       {/* Due */}
@@ -241,32 +298,26 @@ function TaskRow({ task, selection }) {
         {task.due_date ? (
           <span className={`text-xs font-medium whitespace-nowrap
             ${overdue ? 'text-td-red dark:text-tn-red' : 'text-td-muted dark:text-tn-muted'}`}>
-            {formatDate(task.due_date)}{task.due_time ? ' · ' + fmtTime(task.due_time) : ''}
+            {tableDate(task.due_date)}{task.due_time ? ' · ' + fmtTime(task.due_time) : ''}
           </span>
-        ) : (
-          <span className="text-xs text-td-muted/40 dark:text-tn-muted/40">—</span>
-        )}
+        ) : null}
       </td>
 
       {/* Project */}
       <td className={CELL}>
         {project ? (
           <span className="flex items-center gap-1.5 text-xs text-td-muted dark:text-tn-muted min-w-0">
-            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: project.color }} />
-            <ProjectIcon icon={project.icon} size={11} />
+            <span className="shrink-0" style={{ color: project.color }}>
+              <ProjectIcon icon={project.icon} size={11} />
+            </span>
             <span className="truncate">{project.name}</span>
           </span>
-        ) : (
-          <span className="text-xs text-td-muted/40 dark:text-tn-muted/40">—</span>
-        )}
+        ) : null}
       </td>
 
       {/* Tags */}
       <td className={CELL}>
         <div className="flex items-center gap-1 min-w-0">
-          {(task.tags || []).length === 0 && (
-            <span className="text-xs text-td-muted/40 dark:text-tn-muted/40">—</span>
-          )}
           {(task.tags || []).slice(0, 2).map(tag => (
             <span
               key={tag}
@@ -289,11 +340,7 @@ function TaskRow({ task, selection }) {
       {/* Links */}
       <td className={CELL}>
         <div className="flex items-center gap-1 min-w-0">
-          {(task.links || []).some(link => link?.url) ? (
-            <LinkPills links={task.links} max={2} />
-          ) : (
-            <span className="text-xs text-td-muted/40 dark:text-tn-muted/40">—</span>
-          )}
+          <NeutralLinks links={task.links} max={1} />
         </div>
       </td>
 
@@ -303,9 +350,7 @@ function TaskRow({ task, selection }) {
           <span className="text-xs text-td-muted dark:text-tn-muted truncate block">
             {assignee.display_name || assignee.username}
           </span>
-        ) : (
-          <span className="text-xs text-td-muted/40 dark:text-tn-muted/40">—</span>
-        )}
+        ) : null}
       </td>
     </tr>
   )
@@ -382,11 +427,18 @@ export function TaskTable({ tasks, emptyMessage = 'No tasks here', selection = n
         </div>
       ) : (
         <div className="flex-1 min-h-0 overflow-auto overscroll-contain px-4 pb-6">
-          <table className="w-full min-w-[1270px] border-collapse">
+          <table className="w-full min-w-[1120px] table-fixed border-collapse">
+            <colgroup>
+              {selectionEnabled && <col style={{ width: '40px' }} />}
+              <col style={{ width: '40px' }} />
+              {COLUMNS.map(col => (
+                <col key={col.key} style={col.width === 'auto' ? undefined : { width: col.width }} />
+              ))}
+            </colgroup>
             <thead className="sticky top-0 z-10 bg-td-bg dark:bg-tn-bg">
               <tr className="border-b border-td-border dark:border-tn-border">
                 {selectionEnabled && (
-                  <th scope="col" className={`${HEAD} w-[40px]`}>
+                  <th scope="col" className={HEAD}>
                     <input
                       ref={selectAllRef}
                       type="checkbox"
@@ -397,7 +449,7 @@ export function TaskTable({ tasks, emptyMessage = 'No tasks here', selection = n
                     />
                   </th>
                 )}
-                <th scope="col" className={`${HEAD} w-[44px]`}>
+                <th scope="col" className={HEAD}>
                   <span className="sr-only">Done</span>
                 </th>
                 {COLUMNS.map(col => (

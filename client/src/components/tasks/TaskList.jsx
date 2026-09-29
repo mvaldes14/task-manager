@@ -2,7 +2,7 @@ import { useId } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { TaskCard } from './TaskCard'
 import { Skeleton } from '../ui'
-import { STATUS_LABELS, STATUS_ORDER, groupKey } from './grouping'
+import { STATUS_DISPLAY_LABELS, STATUS_LABELS, STATUS_ORDER, groupKey } from './grouping'
 
 function TaskRowSkeleton() {
   return (
@@ -40,7 +40,7 @@ function GroupSection({ label, count, children, isCollapsed, onToggle }) {
           size={14}
           className={`shrink-0 text-td-muted dark:text-tn-muted transition-transform duration-fast ease-standard ${isCollapsed ? '' : 'rotate-90'}`}
         />
-        <span className="text-xs md:text-[10px] font-semibold tracking-widest text-td-muted dark:text-tn-muted uppercase">
+        <span className="text-xs md:text-[10px] font-semibold tracking-wider text-td-muted dark:text-tn-muted">
           {label}
         </span>
         <span className="text-[10px] text-td-muted/60 dark:text-tn-muted/60 bg-td-surface dark:bg-tn-surface px-1.5 rounded-full">
@@ -93,7 +93,7 @@ export function TaskList({ tasks, groupBy = 'status', projects = [], emptyMessag
             return (
               <GroupSection
                 key={status}
-                label={STATUS_LABELS[status]}
+                label={STATUS_DISPLAY_LABELS[status]}
                 count={items.length}
                 isCollapsed={isCollapsed(key)}
                 onToggle={() => toggle(key)}

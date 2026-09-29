@@ -8,8 +8,9 @@ import { X, Trash2, Plus, Check, ChevronRight, ExternalLink, Sparkles, Pencil } 
 import { DateTimePicker } from '../shared/DateTimePicker'
 import { AiResultModal } from './AiResultModal'
 import { LinkIcon, TaskKey } from '../ui'
+import { STATUS_DISPLAY_LABELS, STATUS_ORDER } from './grouping'
 
-const STATUSES = ['todo', 'doing', 'blocked', 'done']
+const STATUSES = STATUS_ORDER
 const PRIORITIES = ['low', 'medium', 'high']
 
 const STATUS_DOT = {
@@ -779,14 +780,14 @@ export function TaskDetail() {
             {/* Status — overlay <select> makes the whole row tappable */}
             <PropertyRow label="Status">
               <span className={`w-2 h-2 rounded-full shrink-0 ${STATUS_DOT[status]}`} />
-              <span className="capitalize">{status}</span>
+              <span>{STATUS_DISPLAY_LABELS[status] || status}</span>
               <ChevronRight size={12} className="text-td-muted/30 dark:text-tn-muted/30 shrink-0" />
               <select
                 value={status}
                 onChange={e => { const v = e.target.value; setStatus(v); autoSave(task.id, { status: v }) }}
                 className="absolute inset-0 opacity-0 cursor-pointer w-full"
               >
-                {STATUSES.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
+                {STATUSES.map(s => <option key={s} value={s}>{STATUS_DISPLAY_LABELS[s] || s}</option>)}
               </select>
             </PropertyRow>
 
