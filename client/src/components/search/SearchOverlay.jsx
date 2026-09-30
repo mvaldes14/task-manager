@@ -90,6 +90,7 @@ export function SearchOverlay() {
         t.title?.toLowerCase().includes(q) ||
         t.description?.toLowerCase().includes(q) ||
         formatTaskKey(t, prefix)?.toLowerCase().includes(q) ||
+        (t.seq != null && String(t.seq).includes(q)) ||
         t.tags?.some(tag => tag.toLowerCase().includes(q))
       )
       .sort((a, b) => {

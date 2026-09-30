@@ -21,7 +21,7 @@ const PRIORITY_RANK = { high: 0, medium: 1, low: 2 }
 const STATUS_RANK = STATUS_ORDER.reduce((acc, s, i) => { acc[s] = i; return acc }, {})
 
 const COLUMNS = [
-  { key: 'key',      label: 'ID',       sortable: true,  width: '76px' },
+  { key: 'key',      label: 'ID',       sortable: true,  width: '84px' },
   { key: 'title',    label: 'Task',     sortable: true,  width: 'auto' },
   { key: 'status',   label: 'Status',   sortable: true,  width: '112px' },
   { key: 'priority', label: 'Priority', sortable: true,  width: '90px' },

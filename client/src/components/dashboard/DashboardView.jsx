@@ -6,7 +6,7 @@ import { isOverdue, isToday, fmtTime, formatDate } from '../../utils'
 import { CompletionTrendChart } from './CompletionTrendChart'
 import { StatusDonutChart } from './StatusDonutChart'
 import { ProjectIcon } from '../shared/ProjectIcon'
-import { Skeleton } from '../ui'
+import { Skeleton, TaskKey } from '../ui'
 import {
   Sun, Flame, ChevronDown, ChevronUp, ArrowRight, Plus, Clock,
   CheckCircle2, ListTodo, Target, AlertTriangle,
@@ -119,6 +119,7 @@ function DashTaskRow({ task, onToggle, overdue, isLast }) {
         className="flex-1 min-w-0 cursor-pointer"
         onClick={() => dispatch({ type: 'SELECT_TASK', payload: task.id })}
       >
+        <TaskKey task={task} className="block mb-0.5" />
         <p className={`text-sm truncate ${done ? 'line-through text-td-muted dark:text-tn-muted' : 'text-td-fg dark:text-tn-fg'}`}>
           {task.title}
         </p>
@@ -379,7 +380,7 @@ export function DashboardView() {
                     </span>
                     <div className="w-1.5 h-1.5 rounded-full shrink-0"
                       style={{ background: project?.color || '#565f89' }} />
-                    <span className="text-sm text-td-fg dark:text-tn-fg flex-1 truncate">{task.title}</span>
+                    <span className="text-sm text-td-fg dark:text-tn-fg truncate flex-1 min-w-0">{task.title}</span>
                     {project && (
                       <span className="text-[11px] text-td-muted dark:text-tn-muted shrink-0">{project.name}</span>
                     )}

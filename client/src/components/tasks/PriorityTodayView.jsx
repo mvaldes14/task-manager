@@ -5,7 +5,7 @@ import { api } from '../../api'
 import { isOverdue, fmtTime, priorityColor, rescheduleOptions } from '../../utils'
 import { Clock, ChevronRight } from 'lucide-react'
 import { SwipeableRow } from './SwipeableRow'
-import { LinkPills } from '../ui'
+import { LinkPills, TaskKey } from '../ui'
 
 function RescheduleSheet({ taskId, onClose }) {
   const { updateTask } = useTasks()
@@ -118,6 +118,7 @@ function FocusCard({ task }) {
                 </button>
 
                 <div className="flex-1 min-w-0">
+                  <TaskKey task={task} className="mb-0.5" />
                   <p className={`text-lg font-semibold leading-snug
                     ${done ? 'line-through text-td-muted dark:text-tn-muted' : 'text-td-fg dark:text-tn-fg'}`}>
                     {task.title}
@@ -251,6 +252,7 @@ function SupportingRow({ task, isLast }) {
             </button>
 
             <div className="flex-1 min-w-0">
+              <TaskKey task={task} className="block mb-0.5" />
               <p className={`text-sm truncate ${done ? 'line-through text-td-muted dark:text-tn-muted' : 'text-td-fg dark:text-tn-fg'}`}>
                 {task.title}
               </p>

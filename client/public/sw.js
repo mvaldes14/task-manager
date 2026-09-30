@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v23'
+const CACHE_VERSION = 'v24'
 const SHELL_CACHE = `doit-shell-${CACHE_VERSION}`
 const PRECACHE_URLS = ['/', '/index.html']
 

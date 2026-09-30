@@ -128,8 +128,14 @@ export function fmtTime(t) {
   return `${hr}:${String(m).padStart(2,'0')}${ampm}`
 }
 
+export function normalizeTaskKeyPrefix(prefix = 'DO') {
+  const normalized = String(prefix || 'DO').trim().toUpperCase()
+  return /^[A-Z][A-Z0-9]{1,5}$/.test(normalized) ? normalized : 'DO'
+}
+
 export function formatTaskKey(task, prefix = 'DO') {
-  return typeof task?.seq === 'number' ? `${prefix}-${task.seq}` : null
+  const seq = Number(task?.seq)
+  return Number.isInteger(seq) && seq > 0 ? `${normalizeTaskKeyPrefix(prefix)}-${seq}` : null
 }
 
 // ── Shared link utilities (used by TaskCard and TaskDetail) ────────────────
