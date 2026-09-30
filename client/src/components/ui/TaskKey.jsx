@@ -11,6 +11,7 @@ export function TaskKey({ task, copyable = false, className = '' }) {
   if (!key) return null
 
   const copy = async (e) => {
+    e.preventDefault()
     e.stopPropagation()
     try {
       if (navigator.clipboard?.writeText) {
@@ -28,10 +29,10 @@ export function TaskKey({ task, copyable = false, className = '' }) {
         document.body.removeChild(ta)
       }
       setCopied(true)
-      toast?.(`${key} saved to clipboard`)
+      toast?.(`Copied ${key}`)
       setTimeout(() => setCopied(false), 1500)
     } catch {
-      toast?.('Unable to write to clipboard')
+      toast?.('Could not copy')
     }
   }
 
@@ -43,7 +44,8 @@ export function TaskKey({ task, copyable = false, className = '' }) {
     <button
       type="button"
       onClick={copy}
-      aria-label={`Task ID ${key}`}
+      aria-label={`Copy ${key}`}
+      title={`Copy ${key}`}
       className={`${baseCls} hover:text-td-fg dark:hover:text-tn-fg transition-colors`}
     >
       <span>{key}</span>

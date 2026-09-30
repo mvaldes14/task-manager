@@ -78,7 +78,7 @@ Self-hosted task manager (PWA). Flask backend + React 19 frontend, served as a s
 - All routes are Flask Blueprints registered in `main.py`
 - DB access is synchronous psycopg2; connection opened per-request via `lib/db.py` helpers
 - Settings are a single JSONB row in the `settings` table; use `get_settings()` / `save_settings(data)`
-- Task keys: UUID stays canonical; `tasks.seq` is display + lookup only. Use `resolve_task_id` as the single entry point for task-ID input, and never return keys in place of ids.
+- Task keys: UUID stays canonical; `tasks.seq` is immutable display + lookup only. Use `resolve_task_id` as the single entry point for task-ID input (`UUID`, `DO-142`, or `142`), and never return keys in place of ids. Webhook payloads may include a derived `task.key` for convenience.
 - Adding a new route: create `server/routes/foo.py` with `bp = Blueprint(...)`, add endpoint, import and `app.register_blueprint(foo_bp)` in `main.py`
 
 ### Frontend
@@ -97,13 +97,13 @@ Self-hosted task manager (PWA). Flask backend + React 19 frontend, served as a s
 
 ```sql
 users       — id (uuid), username, password_hash, display_name, is_admin, avatar (bytea, 50×50 JPEG), created_at
-tasks       — id (canonical UUID), seq (immutable human task number), title, description, status,
+tasks       — id (canonical UUID), seq (immutable human task number; display as <task_key_prefix>-<seq>), title, description, status,
               due_date, due_time, project_id, tags (JSONB), links (JSONB), recurrence,
               recurrence_end, parent_task_id, created_at, updated_at, position,
               owner_id (FK→users), assigned_to (FK→users)
 subtasks    — id, task_id (FK→tasks), title, completed, position, due_date, due_time, labels (JSONB)
 projects    — id, name, color, icon, position, shared (bool)
-settings    — id=1, data JSONB   (single row; task_key_prefix formats seq as e.g. DO-123)
+settings    — id=1, data JSONB   (single row; task_key_prefix validates as 2-6 letters/digits starting with a letter and formats seq as e.g. DO-123)
 ics_calendars — id, name, url, color, raw_ics
 sessions    — id, user_id, expires_at
 ```

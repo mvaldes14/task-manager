@@ -203,6 +203,7 @@ paths:
                   type: object
                   properties:
                     id:         { type: string }
+                    seq:        { type: integer, description: Permanent human-readable task number }
                     title:      { type: string }
                     status:     { $ref: '#/components/schemas/TaskStatus' }
                     project_id: { type: string }
@@ -849,7 +850,8 @@ components:
       name: tid
       in: path
       required: true
-      schema: { type: string, description: Accepts a canonical task UUID, DO-142, or 142. }
+      description: Accepts a canonical task UUID, a formatted task key like DO-142, or a bare sequence number like 142. UUID remains canonical in responses.
+      schema: { type: string }
     SubtaskId:
       name: sid
       in: path
@@ -1025,7 +1027,7 @@ components:
       properties:
         obsidian_vault:          { type: string, nullable: true }
         obsidian_inbox:          { type: string, nullable: true }
-        ai_webhook_url:          { type: string, nullable: true }
+        ai_webhook_url:          { type: string, nullable: true, description: Bot assignment webhook. Payload includes task.id, task.seq, and formatted task.key when seq is present. }
         otel_frontend_endpoint:  { type: string, nullable: true }
         otel_frontend_service:   { type: string, nullable: true }
         reminder_enabled:        { type: boolean }
@@ -1033,7 +1035,7 @@ components:
         reminder_allday_time:    { type: string, example: "08:00" }
         reminder_timezone:       { type: string, example: "America/Chicago" }
         gcal_enabled:            { type: boolean, readOnly: true }
-        task_key_prefix:         { type: string, default: "DO", description: Prefix used by clients when formatting task seq values }
+        task_key_prefix:         { type: string, default: "DO", pattern: '^[A-Z][A-Z0-9]{1,5}$', description: 2-6 letters/digits starting with a letter; clients format task keys as <prefix>-<seq>. }
 
     DashboardStats:
       type: object
