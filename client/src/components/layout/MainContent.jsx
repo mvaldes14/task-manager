@@ -17,7 +17,7 @@ import { UpcomingView } from '../tasks/UpcomingView'
 
 const isOverdueDate = (d) => !!d && d < new Date().toISOString().slice(0, 10)
 
-function ViewHeader({ title, icon: Icon, count }) {
+function ViewHeader({ title, icon: Icon, filter }) {
   const { state, dispatch } = useApp()
 
   const project = state.view.startsWith('project:')
@@ -107,6 +107,24 @@ function ViewHeader({ title, icon: Icon, count }) {
         >
           <Search size={16} />
         </button>
+
+        {filter && (
+          <button
+            onClick={filter.onOpen}
+            className={`md:hidden relative min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg
+              transition-colors
+              ${filter.active
+                ? 'text-td-blue dark:text-tn-blue bg-td-blue/10 dark:bg-tn-blue/10'
+                : 'text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg hover:bg-td-surface dark:hover:bg-tn-surface active:bg-td-surface dark:active:bg-tn-surface'}`}
+            title="Filters"
+            aria-label="Filters"
+          >
+            <SlidersHorizontal size={16} />
+            {filter.active && (
+              <span className="absolute top-2.5 right-2.5 w-1.5 h-1.5 rounded-full bg-td-blue dark:bg-tn-blue" />
+            )}
+          </button>
+        )}
 
         {state.view === 'calendar' && (
           <div className="flex items-center gap-0.5 bg-td-surface dark:bg-tn-surface rounded-lg p-0.5">
@@ -238,7 +256,7 @@ const GROUP_OPTIONS = [
   { value: 'none', label: 'None' },
 ]
 
-function ListToolbar({ showDone, onToggleDone, sortBy, onSortBy, groupBy, onGroupBy, canCollapse, allCollapsed, onToggleCollapseAll }) {
+function ListToolbar({ showDone, onToggleDone, sortBy, onSortBy, groupBy, onGroupBy, canCollapse, allCollapsed, onToggleCollapseAll, mode = 'full' }) {
   return (
     <div className="flex items-center gap-3 px-4 py-2 border-b border-td-border/30 dark:border-tn-border/30 bg-td-bg dark:bg-tn-bg flex-wrap">
       {/* Hide/show done */}
@@ -256,54 +274,58 @@ function ListToolbar({ showDone, onToggleDone, sortBy, onSortBy, groupBy, onGrou
         Completed only
       </button>
 
-      <div className="h-3.5 w-px bg-td-border dark:bg-tn-border" />
-
-      {/* Group */}
-      <div className="flex items-center gap-1.5 text-xs text-td-muted dark:text-tn-muted">
-        <span>Group:</span>
-        <Select
-          value={groupBy}
-          onChange={onGroupBy}
-          options={GROUP_OPTIONS}
-          variant="compact"
-          ariaLabel="Group tasks"
-          title="Group"
-        />
-      </div>
-
-      <div className="h-3.5 w-px bg-td-border dark:bg-tn-border" />
-
-      {/* Sort */}
-      <div className="flex items-center gap-1.5 text-xs text-td-muted dark:text-tn-muted">
-        <span>Sort:</span>
-        <Select
-          value={sortBy}
-          onChange={onSortBy}
-          options={SORT_OPTIONS}
-          variant="compact"
-          ariaLabel="Sort tasks"
-          title="Sort"
-        />
-      </div>
-
-      {/* Collapse / expand all groups */}
-      {canCollapse && (
+      {mode === 'full' && (
         <>
           <div className="h-3.5 w-px bg-td-border dark:bg-tn-border" />
-          <button
-            onClick={onToggleCollapseAll}
-            className="flex items-center gap-1.5 text-xs px-2.5 min-h-[40px] rounded-lg transition-colors
-              text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg active:text-td-fg dark:active:text-tn-fg"
-          >
-            {allCollapsed ? 'Expand all' : 'Collapse all'}
-          </button>
+
+          {/* Group */}
+          <div className="flex items-center gap-1.5 text-xs text-td-muted dark:text-tn-muted">
+            <span>Group:</span>
+            <Select
+              value={groupBy}
+              onChange={onGroupBy}
+              options={GROUP_OPTIONS}
+              variant="compact"
+              ariaLabel="Group tasks"
+              title="Group"
+            />
+          </div>
+
+          <div className="h-3.5 w-px bg-td-border dark:bg-tn-border" />
+
+          {/* Sort */}
+          <div className="flex items-center gap-1.5 text-xs text-td-muted dark:text-tn-muted">
+            <span>Sort:</span>
+            <Select
+              value={sortBy}
+              onChange={onSortBy}
+              options={SORT_OPTIONS}
+              variant="compact"
+              ariaLabel="Sort tasks"
+              title="Sort"
+            />
+          </div>
+
+          {/* Collapse / expand all groups */}
+          {canCollapse && (
+            <>
+              <div className="h-3.5 w-px bg-td-border dark:bg-tn-border" />
+              <button
+                onClick={onToggleCollapseAll}
+                className="flex items-center gap-1.5 text-xs px-2.5 min-h-[40px] rounded-lg transition-colors
+                  text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg active:text-td-fg dark:active:text-tn-fg"
+              >
+                {allCollapsed ? 'Expand all' : 'Collapse all'}
+              </button>
+            </>
+          )}
         </>
       )}
     </div>
   )
 }
 
-function FilterSheet({ showDone, onToggleDone, sortBy, onSortBy, groupBy, onGroupBy, canCollapse, allCollapsed, onToggleCollapseAll, onClose }) {
+function FilterSheet({ showDone, onToggleDone, sortBy, onSortBy, groupBy, onGroupBy, canCollapse, allCollapsed, onToggleCollapseAll, onClose, mode = 'full' }) {
   const swipeStart = useRef(null)
 
   useEffect(() => {
@@ -338,7 +360,7 @@ function FilterSheet({ showDone, onToggleDone, sortBy, onSortBy, groupBy, onGrou
 
         {/* Header */}
         <div className="flex items-center justify-between px-4 pb-3 shrink-0">
-          <span className="text-sm font-semibold text-td-fg dark:text-tn-fg">Filters &amp; Sort</span>
+          <span className="text-sm font-semibold text-td-fg dark:text-tn-fg">{mode === 'full' ? 'Filters & Sort' : 'Filters'}</span>
           <button
             onClick={onClose}
             className="p-2 -mr-2 text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg transition-colors"
@@ -364,53 +386,57 @@ function FilterSheet({ showDone, onToggleDone, sortBy, onSortBy, groupBy, onGrou
             </span>
           </button>
 
-          {/* Group by */}
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-td-muted dark:text-tn-muted block">Group by</label>
-            <div className="flex gap-2">
-              {GROUP_OPTIONS.map(o => (
-                <button
-                  key={o.value}
-                  onClick={() => onGroupBy(o.value)}
-                  className={`flex-1 py-2 px-3 text-xs font-medium rounded-lg transition-colors border
-                    ${groupBy === o.value
-                      ? 'bg-td-blue/10 dark:bg-tn-blue/10 text-td-blue dark:text-tn-blue border-td-blue/30 dark:border-tn-blue/30'
-                      : 'bg-td-surface dark:bg-tn-surface text-td-muted dark:text-tn-muted border-td-border/50 dark:border-tn-border/50'}`}
-                >
-                  {o.label}
-                </button>
-              ))}
-            </div>
-          </div>
+          {mode === 'full' && (
+            <>
+              {/* Group by */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-td-muted dark:text-tn-muted block">Group by</label>
+                <div className="flex gap-2">
+                  {GROUP_OPTIONS.map(o => (
+                    <button
+                      key={o.value}
+                      onClick={() => onGroupBy(o.value)}
+                      className={`flex-1 py-2 px-3 text-xs font-medium rounded-lg transition-colors border
+                        ${groupBy === o.value
+                          ? 'bg-td-blue/10 dark:bg-tn-blue/10 text-td-blue dark:text-tn-blue border-td-blue/30 dark:border-tn-blue/30'
+                          : 'bg-td-surface dark:bg-tn-surface text-td-muted dark:text-tn-muted border-td-border/50 dark:border-tn-border/50'}`}
+                    >
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-          {/* Sort by */}
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-td-muted dark:text-tn-muted block">Sort by</label>
-            <div className="flex flex-wrap gap-2">
-              {SORT_OPTIONS.map(o => (
-                <button
-                  key={o.value}
-                  onClick={() => onSortBy(o.value)}
-                  className={`py-2 px-3 text-xs font-medium rounded-lg transition-colors border
-                    ${sortBy === o.value
-                      ? 'bg-td-blue/10 dark:bg-tn-blue/10 text-td-blue dark:text-tn-blue border-td-blue/30 dark:border-tn-blue/30'
-                      : 'bg-td-surface dark:bg-tn-surface text-td-muted dark:text-tn-muted border-td-border/50 dark:border-tn-border/50'}`}
-                >
-                  {o.label}
-                </button>
-              ))}
-            </div>
-          </div>
+              {/* Sort by */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-td-muted dark:text-tn-muted block">Sort by</label>
+                <div className="flex flex-wrap gap-2">
+                  {SORT_OPTIONS.map(o => (
+                    <button
+                      key={o.value}
+                      onClick={() => onSortBy(o.value)}
+                      className={`py-2 px-3 text-xs font-medium rounded-lg transition-colors border
+                        ${sortBy === o.value
+                          ? 'bg-td-blue/10 dark:bg-tn-blue/10 text-td-blue dark:text-tn-blue border-td-blue/30 dark:border-tn-blue/30'
+                          : 'bg-td-surface dark:bg-tn-surface text-td-muted dark:text-tn-muted border-td-border/50 dark:border-tn-border/50'}`}
+                    >
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-          {/* Collapse / expand all groups */}
-          {canCollapse && (
-            <button
-              onClick={onToggleCollapseAll}
-              className="w-full flex items-center justify-between px-3 py-3 rounded-xl transition-colors border
-                border-td-border/40 dark:border-tn-border/40 bg-transparent text-td-fg dark:text-tn-fg"
-            >
-              <span className="text-sm">{allCollapsed ? 'Expand all groups' : 'Collapse all groups'}</span>
-            </button>
+              {/* Collapse / expand all groups */}
+              {canCollapse && (
+                <button
+                  onClick={onToggleCollapseAll}
+                  className="w-full flex items-center justify-between px-3 py-3 rounded-xl transition-colors border
+                    border-td-border/40 dark:border-tn-border/40 bg-transparent text-td-fg dark:text-tn-fg"
+                >
+                  <span className="text-sm">{allCollapsed ? 'Expand all groups' : 'Collapse all groups'}</span>
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -575,22 +601,29 @@ export function MainContent() {
     return { title: 'Tasks', icon: null, baseTasks: tasks, emptyMessage: 'No tasks' }
   }, [view, tasks, projects, state.upcomingRange])
 
+  const filterMode = useMemo(() => {
+    if (viewMode !== 'list') return null
+    if (view === 'inbox' || view === 'all' || view.startsWith('project:')) return 'full'
+    if (view === 'today' || view === 'upcoming') return 'done'
+    return null
+  }, [view, viewMode])
+
   // Apply show/hide done + sort
   const visibleTasks = useMemo(() => {
-    // Board and table own their own done toggles — always include done tasks so they can filter
-    const skipDoneFilter = viewMode === 'board' || viewMode === 'table'
+    // Board, table, and overdue own/ignore done filtering — always include done tasks there.
+    const skipDoneFilter = viewMode === 'board' || viewMode === 'table' || view === 'overdue'
     let pool
-    if (skipDoneFilter)      pool = baseTasks                                   // board filters itself
+    if (skipDoneFilter)      pool = baseTasks                                   // board/table filter themselves; overdue ignores completed-only
     else if (showDone)       pool = baseTasks.filter(t => t.status === 'done')  // only completed
     else                     pool = baseTasks.filter(t => t.status !== 'done')  // default: hide completed
     return sortBy !== 'status' ? sortTasks(pool, sortBy, projects) : pool
-  }, [baseTasks, showDone, sortBy, projects, viewMode])
+  }, [baseTasks, showDone, sortBy, projects, viewMode, view])
 
-  const activeCount = useMemo(() =>
-    baseTasks.filter(t => t.status !== 'done').length, [baseTasks])
 
-  const showToolbar = viewMode === 'list' && view !== 'overdue' && view !== 'calendar' && view !== 'dashboard' && view !== 'today' && view !== 'upcoming'
-  const hasActiveFilters = !showDone || sortBy !== 'status' || groupBy !== 'status'
+  const showToolbar = !!filterMode
+  const hasActiveFilters = filterMode === 'full'
+    ? showDone || sortBy !== 'status' || groupBy !== 'status'
+    : showDone
   const effectiveGroupBy = groupBy === 'none' ? 'flat' : groupBy
   const groupKeys = useMemo(() => getGroupKeys(effectiveGroupBy, visibleTasks, projects), [effectiveGroupBy, visibleTasks, projects])
   const allCollapsed = groupKeys.length > 0 && groupKeys.every(isCollapsed)
@@ -611,7 +644,10 @@ export function MainContent() {
         <ViewHeader
           title={title}
           icon={icon}
-          count={activeCount > 0 ? activeCount : null}
+          filter={filterMode ? {
+            active: hasActiveFilters,
+            onOpen: () => setFilterSheetOpen(true),
+          } : null}
         />
       )}
 
@@ -629,29 +665,13 @@ export function MainContent() {
               canCollapse={groupKeys.length > 0}
               allCollapsed={allCollapsed}
               onToggleCollapseAll={toggleCollapseAll}
+              mode={filterMode}
             />
-          </div>
-
-          {/* Mobile: compact filter trigger */}
-          <div className="md:hidden flex items-center gap-2 px-4 py-2 border-b border-td-border/30 dark:border-tn-border/30 bg-td-bg dark:bg-tn-bg">
-            <button
-              onClick={() => setFilterSheetOpen(true)}
-              className={`flex items-center gap-1.5 text-xs px-2.5 min-h-[36px] rounded-lg transition-colors border
-                ${hasActiveFilters
-                  ? 'bg-td-blue/10 dark:bg-tn-blue/10 text-td-blue dark:text-tn-blue border-td-blue/30 dark:border-tn-blue/30'
-                  : 'bg-td-surface dark:bg-tn-surface text-td-muted dark:text-tn-muted border-td-border/50 dark:border-tn-border/50'}`}
-            >
-              <SlidersHorizontal size={13} />
-              <span>Filter</span>
-              {hasActiveFilters && (
-                <span className="w-1.5 h-1.5 rounded-full bg-td-blue dark:bg-tn-blue shrink-0" />
-              )}
-            </button>
           </div>
         </>
       )}
 
-      {filterSheetOpen && (
+      {filterSheetOpen && filterMode && (
         <FilterSheet
           showDone={showDone}
           onToggleDone={toggleShowDone}
@@ -663,6 +683,7 @@ export function MainContent() {
           allCollapsed={allCollapsed}
           onToggleCollapseAll={toggleCollapseAll}
           onClose={() => setFilterSheetOpen(false)}
+          mode={filterMode}
         />
       )}
 
@@ -699,9 +720,9 @@ export function MainContent() {
         ) : view === 'overdue' ? (
           <OverdueView tasks={visibleTasks} />
         ) : view === 'today' && viewMode !== 'board' ? (
-          <PriorityTodayView tasks={visibleTasks} />
+          <PriorityTodayView tasks={visibleTasks} completedOnly={showDone} />
         ) : view === 'upcoming' && viewMode !== 'board' ? (
-          <UpcomingView tasks={visibleTasks} range={state.upcomingRange} />
+          <UpcomingView tasks={visibleTasks} range={state.upcomingRange} completedOnly={showDone} />
         ) : viewMode === 'board' ? (
           <KanbanBoard tasks={visibleTasks} />
         ) : (

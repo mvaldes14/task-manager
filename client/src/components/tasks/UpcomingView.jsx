@@ -14,7 +14,7 @@ function formatDayHeader(isoDate) {
   return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
 }
 
-export function UpcomingView({ tasks, range }) {
+export function UpcomingView({ tasks, range, completedOnly = false }) {
   const n = range === '14' ? 14 : 7
 
   const groups = useMemo(() => {
@@ -42,7 +42,7 @@ export function UpcomingView({ tasks, range }) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-td-muted dark:text-tn-muted">
         <span className="text-4xl mb-3">🗓️</span>
-        <p className="text-sm">Nothing coming up in the next {n} days</p>
+        <p className="text-sm">{completedOnly ? `No completed tasks in the next ${n} days` : `Nothing coming up in the next ${n} days`}</p>
       </div>
     )
   }
