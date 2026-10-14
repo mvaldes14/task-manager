@@ -311,7 +311,7 @@ function SupportingRow({ task, isLast }) {
 
 const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 }
 
-export function PriorityTodayView({ tasks }) {
+export function PriorityTodayView({ tasks, completedOnly = false }) {
   const { todayTasks, overdueTasks } = useMemo(() => ({
     todayTasks: tasks.filter(t => !isOverdue(t)),
     overdueTasks: tasks.filter(t => isOverdue(t)),
@@ -328,6 +328,42 @@ export function PriorityTodayView({ tasks }) {
 
   const focusTask = sorted[0] || null
   const supportingTasks = sorted.slice(1)
+  const completedTasks = useMemo(() => (
+    [...tasks].sort((a, b) => {
+      const ad = a.completed_at || a.updated_at || a.created_at || ''
+      const bd = b.completed_at || b.updated_at || b.created_at || ''
+      return bd.localeCompare(ad)
+    })
+  ), [tasks])
+
+  if (completedOnly) {
+    if (completedTasks.length === 0) {
+      return (
+        <div className="flex flex-col items-center justify-center py-20 text-td-muted dark:text-tn-muted">
+          <span className="text-4xl mb-3">✓</span>
+          <p className="text-sm">No completed tasks due today</p>
+        </div>
+      )
+    }
+
+    return (
+      <div>
+        <section>
+          <div className="flex items-center gap-2 px-4 py-2 sticky top-0 bg-td-bg dark:bg-tn-bg z-10">
+            <span className="text-[10px] font-semibold tracking-widest text-td-muted dark:text-tn-muted uppercase">COMPLETED</span>
+            <span className="text-[10px] text-td-muted/60 dark:text-tn-muted/60 bg-td-surface dark:bg-tn-surface px-1.5 rounded-full">
+              {completedTasks.length}
+            </span>
+          </div>
+          <div>
+            {completedTasks.map((task, i) => (
+              <SupportingRow key={task.id} task={task} isLast={i === completedTasks.length - 1} />
+            ))}
+          </div>
+        </section>
+      </div>
+    )
+  }
 
   if (tasks.length === 0) {
     return (
