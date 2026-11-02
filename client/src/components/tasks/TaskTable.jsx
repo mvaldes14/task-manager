@@ -21,16 +21,30 @@ const PRIORITY_RANK = { high: 0, medium: 1, low: 2 }
 const STATUS_RANK = STATUS_ORDER.reduce((acc, s, i) => { acc[s] = i; return acc }, {})
 
 const COLUMNS = [
-  { key: 'key',      label: 'ID',       sortable: true,  width: '84px' },
-  { key: 'title',    label: 'Task',     sortable: true,  width: 'auto' },
-  { key: 'status',   label: 'Status',   sortable: true,  width: '112px' },
-  { key: 'priority', label: 'Priority', sortable: true,  width: '90px' },
-  { key: 'due',      label: 'Due',      sortable: true,  width: '124px' },
-  { key: 'project',  label: 'Project',  sortable: true,  width: '130px' },
-  { key: 'tags',     label: 'Tags',     sortable: false, width: '96px' },
-  { key: 'links',    label: 'Links',    sortable: false, width: '110px' },
-  { key: 'assignee', label: 'Assignee', sortable: true,  width: '110px' },
+  { key: 'key',      label: 'ID',       sortable: true,  width: 84,  minWidth: 64 },
+  { key: 'title',    label: 'Task',     sortable: true,  width: 360, minWidth: 180 },
+  { key: 'status',   label: 'Status',   sortable: true,  width: 112, minWidth: 88 },
+  { key: 'priority', label: 'Priority', sortable: true,  width: 90,  minWidth: 76 },
+  { key: 'due',      label: 'Due',      sortable: true,  width: 124, minWidth: 96 },
+  { key: 'project',  label: 'Project',  sortable: true,  width: 130, minWidth: 96 },
+  { key: 'links',    label: 'Links',    sortable: false, width: 110, minWidth: 80 },
+  { key: 'assignee', label: 'Assignee', sortable: true,  width: 110, minWidth: 90 },
 ]
+
+const COLUMN_WIDTHS_STORAGE_KEY = 'td-table-column-widths'
+const DEFAULT_COLUMN_WIDTHS = Object.fromEntries(COLUMNS.map(col => [col.key, col.width]))
+
+function loadColumnWidths() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(COLUMN_WIDTHS_STORAGE_KEY) || '{}')
+    return Object.fromEntries(COLUMNS.map(col => [
+      col.key,
+      Math.max(col.minWidth, Number(saved[col.key]) || col.width),
+    ]))
+  } catch {
+    return DEFAULT_COLUMN_WIDTHS
+  }
+}
 
 // '\uffff' sorts last for every missing value, so blanks always sink to the bottom
 // on an ascending sort regardless of column.
@@ -79,28 +93,55 @@ export function TaskTableSkeleton({ rows = 8 }) {
   )
 }
 
-function SortHeader({ col, sort, onSort }) {
+function ResizeHandle({ col, width, onResizeStart, onResizeKey, onReset }) {
+  return (
+    <div
+      role="separator"
+      aria-orientation="vertical"
+      aria-label={`Resize ${col.label} column`}
+      aria-valuenow={width}
+      tabIndex={0}
+      title="Drag to resize · Double-click to reset"
+      onClick={e => e.stopPropagation()}
+      onDoubleClick={e => { e.stopPropagation(); onReset(col.key) }}
+      onPointerDown={e => onResizeStart(e, col.key)}
+      onKeyDown={e => onResizeKey(e, col.key)}
+      className="group/resize absolute right-0 top-0 z-20 h-full w-2 translate-x-1/2 cursor-col-resize touch-none outline-none"
+    >
+      <span className="absolute left-1/2 top-1 bottom-1 w-px -translate-x-1/2 bg-td-border dark:bg-tn-border group-hover/resize:bg-td-blue dark:group-hover/resize:bg-tn-blue group-focus/resize:bg-td-blue dark:group-focus/resize:bg-tn-blue group-hover/resize:w-0.5 group-focus/resize:w-0.5" />
+    </div>
+  )
+}
+
+function SortHeader({ col, sort, width, onSort, onResizeStart, onResizeKey, onReset }) {
   const active = sort.key === col.key
   const Arrow = sort.dir === 'asc' ? ArrowUp : ArrowDown
 
-  if (!col.sortable) {
-    return <th scope="col" className={HEAD}>{col.label}</th>
-  }
-
   return (
-    <th scope="col" className={`${HEAD} p-0`}>
-      <button
-        type="button"
-        onClick={() => onSort(col.key)}
-        aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
-        className={`w-full flex items-center gap-1 px-3 py-2 text-left transition-colors duration-fast
-          ${active
-            ? 'text-td-fg dark:text-tn-fg'
-            : 'text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg'}`}
-      >
-        <span className="text-[10px] font-semibold tracking-widest uppercase">{col.label}</span>
-        {active && <Arrow size={11} className="shrink-0" />}
-      </button>
+    <th scope="col" className={`${HEAD} relative p-0`}>
+      {col.sortable ? (
+        <button
+          type="button"
+          onClick={() => onSort(col.key)}
+          aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+          className={`w-full flex items-center gap-1 px-3 py-2 pr-4 text-left transition-colors duration-fast
+            ${active
+              ? 'text-td-fg dark:text-tn-fg'
+              : 'text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg'}`}
+        >
+          <span className="text-[10px] font-semibold tracking-widest uppercase truncate">{col.label}</span>
+          {active && <Arrow size={11} className="shrink-0" />}
+        </button>
+      ) : (
+        <div className="px-3 py-2 pr-4 truncate">{col.label}</div>
+      )}
+      <ResizeHandle
+        col={col}
+        width={width}
+        onResizeStart={onResizeStart}
+        onResizeKey={onResizeKey}
+        onReset={onReset}
+      />
     </th>
   )
 }
@@ -315,28 +356,6 @@ function TaskRow({ task, selection }) {
         ) : null}
       </td>
 
-      {/* Tags */}
-      <td className={CELL}>
-        <div className="flex items-center gap-1 min-w-0">
-          {(task.tags || []).slice(0, 2).map(tag => (
-            <span
-              key={tag}
-              className="text-[10px] font-medium px-1.5 py-0.5 rounded-md whitespace-nowrap
-                text-td-muted dark:text-tn-muted
-                bg-td-surface dark:bg-tn-surface
-                border border-td-border/60 dark:border-tn-border/60"
-            >
-              @{tag}
-            </span>
-          ))}
-          {(task.tags || []).length > 2 && (
-            <span className="text-[10px] text-td-muted/60 dark:text-tn-muted/60 shrink-0">
-              +{task.tags.length - 2}
-            </span>
-          )}
-        </div>
-      </td>
-
       {/* Links */}
       <td className={CELL}>
         <div className="flex items-center gap-1 min-w-0">
@@ -361,8 +380,16 @@ export function TaskTable({ tasks, emptyMessage = 'No tasks here', selection = n
   const { projects, users } = state
   const [sort, setSort] = useState({ key: 'due', dir: 'asc' })
   const [showDone, setShowDone] = useState(false)
+  const [columnWidths, setColumnWidths] = useState(loadColumnWidths)
   const selectAllRef = useRef(null)
+  const resizeCleanupRef = useRef(null)
   const selectionEnabled = !!selection?.selectionEnabled
+
+  useEffect(() => {
+    localStorage.setItem(COLUMN_WIDTHS_STORAGE_KEY, JSON.stringify(columnWidths))
+  }, [columnWidths])
+
+  useEffect(() => () => resizeCleanupRef.current?.(), [])
 
   const doneCount = useMemo(() => tasks.filter(t => t.status === 'done').length, [tasks])
 
@@ -383,6 +410,56 @@ export function TaskTable({ tasks, emptyMessage = 'No tasks here', selection = n
       ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' }
       : { key, dir: 'asc' })
   }, [])
+
+  const resizeColumn = useCallback((key, width) => {
+    const col = COLUMNS.find(candidate => candidate.key === key)
+    if (!col) return
+    setColumnWidths(current => ({ ...current, [key]: Math.max(col.minWidth, Math.round(width)) }))
+  }, [])
+
+  const startColumnResize = useCallback((event, key) => {
+    if (event.button !== 0) return
+    event.preventDefault()
+    event.stopPropagation()
+    resizeCleanupRef.current?.()
+
+    const startX = event.clientX
+    const startWidth = columnWidths[key]
+    const previousCursor = document.body.style.cursor
+    const previousUserSelect = document.body.style.userSelect
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+
+    const onMove = moveEvent => resizeColumn(key, startWidth + moveEvent.clientX - startX)
+    const cleanup = () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', cleanup)
+      window.removeEventListener('pointercancel', cleanup)
+      document.body.style.cursor = previousCursor
+      document.body.style.userSelect = previousUserSelect
+      resizeCleanupRef.current = null
+    }
+
+    resizeCleanupRef.current = cleanup
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', cleanup)
+    window.addEventListener('pointercancel', cleanup)
+  }, [columnWidths, resizeColumn])
+
+  const resizeColumnByKey = useCallback((event, key) => {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+    event.preventDefault()
+    event.stopPropagation()
+    resizeColumn(key, columnWidths[key] + (event.key === 'ArrowRight' ? 8 : -8))
+  }, [columnWidths, resizeColumn])
+
+  const resetColumnWidth = useCallback((key) => {
+    resizeColumn(key, DEFAULT_COLUMN_WIDTHS[key])
+  }, [resizeColumn])
+
+  const tableWidth = useMemo(() => (
+    (selectionEnabled ? 40 : 0) + 40 + COLUMNS.reduce((sum, col) => sum + columnWidths[col.key], 0)
+  ), [selectionEnabled, columnWidths])
 
   // Select-all reflects the currently rendered (filtered) rows only, not the DB.
   const selectedInRows = selectionEnabled
@@ -427,12 +504,12 @@ export function TaskTable({ tasks, emptyMessage = 'No tasks here', selection = n
         </div>
       ) : (
         <div className="flex-1 min-h-0 overflow-auto overscroll-contain px-4 pb-6">
-          <table className="w-full min-w-[1120px] table-fixed border-collapse">
+          <table className="min-w-full table-fixed border-collapse" style={{ width: `${tableWidth}px` }}>
             <colgroup>
               {selectionEnabled && <col style={{ width: '40px' }} />}
               <col style={{ width: '40px' }} />
               {COLUMNS.map(col => (
-                <col key={col.key} style={col.width === 'auto' ? undefined : { width: col.width }} />
+                <col key={col.key} style={{ width: `${columnWidths[col.key]}px` }} />
               ))}
             </colgroup>
             <thead className="sticky top-0 z-10 bg-td-bg dark:bg-tn-bg">
@@ -453,7 +530,16 @@ export function TaskTable({ tasks, emptyMessage = 'No tasks here', selection = n
                   <span className="sr-only">Done</span>
                 </th>
                 {COLUMNS.map(col => (
-                  <SortHeader key={col.key} col={col} sort={sort} onSort={handleSort} />
+                  <SortHeader
+                    key={col.key}
+                    col={col}
+                    sort={sort}
+                    width={columnWidths[col.key]}
+                    onSort={handleSort}
+                    onResizeStart={startColumnResize}
+                    onResizeKey={resizeColumnByKey}
+                    onReset={resetColumnWidth}
+                  />
                 ))}
               </tr>
             </thead>
