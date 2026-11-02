@@ -50,6 +50,21 @@ function AppShell() {
     if (meta) meta.setAttribute('content', dark ? '#08090c' : '#f7f8fa')
   }, [state.theme])
 
+  useEffect(() => {
+    if (state.themeMode !== 'system') return undefined
+
+    const media = window.matchMedia('(prefers-color-scheme: dark)')
+    const syncTheme = event => dispatch({
+      type: 'SET_RESOLVED_THEME',
+      payload: event.matches ? 'dark' : 'light',
+    })
+
+    // Re-read current system preference whenever Auto mode becomes active.
+    syncTheme(media)
+    media.addEventListener('change', syncTheme)
+    return () => media.removeEventListener('change', syncTheme)
+  }, [state.themeMode, dispatch])
+
   if (authed === null) return (
     <div className="min-h-screen bg-td-bg dark:bg-tn-bg flex items-center justify-center">
       <div className="text-td-muted dark:text-tn-muted text-sm animate-pulse">Loading…</div>

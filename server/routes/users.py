@@ -92,10 +92,19 @@ def upload_avatar():
 
     conn = get_db()
     try:
-        cur = conn.cursor()
-        cur.execute("UPDATE users SET avatar=%s WHERE id=%s", (psycopg2.Binary(avatar_bytes), g.user_id))
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(
+            "UPDATE users SET avatar=%s WHERE id=%s "
+            "RETURNING id, username, display_name, is_admin, (avatar IS NOT NULL) AS has_avatar",
+            (psycopg2.Binary(avatar_bytes), g.user_id))
+        row = cur.fetchone()
+        if not row:
+            conn.rollback()
+            return jsonify({'error': 'Not found'}), 404
         conn.commit()
-        return jsonify({'ok': True})
+        user = _user_row(row)
+        user['avatar_version'] = uuid.uuid4().hex
+        return jsonify(user)
     finally:
         release_db(conn)
 
@@ -109,8 +118,12 @@ def get_avatar(uid):
         row = cur.fetchone()
         if not row or not row[0]:
             return jsonify({'error': 'No avatar'}), 404
-        return send_file(io.BytesIO(bytes(row[0])), mimetype='image/jpeg',
-                         max_age=3600, conditional=True)
+        response = send_file(io.BytesIO(bytes(row[0])), mimetype='image/jpeg',
+                             max_age=0, conditional=False)
+        # Avatar URLs are stable across uploads; prevent browsers from keeping
+        # the previous image after a successful replacement.
+        response.headers['Cache-Control'] = 'no-store'
+        return response
     finally:
         release_db(conn)
 

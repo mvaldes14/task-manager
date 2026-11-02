@@ -491,6 +491,7 @@ export function MainContent() {
 
   // ── Multi-select ──────────────────────────────────────────────────────────
   const [selectedIds, setSelectedIds] = useState(() => new Set())
+  const [tableSelectionMode, setTableSelectionMode] = useState(false)
   const selectionActive = selectedIds.size > 0
   // Only list and table support selection. (A future "Deleted only" view will
   // disable it too — that view has its own per-row restore/purge.)
@@ -510,7 +511,13 @@ export function MainContent() {
   const deselectMany = useCallback((ids) => {
     setSelectedIds(prev => { const next = new Set(prev); ids.forEach(i => next.delete(i)); return next })
   }, [])
-  const clearSelection = useCallback(() => setSelectedIds(new Set()), [])
+  const startTableSelection = useCallback(() => {
+    if (selectionEnabled) setTableSelectionMode(true)
+  }, [selectionEnabled])
+  const clearSelection = useCallback(() => {
+    setSelectedIds(new Set())
+    setTableSelectionMode(false)
+  }, [])
 
   // A selection that survives a view or view-mode switch would act on tasks the
   // user can no longer see. Reset it during render when either changes — React's
@@ -519,16 +526,20 @@ export function MainContent() {
   if (selectionKey !== `${view}|${viewMode}`) {
     setSelectionKey(`${view}|${viewMode}`)
     if (selectedIds.size > 0) setSelectedIds(new Set())
+    if (tableSelectionMode) setTableSelectionMode(false)
   }
 
   const selection = useMemo(() => ({
     selectedIds,
     selectionActive,
     selectionEnabled,
+    selectionMode: viewMode === 'table' && tableSelectionMode,
+    onStartSelection: startTableSelection,
+    onClearSelection: clearSelection,
     onToggleSelect: toggleSelect,
     onSelectMany: selectMany,
     onDeselectMany: deselectMany,
-  }), [selectedIds, selectionActive, selectionEnabled, toggleSelect, selectMany, deselectMany])
+  }), [selectedIds, selectionActive, selectionEnabled, viewMode, tableSelectionMode, startTableSelection, clearSelection, toggleSelect, selectMany, deselectMany])
 
   const handleRefresh = useCallback(async () => { await loadAll() }, [loadAll])
   const { indicatorEl, onTouchStart, onTouchMove, onTouchEnd } = usePullToRefresh(handleRefresh)
