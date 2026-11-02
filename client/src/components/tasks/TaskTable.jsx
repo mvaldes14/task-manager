@@ -5,7 +5,7 @@ import { ProjectIcon } from '../shared/ProjectIcon'
 import { LinkIcon, Skeleton, TaskKey } from '../ui'
 import { formatDate, fmtTime, getLinkLabel, isOverdue, priorityColor } from '../../utils'
 import { STATUS_DISPLAY_LABELS, STATUS_ORDER } from './grouping'
-import { ArrowUp, ArrowDown, Eye, EyeOff } from 'lucide-react'
+import { ArrowUp, ArrowDown, Check, Eye, EyeOff, ListChecks, X } from 'lucide-react'
 import { TASK_DRAG_TYPE } from '../../constants/dnd'
 
 // Mirrors KanbanBoard's column colours so a task reads the same in both modes.
@@ -203,21 +203,20 @@ function NeutralLinks({ links, max = 1 }) {
   )
 }
 
-// Square + blue selection checkbox, distinct from the round green completion
-// control. The column is reserved, but the checkbox stays quiet until hover or
-// active selection.
-function SelectCheckbox({ selected, selectionActive, onToggle, label }) {
+// Selection reuses the completion-control slot while table is in explicit
+// select mode. This keeps row geometry stable without reserving another column.
+function SelectCheckbox({ selected, onToggle, label }) {
   return (
     <button
       onClick={e => { e.stopPropagation(); onToggle() }}
       aria-label={label}
-      className={`shrink-0 w-4 h-4 rounded border flex items-center justify-center transition-all duration-fast
-        ${selected || selectionActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 focus:opacity-100'}
+      className={`shrink-0 w-5 h-5 rounded-md border flex items-center justify-center transition-colors duration-fast
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-td-blue/50 dark:focus-visible:ring-tn-blue/50
         ${selected
-          ? 'bg-td-blue dark:bg-tn-blue border-td-blue dark:border-tn-blue'
-          : 'border-td-muted/50 dark:border-tn-muted/50 hover:border-td-blue dark:hover:border-tn-blue'}`}
+          ? 'bg-td-blue dark:bg-tn-blue border-td-blue dark:border-tn-blue text-white'
+          : 'bg-td-bg dark:bg-tn-bg border-td-muted/70 dark:border-tn-muted hover:border-td-blue dark:hover:border-tn-blue hover:bg-td-blue/5 dark:hover:bg-tn-blue/10'}`}
     >
-      {selected && <span className="text-[8px] text-white font-bold">✓</span>}
+      {selected && <Check size={13} strokeWidth={3} />}
     </button>
   )
 }
@@ -225,8 +224,7 @@ function SelectCheckbox({ selected, selectionActive, onToggle, label }) {
 function TaskRow({ task, selection }) {
   const { state, dispatch } = useApp()
   const { toggleTask } = useTasks()
-  const selectionEnabled = !!selection?.selectionEnabled
-  const selectionActive = !!selection?.selectionActive
+  const selectMode = !!selection?.selectionMode
   const selected = !!selection?.selectedIds?.has(task.id)
 
   const project = state.projects.find(p => p.id === task.project_id)
@@ -250,51 +248,47 @@ function TaskRow({ task, selection }) {
 
   return (
     <tr
-      draggable={!isTouch}
-      onDragStart={!isTouch ? (e => {
+      draggable={!isTouch && !selectMode}
+      onDragStart={!isTouch && !selectMode ? (e => {
         e.dataTransfer.setData(TASK_DRAG_TYPE, task.id)
         e.dataTransfer.effectAllowed = 'move'
       }) : undefined}
       onClick={() => {
-        if (selectionActive) { selection.onToggleSelect(task.id); return }
+        if (selectMode) { selection.onToggleSelect(task.id); return }
         dispatch({ type: 'SELECT_TASK', payload: task.id })
       }}
       className={`group cursor-pointer border-b border-td-border/40 dark:border-tn-border/40
         transition-colors duration-fast
         hover:bg-td-surface/60 dark:hover:bg-tn-surface/60
-        ${done ? 'opacity-50' : ''}`}
+        ${done && !selectMode ? 'opacity-50' : ''}`}
     >
-      {/* Selection checkbox — square + blue */}
-      {selectionEnabled && (
-        <td className={`${CELL} w-[40px]`}>
+      {/* Select mode replaces completion control; no extra column needed. */}
+      <td className={CELL}>
+        {selectMode ? (
           <SelectCheckbox
             selected={selected}
-            selectionActive={selectionActive}
             onToggle={() => selection.onToggleSelect(task.id)}
             label={selected ? 'Deselect task' : 'Select task'}
           />
-        </td>
-      )}
-
-      {/* Checkbox */}
-      <td className={CELL}>
-        <button
-          onClick={e => { e.stopPropagation(); toggleTask(task.id, task.status) }}
-          aria-label="Toggle task"
-          className="motion-safe:active:scale-90 transition-transform duration-fast"
-        >
-          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors duration-fast
-            ${done
-              ? 'border-td-green dark:border-tn-green bg-td-green/20 dark:bg-tn-green/20'
-              : 'border-td-muted/50 dark:border-tn-muted/50 hover:border-td-blue dark:hover:border-tn-blue'}`}
+        ) : (
+          <button
+            onClick={e => { e.stopPropagation(); toggleTask(task.id, task.status) }}
+            aria-label="Toggle task"
+            className="motion-safe:active:scale-90 transition-transform duration-fast"
           >
-            {done && (
-              <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-                <path d="M1 4L3.5 6.5L9 1" stroke="#9ece6a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            )}
-          </div>
-        </button>
+            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors duration-fast
+              ${done
+                ? 'border-td-green dark:border-tn-green bg-td-green/20 dark:bg-tn-green/20'
+                : 'border-td-muted/50 dark:border-tn-muted/50 hover:border-td-blue dark:hover:border-tn-blue'}`}
+            >
+              {done && (
+                <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                  <path d="M1 4L3.5 6.5L9 1" stroke="#9ece6a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              )}
+            </div>
+          </button>
+        )}
       </td>
 
       <td className={CELL}>
@@ -381,9 +375,10 @@ export function TaskTable({ tasks, emptyMessage = 'No tasks here', selection = n
   const [sort, setSort] = useState({ key: 'due', dir: 'asc' })
   const [showDone, setShowDone] = useState(false)
   const [columnWidths, setColumnWidths] = useState(loadColumnWidths)
-  const selectAllRef = useRef(null)
   const resizeCleanupRef = useRef(null)
   const selectionEnabled = !!selection?.selectionEnabled
+  const selectMode = !!selection?.selectionMode
+  const selectedCount = selection?.selectedIds?.size || 0
 
   useEffect(() => {
     localStorage.setItem(COLUMN_WIDTHS_STORAGE_KEY, JSON.stringify(columnWidths))
@@ -458,20 +453,14 @@ export function TaskTable({ tasks, emptyMessage = 'No tasks here', selection = n
   }, [resizeColumn])
 
   const tableWidth = useMemo(() => (
-    (selectionEnabled ? 40 : 0) + 40 + COLUMNS.reduce((sum, col) => sum + columnWidths[col.key], 0)
-  ), [selectionEnabled, columnWidths])
+    40 + COLUMNS.reduce((sum, col) => sum + columnWidths[col.key], 0)
+  ), [columnWidths])
 
   // Select-all reflects the currently rendered (filtered) rows only, not the DB.
   const selectedInRows = selectionEnabled
     ? rows.reduce((n, t) => n + (selection.selectedIds.has(t.id) ? 1 : 0), 0)
     : 0
   const allSelected = rows.length > 0 && selectedInRows === rows.length
-  const someSelected = selectedInRows > 0 && !allSelected
-
-  // React has no `indeterminate` prop — set it on the DOM node via a ref.
-  useEffect(() => {
-    if (selectAllRef.current) selectAllRef.current.indeterminate = someSelected
-  }, [someSelected])
 
   const toggleSelectAll = useCallback(() => {
     if (allSelected) selection.onDeselectMany(rows.map(t => t.id))
@@ -481,20 +470,63 @@ export function TaskTable({ tasks, emptyMessage = 'No tasks here', selection = n
   return (
     <div className="flex flex-col h-full min-h-0">
       {/* Table toolbar — mirrors KanbanBoard's completed toggle */}
-      <div className="flex items-center justify-between px-4 pt-3 pb-2 shrink-0">
+      <div className="flex items-center justify-between gap-3 px-4 pt-3 pb-2 shrink-0">
         <span className="text-[11px] text-td-muted/60 dark:text-tn-muted/60">
-          {rows.length} {rows.length === 1 ? 'task' : 'tasks'}
+          {selectMode
+            ? `${selectedCount} selected`
+            : `${rows.length} ${rows.length === 1 ? 'task' : 'tasks'}`}
         </span>
-        <button
-          onClick={() => setShowDone(v => !v)}
-          className={`flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-lg border transition-colors
-            ${showDone
-              ? 'bg-td-surface dark:bg-tn-surface border-td-border dark:border-tn-border text-td-fg dark:text-tn-fg'
-              : 'border-transparent text-td-muted/60 dark:text-tn-muted/60 hover:text-td-muted dark:hover:text-tn-muted hover:bg-td-surface dark:hover:bg-tn-surface'}`}
-        >
-          {showDone ? <Eye size={12} /> : <EyeOff size={12} />}
-          Completed{doneCount > 0 ? ` (${doneCount})` : ''}
-        </button>
+
+        <div className="flex items-center gap-1.5">
+          {selectMode ? (
+            <>
+              <button
+                type="button"
+                onClick={toggleSelectAll}
+                className="flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-lg
+                  text-td-blue dark:text-tn-blue hover:bg-td-blue/10 dark:hover:bg-tn-blue/10 transition-colors"
+              >
+                <ListChecks size={13} />
+                {allSelected ? 'Deselect all' : 'Select all'}
+              </button>
+              <button
+                type="button"
+                onClick={selection.onClearSelection}
+                className="flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-lg
+                  text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg
+                  hover:bg-td-surface dark:hover:bg-tn-surface transition-colors"
+              >
+                <X size={12} />
+                Cancel
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => setShowDone(v => !v)}
+                className={`flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-lg border transition-colors
+                  ${showDone
+                    ? 'bg-td-surface dark:bg-tn-surface border-td-border dark:border-tn-border text-td-fg dark:text-tn-fg'
+                    : 'border-transparent text-td-muted/60 dark:text-tn-muted/60 hover:text-td-muted dark:hover:text-tn-muted hover:bg-td-surface dark:hover:bg-tn-surface'}`}
+              >
+                {showDone ? <Eye size={12} /> : <EyeOff size={12} />}
+                Completed{doneCount > 0 ? ` (${doneCount})` : ''}
+              </button>
+              {selectionEnabled && (
+                <button
+                  type="button"
+                  onClick={selection.onStartSelection}
+                  className="flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-lg border border-transparent
+                    text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg
+                    hover:bg-td-surface dark:hover:bg-tn-surface transition-colors"
+                >
+                  <ListChecks size={13} />
+                  Select
+                </button>
+              )}
+            </>
+          )}
+        </div>
       </div>
 
       {rows.length === 0 ? (
@@ -506,7 +538,6 @@ export function TaskTable({ tasks, emptyMessage = 'No tasks here', selection = n
         <div className="flex-1 min-h-0 overflow-auto overscroll-contain px-4 pb-6">
           <table className="min-w-full table-fixed border-collapse" style={{ width: `${tableWidth}px` }}>
             <colgroup>
-              {selectionEnabled && <col style={{ width: '40px' }} />}
               <col style={{ width: '40px' }} />
               {COLUMNS.map(col => (
                 <col key={col.key} style={{ width: `${columnWidths[col.key]}px` }} />
@@ -514,20 +545,8 @@ export function TaskTable({ tasks, emptyMessage = 'No tasks here', selection = n
             </colgroup>
             <thead className="sticky top-0 z-10 bg-td-bg dark:bg-tn-bg">
               <tr className="border-b border-td-border dark:border-tn-border">
-                {selectionEnabled && (
-                  <th scope="col" className={HEAD}>
-                    <input
-                      ref={selectAllRef}
-                      type="checkbox"
-                      checked={allSelected}
-                      onChange={toggleSelectAll}
-                      aria-label="Select all tasks"
-                      className="w-4 h-4 rounded accent-td-blue dark:accent-tn-blue cursor-pointer align-middle"
-                    />
-                  </th>
-                )}
                 <th scope="col" className={HEAD}>
-                  <span className="sr-only">Done</span>
+                  <span className="sr-only">{selectMode ? 'Selected' : 'Done'}</span>
                 </th>
                 {COLUMNS.map(col => (
                   <SortHeader

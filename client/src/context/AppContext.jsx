@@ -1,5 +1,6 @@
 import { createContext, useContext, useReducer, useCallback, useEffect, useRef } from 'react'
 import { isOverdue, isToday } from '../utils'
+import { getStoredThemeMode, resolveThemeMode } from '../theme'
 
 const AppContext = createContext(null)
 
@@ -12,6 +13,8 @@ function initialViewMode() {
   if (saved === 'table' && typeof window !== 'undefined' && window.innerWidth < 768) return 'list'
   return saved
 }
+
+const initialThemeMode = getStoredThemeMode()
 
 const initialState = {
   // Data
@@ -43,7 +46,8 @@ const initialState = {
   // Loading
   tasksLoaded: false,
   // Settings
-  theme: localStorage.getItem('td-theme') || 'dark',
+  themeMode: initialThemeMode,
+  theme: resolveThemeMode(initialThemeMode),
   otelEndpoint: '',
   aiWebhookUrl: '',
   taskKeyPrefix: 'DO',
@@ -82,7 +86,17 @@ function reducer(state, action) {
     case 'SET_FAB':         return { ...state, fabOpen: action.payload.open, fabTargetStatus: action.payload.status || state.fabTargetStatus, fabDraft: action.payload.open ? (action.payload.draft ?? null) : null }
     case 'SET_TOAST':       return { ...state, toast: action.payload }
     case 'SET_CONFIRM':     return { ...state, confirm: action.payload }
-    case 'SET_THEME':       return { ...state, theme: action.payload }
+    case 'SET_THEME_MODE': {
+      const themeMode = action.payload
+      const theme = resolveThemeMode(themeMode)
+      localStorage.setItem('td-theme-mode', themeMode)
+      localStorage.setItem('td-theme', theme)
+      return { ...state, themeMode, theme }
+    }
+    case 'SET_RESOLVED_THEME': {
+      localStorage.setItem('td-theme', action.payload)
+      return { ...state, theme: action.payload }
+    }
     case 'SET_CAL':         return { ...state, calYear: action.payload.year, calMonth: action.payload.month, ...(action.payload.day !== undefined ? { calDay: action.payload.day } : {}) }
     case 'SET_CAL_VIEW': {
       localStorage.setItem('td-cal-view', action.payload)

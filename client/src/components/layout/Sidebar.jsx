@@ -561,9 +561,7 @@ export function Sidebar() {
 
   const toggleTheme = () => {
     const next = state.theme === 'dark' ? 'light' : 'dark'
-    localStorage.setItem('td-theme', next)
-    document.documentElement.classList.toggle('dark', next === 'dark')
-    dispatch({ type: 'SET_THEME', payload: next })
+    dispatch({ type: 'SET_THEME_MODE', payload: next })
   }
 
   return (

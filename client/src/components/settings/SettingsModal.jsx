@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { X, CalendarDays, Puzzle, Bell, Link, Upload, Trash2, Plus, CheckCircle2, RefreshCw, UserCircle, Users } from 'lucide-react'
+import { X, CalendarDays, Puzzle, Bell, Link, Upload, Trash2, Plus, CheckCircle2, RefreshCw, UserCircle, Users, Monitor, Sun, Moon } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { api } from '../../api'
 import { Select } from '../ui'
@@ -171,6 +171,10 @@ function AccountTab() {
         </div>
       </Field>
 
+      <div className="border-t border-td-border/30 dark:border-tn-border/30 pt-4">
+        <AppearanceSection />
+      </div>
+
       {/* Change password */}
       <div className="border-t border-td-border/30 dark:border-tn-border/30 pt-4 space-y-3">
         <p className={labelCls}>Change password</p>
@@ -218,6 +222,55 @@ function AccountTab() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// ── Appearance section ───────────────────────────────────────────────────────
+function AppearanceSection() {
+  const { state, dispatch } = useApp()
+  const options = [
+    { value: 'system', label: 'Auto', description: 'Follow system appearance', icon: <Monitor size={18} /> },
+    { value: 'light', label: 'Light', description: 'Always use light theme', icon: <Sun size={18} /> },
+    { value: 'dark', label: 'Dark', description: 'Always use dark theme', icon: <Moon size={18} /> },
+  ]
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <p className="text-sm font-semibold text-td-fg dark:text-tn-fg">Theme</p>
+        <p className="text-[11px] text-td-muted dark:text-tn-muted mt-0.5">
+          Auto updates live when your device changes appearance.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        {options.map(({ value, label, description, icon }) => {
+          const active = state.themeMode === value
+          return (
+            <button
+              key={value}
+              type="button"
+              onClick={() => dispatch({ type: 'SET_THEME_MODE', payload: value })}
+              aria-pressed={active}
+              className={`flex sm:flex-col items-center sm:items-start gap-3 sm:gap-2 p-3 rounded-xl border text-left transition-colors
+                ${active
+                  ? 'border-td-blue/60 dark:border-tn-blue/60 bg-td-blue/10 dark:bg-tn-blue/10'
+                  : 'border-td-border dark:border-tn-border bg-td-surface/40 dark:bg-tn-surface/40 hover:bg-td-surface dark:hover:bg-tn-surface'}`}
+            >
+              <span className={active ? 'text-td-blue dark:text-tn-blue' : 'text-td-muted dark:text-tn-muted'}>{icon}</span>
+              <span className="min-w-0">
+                <span className="block text-sm font-medium text-td-fg dark:text-tn-fg">{label}</span>
+                <span className="block text-[10px] leading-snug text-td-muted dark:text-tn-muted mt-0.5">{description}</span>
+              </span>
+            </button>
+          )
+        })}
+      </div>
+
+      <p className="text-[11px] text-td-muted/70 dark:text-tn-muted/70">
+        Sidebar theme button remains available. Using it switches Auto to a manual theme.
+      </p>
     </div>
   )
 }
