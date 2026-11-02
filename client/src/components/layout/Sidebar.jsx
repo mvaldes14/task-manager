@@ -360,7 +360,7 @@ function UserAvatar({ user, size = 28 }) {
   if (user.has_avatar) {
     return (
       <img
-        src={api.getUserAvatarUrl(user.id)}
+        src={api.getUserAvatarUrl(user.id, user.avatar_version)}
         alt={user.display_name || user.username}
         className="rounded-full object-cover shrink-0"
         style={{ width: size, height: size }}

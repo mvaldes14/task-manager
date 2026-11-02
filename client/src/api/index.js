@@ -100,7 +100,8 @@ export const api = {
   getMe:           ()           => req('/users/me'),
   updateMe:        (data)       => req('/users/me', 'PATCH', data),
   createUser:      (data)       => req('/users', 'POST', data),
-  getUserAvatarUrl:(uid)        => `/api/users/${uid}/avatar`,
+  // Fallback v=2 invalidates avatar responses cached before endpoint became no-store.
+  getUserAvatarUrl:(uid, version) => `/api/users/${uid}/avatar?v=${version || '2'}`,
   uploadAvatar:    (file)       => {
     const fd = new FormData()
     fd.append('file', file)

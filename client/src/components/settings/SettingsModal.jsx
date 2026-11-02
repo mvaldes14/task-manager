@@ -102,8 +102,7 @@ function AccountTab() {
     if (!avatarFile) return
     setSaving(true)
     try {
-      await api.uploadAvatar(avatarFile)
-      const updated = await api.getMe()
+      const updated = await api.uploadAvatar(avatarFile)
       dispatch({ type: 'SET_CURRENT_USER', payload: updated })
       setAvatarFile(null); setAvatarPreview(null)
     } catch (e) {
@@ -131,7 +130,7 @@ function AccountTab() {
     </div>
   )
 
-  const avatarSrc = avatarPreview || (user.has_avatar ? api.getUserAvatarUrl(user.id) : null)
+  const avatarSrc = avatarPreview || (user.has_avatar ? api.getUserAvatarUrl(user.id, user.avatar_version) : null)
 
   return (
     <div className="space-y-6">
