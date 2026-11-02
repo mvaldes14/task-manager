@@ -563,6 +563,7 @@ export function Sidebar() {
     const next = state.theme === 'dark' ? 'light' : 'dark'
     dispatch({ type: 'SET_THEME_MODE', payload: next })
   }
+  const themeToggleTitle = `${state.theme === 'dark' ? 'Light' : 'Dark'} mode${state.themeMode === 'system' ? ' (disable Auto)' : ''}`
 
   return (
     <>
@@ -594,7 +595,7 @@ export function Sidebar() {
         )}
         {collapsed && <Logo size={32} />}
         {!collapsed && (
-          <button onClick={toggleTheme}
+          <button onClick={toggleTheme} title={themeToggleTitle}
             className="text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg transition-colors p-1">
             {state.theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
           </button>
@@ -746,7 +747,7 @@ export function Sidebar() {
         {collapsed ? (
           <div className="flex flex-col items-center gap-2">
             {state.currentUser && <UserAvatar user={state.currentUser} size={28} />}
-            <button onClick={toggleTheme} title={state.theme === 'dark' ? 'Light mode' : 'Dark mode'}
+            <button onClick={toggleTheme} title={themeToggleTitle}
               className="p-2 rounded-lg text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg hover:bg-td-surface/50 dark:hover:bg-tn-surface/50 transition-colors">
               {state.theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
             </button>

@@ -59,6 +59,8 @@ function AppShell() {
       payload: event.matches ? 'dark' : 'light',
     })
 
+    // Re-read current system preference whenever Auto mode becomes active.
+    syncTheme(media)
     media.addEventListener('change', syncTheme)
     return () => media.removeEventListener('change', syncTheme)
   }, [state.themeMode, dispatch])

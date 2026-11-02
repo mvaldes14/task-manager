@@ -511,7 +511,9 @@ export function MainContent() {
   const deselectMany = useCallback((ids) => {
     setSelectedIds(prev => { const next = new Set(prev); ids.forEach(i => next.delete(i)); return next })
   }, [])
-  const startTableSelection = useCallback(() => setTableSelectionMode(true), [])
+  const startTableSelection = useCallback(() => {
+    if (selectionEnabled) setTableSelectionMode(true)
+  }, [selectionEnabled])
   const clearSelection = useCallback(() => {
     setSelectedIds(new Set())
     setTableSelectionMode(false)
