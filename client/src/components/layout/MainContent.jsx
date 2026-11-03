@@ -258,7 +258,7 @@ const GROUP_OPTIONS = [
 
 function ListToolbar({ showDone, onToggleDone, sortBy, onSortBy, groupBy, onGroupBy, canCollapse, allCollapsed, onToggleCollapseAll, mode = 'full' }) {
   return (
-    <div className="flex items-center gap-3 px-4 py-2 border-b border-td-border/30 dark:border-tn-border/30 bg-td-bg dark:bg-tn-bg flex-wrap">
+    <div className="flex items-center justify-end gap-3 px-4 py-2 border-b border-td-border/30 dark:border-tn-border/30 bg-td-bg dark:bg-tn-bg flex-wrap">
       {/* Hide/show done */}
       <button
         onClick={onToggleDone}
@@ -728,7 +728,7 @@ export function MainContent() {
             : <TaskListSkeleton />
         ) : isTable ? (
           <TaskTable tasks={visibleTasks} emptyMessage={emptyMessage} selection={selection} />
-        ) : view === 'overdue' ? (
+        ) : view === 'overdue' && viewMode !== 'board' ? (
           <OverdueView tasks={visibleTasks} />
         ) : view === 'today' && viewMode !== 'board' ? (
           <PriorityTodayView tasks={visibleTasks} completedOnly={showDone} />

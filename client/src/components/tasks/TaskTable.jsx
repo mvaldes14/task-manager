@@ -5,7 +5,7 @@ import { ProjectIcon } from '../shared/ProjectIcon'
 import { LinkIcon, Skeleton, TaskKey } from '../ui'
 import { formatDate, fmtTime, getLinkLabel, isOverdue, priorityColor } from '../../utils'
 import { STATUS_DISPLAY_LABELS, STATUS_ORDER } from './grouping'
-import { ArrowUp, ArrowDown, Check, Eye, EyeOff, ListChecks, X } from 'lucide-react'
+import { ArrowUp, ArrowDown, Check, Columns3, Eye, EyeOff, ListChecks, X } from 'lucide-react'
 import { TASK_DRAG_TYPE } from '../../constants/dnd'
 
 // Mirrors KanbanBoard's column colours so a task reads the same in both modes.
@@ -32,7 +32,20 @@ const COLUMNS = [
 ]
 
 const COLUMN_WIDTHS_STORAGE_KEY = 'td-table-column-widths'
+const VISIBLE_COLUMNS_STORAGE_KEY = 'td-table-visible-columns'
 const DEFAULT_COLUMN_WIDTHS = Object.fromEntries(COLUMNS.map(col => [col.key, col.width]))
+const DEFAULT_VISIBLE_COLUMNS = COLUMNS.map(col => col.key)
+
+function loadVisibleColumns() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(VISIBLE_COLUMNS_STORAGE_KEY) || 'null')
+    if (!Array.isArray(saved)) return DEFAULT_VISIBLE_COLUMNS
+    const valid = new Set(COLUMNS.map(col => col.key))
+    return DEFAULT_VISIBLE_COLUMNS.filter(key => key === 'title' || (valid.has(key) && saved.includes(key)))
+  } catch {
+    return DEFAULT_VISIBLE_COLUMNS
+  }
+}
 
 function loadColumnWidths() {
   try {
@@ -221,11 +234,12 @@ function SelectCheckbox({ selected, onToggle, label }) {
   )
 }
 
-function TaskRow({ task, selection }) {
+function TaskRow({ task, selection, visibleColumnKeys }) {
   const { state, dispatch } = useApp()
   const { toggleTask } = useTasks()
   const selectMode = !!selection?.selectionMode
   const selected = !!selection?.selectedIds?.has(task.id)
+  const columnVisible = key => visibleColumnKeys.has(key)
 
   const project = state.projects.find(p => p.id === task.project_id)
   const assignee = state.users.find(u => u.id === task.assigned_to)
@@ -291,9 +305,11 @@ function TaskRow({ task, selection }) {
         )}
       </td>
 
-      <td className={CELL}>
-        <TaskKey task={task} copyable />
-      </td>
+      {columnVisible('key') && (
+        <td className={CELL}>
+          <TaskKey task={task} copyable />
+        </td>
+      )}
 
       {/* Title (+ subtask progress) */}
       <td className={`${CELL} max-w-0`}>
@@ -311,60 +327,72 @@ function TaskRow({ task, selection }) {
       </td>
 
       {/* Status */}
-      <td className={CELL}>
-        <span className="flex items-center gap-1.5 text-xs text-td-muted dark:text-tn-muted whitespace-nowrap">
-          <span className="w-2 h-2 rounded-full shrink-0" style={{ background: statusColor }} />
-          {STATUS_DISPLAY_LABELS[task.status] || task.status}
-        </span>
-      </td>
+      {columnVisible('status') && (
+        <td className={CELL}>
+          <span className="flex items-center gap-1.5 text-xs text-td-muted dark:text-tn-muted whitespace-nowrap">
+            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: statusColor }} />
+            {STATUS_DISPLAY_LABELS[task.status] || task.status}
+          </span>
+        </td>
+      )}
 
       {/* Priority */}
-      <td className={CELL}>
-        {task.priority ? (
-          <span className="flex items-center gap-1.5 text-xs text-td-muted dark:text-tn-muted whitespace-nowrap">
-            <PriorityBars priority={task.priority} />
-            {PRIORITY_LABELS[task.priority] || task.priority}
-          </span>
-        ) : null}
-      </td>
+      {columnVisible('priority') && (
+        <td className={CELL}>
+          {task.priority ? (
+            <span className="flex items-center gap-1.5 text-xs text-td-muted dark:text-tn-muted whitespace-nowrap">
+              <PriorityBars priority={task.priority} />
+              {PRIORITY_LABELS[task.priority] || task.priority}
+            </span>
+          ) : null}
+        </td>
+      )}
 
       {/* Due */}
-      <td className={CELL}>
-        {task.due_date ? (
-          <span className={`text-xs font-medium whitespace-nowrap
-            ${overdue ? 'text-td-red dark:text-tn-red' : 'text-td-muted dark:text-tn-muted'}`}>
-            {tableDate(task.due_date)}{task.due_time ? ' · ' + fmtTime(task.due_time) : ''}
-          </span>
-        ) : null}
-      </td>
+      {columnVisible('due') && (
+        <td className={CELL}>
+          {task.due_date ? (
+            <span className={`text-xs font-medium whitespace-nowrap
+              ${overdue ? 'text-td-red dark:text-tn-red' : 'text-td-muted dark:text-tn-muted'}`}>
+              {tableDate(task.due_date)}{task.due_time ? ' · ' + fmtTime(task.due_time) : ''}
+            </span>
+          ) : null}
+        </td>
+      )}
 
       {/* Project */}
-      <td className={CELL}>
-        {project ? (
-          <span className="flex items-center gap-1.5 text-xs text-td-muted dark:text-tn-muted min-w-0">
-            <span className="shrink-0" style={{ color: project.color }}>
-              <ProjectIcon icon={project.icon} size={11} />
+      {columnVisible('project') && (
+        <td className={CELL}>
+          {project ? (
+            <span className="flex items-center gap-1.5 text-xs text-td-muted dark:text-tn-muted min-w-0">
+              <span className="shrink-0" style={{ color: project.color }}>
+                <ProjectIcon icon={project.icon} size={11} />
+              </span>
+              <span className="truncate">{project.name}</span>
             </span>
-            <span className="truncate">{project.name}</span>
-          </span>
-        ) : null}
-      </td>
+          ) : null}
+        </td>
+      )}
 
       {/* Links */}
-      <td className={CELL}>
-        <div className="flex items-center gap-1 min-w-0">
-          <NeutralLinks links={task.links} max={1} />
-        </div>
-      </td>
+      {columnVisible('links') && (
+        <td className={CELL}>
+          <div className="flex items-center gap-1 min-w-0">
+            <NeutralLinks links={task.links} max={1} />
+          </div>
+        </td>
+      )}
 
       {/* Assignee */}
-      <td className={CELL}>
-        {assignee ? (
-          <span className="text-xs text-td-muted dark:text-tn-muted truncate block">
-            {assignee.display_name || assignee.username}
-          </span>
-        ) : null}
-      </td>
+      {columnVisible('assignee') && (
+        <td className={CELL}>
+          {assignee ? (
+            <span className="text-xs text-td-muted dark:text-tn-muted truncate block">
+              {assignee.display_name || assignee.username}
+            </span>
+          ) : null}
+        </td>
+      )}
     </tr>
   )
 }
@@ -375,7 +403,10 @@ export function TaskTable({ tasks, emptyMessage = 'No tasks here', selection = n
   const [sort, setSort] = useState({ key: 'due', dir: 'asc' })
   const [showDone, setShowDone] = useState(false)
   const [columnWidths, setColumnWidths] = useState(loadColumnWidths)
+  const [visibleColumns, setVisibleColumns] = useState(loadVisibleColumns)
+  const [columnMenuOpen, setColumnMenuOpen] = useState(false)
   const resizeCleanupRef = useRef(null)
+  const columnMenuRef = useRef(null)
   const selectionEnabled = !!selection?.selectionEnabled
   const selectMode = !!selection?.selectionMode
   const selectedCount = selection?.selectedIds?.size || 0
@@ -383,6 +414,26 @@ export function TaskTable({ tasks, emptyMessage = 'No tasks here', selection = n
   useEffect(() => {
     localStorage.setItem(COLUMN_WIDTHS_STORAGE_KEY, JSON.stringify(columnWidths))
   }, [columnWidths])
+
+  useEffect(() => {
+    localStorage.setItem(VISIBLE_COLUMNS_STORAGE_KEY, JSON.stringify(visibleColumns))
+  }, [visibleColumns])
+
+  useEffect(() => {
+    if (!columnMenuOpen) return undefined
+    const closeOnOutsideClick = event => {
+      if (!columnMenuRef.current?.contains(event.target)) setColumnMenuOpen(false)
+    }
+    const closeOnEscape = event => {
+      if (event.key === 'Escape') setColumnMenuOpen(false)
+    }
+    document.addEventListener('mousedown', closeOnOutsideClick)
+    window.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.removeEventListener('mousedown', closeOnOutsideClick)
+      window.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [columnMenuOpen])
 
   useEffect(() => () => resizeCleanupRef.current?.(), [])
 
@@ -452,9 +503,25 @@ export function TaskTable({ tasks, emptyMessage = 'No tasks here', selection = n
     resizeColumn(key, DEFAULT_COLUMN_WIDTHS[key])
   }, [resizeColumn])
 
+  const visibleColumnSet = useMemo(() => new Set(visibleColumns), [visibleColumns])
+  const displayedColumns = useMemo(
+    () => COLUMNS.filter(col => visibleColumnSet.has(col.key)),
+    [visibleColumnSet],
+  )
+  const toggleColumn = useCallback((key) => {
+    if (key === 'title') return
+    setVisibleColumns(current => {
+      const next = new Set(current)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      next.add('title')
+      return COLUMNS.filter(col => next.has(col.key)).map(col => col.key)
+    })
+  }, [])
+
   const tableWidth = useMemo(() => (
-    40 + COLUMNS.reduce((sum, col) => sum + columnWidths[col.key], 0)
-  ), [columnWidths])
+    40 + displayedColumns.reduce((sum, col) => sum + columnWidths[col.key], 0)
+  ), [columnWidths, displayedColumns])
 
   // Select-all reflects the currently rendered (filtered) rows only, not the DB.
   const selectedInRows = selectionEnabled
@@ -512,6 +579,57 @@ export function TaskTable({ tasks, emptyMessage = 'No tasks here', selection = n
                 {showDone ? <Eye size={12} /> : <EyeOff size={12} />}
                 Completed{doneCount > 0 ? ` (${doneCount})` : ''}
               </button>
+              <div ref={columnMenuRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setColumnMenuOpen(open => !open)}
+                  aria-expanded={columnMenuOpen}
+                  aria-haspopup="menu"
+                  className={`flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-lg border transition-colors
+                    ${columnMenuOpen
+                      ? 'bg-td-surface dark:bg-tn-surface border-td-border dark:border-tn-border text-td-fg dark:text-tn-fg'
+                      : 'border-transparent text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg hover:bg-td-surface dark:hover:bg-tn-surface'}`}
+                >
+                  <Columns3 size={13} />
+                  Columns
+                </button>
+                {columnMenuOpen && (
+                  <div
+                    role="menu"
+                    className="absolute right-0 top-full z-30 mt-1 w-44 rounded-xl border border-td-border dark:border-tn-border
+                      bg-td-bg2 dark:bg-tn-bg2 p-1.5 shadow-e3"
+                  >
+                    {COLUMNS.map(col => {
+                      const fixed = col.key === 'title'
+                      const visible = visibleColumnSet.has(col.key)
+                      return (
+                        <button
+                          key={col.key}
+                          type="button"
+                          role="menuitemcheckbox"
+                          aria-checked={visible}
+                          disabled={fixed}
+                          onClick={() => toggleColumn(col.key)}
+                          className={`w-full flex items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition-colors
+                            ${fixed
+                              ? 'cursor-default text-td-muted/60 dark:text-tn-muted/60'
+                              : 'text-td-fg dark:text-tn-fg hover:bg-td-surface dark:hover:bg-tn-surface'}`}
+                        >
+                          <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0
+                            ${visible
+                              ? 'border-td-blue dark:border-tn-blue bg-td-blue dark:bg-tn-blue text-white'
+                              : 'border-td-muted/50 dark:border-tn-muted/50'}`}
+                          >
+                            {visible && <Check size={11} strokeWidth={3} />}
+                          </span>
+                          <span>{col.label}</span>
+                          {fixed && <span className="ml-auto text-[10px]">Fixed</span>}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
               {selectionEnabled && (
                 <button
                   type="button"
@@ -539,7 +657,7 @@ export function TaskTable({ tasks, emptyMessage = 'No tasks here', selection = n
           <table className="min-w-full table-fixed border-collapse" style={{ width: `${tableWidth}px` }}>
             <colgroup>
               <col style={{ width: '40px' }} />
-              {COLUMNS.map(col => (
+              {displayedColumns.map(col => (
                 <col key={col.key} style={{ width: `${columnWidths[col.key]}px` }} />
               ))}
             </colgroup>
@@ -548,7 +666,7 @@ export function TaskTable({ tasks, emptyMessage = 'No tasks here', selection = n
                 <th scope="col" className={HEAD}>
                   <span className="sr-only">{selectMode ? 'Selected' : 'Done'}</span>
                 </th>
-                {COLUMNS.map(col => (
+                {displayedColumns.map(col => (
                   <SortHeader
                     key={col.key}
                     col={col}
@@ -563,7 +681,14 @@ export function TaskTable({ tasks, emptyMessage = 'No tasks here', selection = n
               </tr>
             </thead>
             <tbody>
-              {rows.map(task => <TaskRow key={task.id} task={task} selection={selection} />)}
+              {rows.map(task => (
+                <TaskRow
+                  key={task.id}
+                  task={task}
+                  selection={selection}
+                  visibleColumnKeys={visibleColumnSet}
+                />
+              ))}
             </tbody>
           </table>
         </div>

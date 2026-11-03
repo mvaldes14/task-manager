@@ -3,104 +3,104 @@ import { useApp } from '../../context/AppContext'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
 import { STATUS_DISPLAY_LABELS } from '../tasks/grouping'
 
+function DonutTooltip({ active, payload }) {
+  const item = payload?.[0]?.payload
+  if (!active || !item) return null
+
+  return (
+    <div className="rounded-xl border border-td-border/70 dark:border-tn-border/70 bg-td-bg2/95 dark:bg-tn-bg2/95 p-3 shadow-e3 backdrop-blur">
+      <div className="mb-1 flex items-center gap-2">
+        <span className="h-2.5 w-2.5 rounded-full" style={{ background: item.color || '#565f89' }} />
+        <span className="text-xs font-medium text-td-fg dark:text-tn-fg">{item.name}</span>
+      </div>
+      <p className="text-[11px] text-td-muted dark:text-tn-muted">
+        {item.value} task{item.value !== 1 ? 's' : ''} · {item.percentage}%
+      </p>
+    </div>
+  )
+}
+
 export function StatusDonutChart({ data }) {
   const { state } = useApp()
   const isDark = state.theme === 'dark'
 
-  // Status colors matching Tokyo Night theme
-  const STATUS_COLORS = {
-    todo: isDark ? '#565f89' : '#a9b1d6',
-    doing: isDark ? '#89b4fa' : '#2e7de9',
-    blocked: isDark ? '#f7768e' : '#f7768e',
-    done: isDark ? '#9ece6a' : '#9ece6a',
-  }
-
   const chartData = useMemo(() => {
-    return Object.entries(data)
-      .filter(([_, count]) => count > 0)
-      .map(([status, count]) => ({
-        name: STATUS_DISPLAY_LABELS[status] || status,
-        value: count,
-        status,
-        color: STATUS_COLORS[status] || STATUS_COLORS.todo
-      }))
-  }, [data])
+    const colors = {
+      todo: isDark ? '#565f89' : '#8b93b8',
+      doing: isDark ? '#89b4fa' : '#2e7de9',
+      blocked: '#f7768e',
+      done: isDark ? '#9ece6a' : '#65a30d',
+    }
+    const entries = Object.entries(data).filter(([, count]) => count > 0)
+    const total = entries.reduce((sum, [, count]) => sum + count, 0)
 
-  const total = useMemo(() => {
-    return chartData.reduce((sum, item) => sum + item.value, 0)
-  }, [chartData])
+    return entries.map(([status, count]) => ({
+      name: STATUS_DISPLAY_LABELS[status] || status,
+      value: count,
+      status,
+      color: colors[status] || colors.todo,
+      percentage: total > 0 ? Math.round((count / total) * 100) : 0,
+    }))
+  }, [data, isDark])
 
-  const CustomTooltip = ({ active, payload }) => {
-    if (!active || !payload || !payload.length) return null
-
-    const data = payload[0].payload
-    const percentage = ((data.value / total) * 100).toFixed(1)
-
-    return (
-      <div className="bg-td-bg2 dark:bg-tn-bg2 border border-td-border dark:border-tn-border rounded-lg p-3 shadow-e2">
-        <div className="flex items-center gap-2 mb-1">
-          <div className="w-3 h-3 rounded-full" style={{ background: data.color }} />
-          <span className="text-sm text-td-fg dark:text-tn-fg font-medium">
-            {data.name}
-          </span>
-        </div>
-        <div className="text-xs text-td-muted dark:text-tn-muted">
-          {data.value} tasks ({percentage}%)
-        </div>
-      </div>
-    )
-  }
+  const total = chartData.reduce((sum, item) => sum + item.value, 0)
 
   if (chartData.length === 0) {
     return (
-      <div className="h-full flex items-center justify-center text-td-muted dark:text-tn-muted text-sm">
+      <div className="flex h-full items-center justify-center text-sm text-td-muted dark:text-tn-muted">
         No tasks yet
       </div>
     )
   }
 
   return (
-    <div className="h-full flex items-center">
-      <div className="flex-1">
-        <ResponsiveContainer width="100%" height={200}>
+    <div className="grid h-full grid-cols-1 items-center gap-4 sm:grid-cols-[180px_1fr]">
+      <div className="relative mx-auto h-44 w-44">
+        <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
               data={chartData}
               cx="50%"
               cy="50%"
-              innerRadius={50}
-              outerRadius={80}
-              paddingAngle={2}
+              innerRadius={57}
+              outerRadius={78}
+              paddingAngle={3}
+              cornerRadius={5}
               dataKey="value"
+              stroke="none"
             >
-              {chartData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={entry.color} />
-              ))}
+              {chartData.map(entry => <Cell key={entry.status} fill={entry.color} />)}
             </Pie>
-            <Tooltip content={<CustomTooltip />} />
+            <Tooltip content={<DonutTooltip />} />
           </PieChart>
         </ResponsiveContainer>
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-2xl font-semibold tracking-tight text-td-fg dark:text-tn-fg">{total}</span>
+          <span className="text-[10px] uppercase tracking-wider text-td-muted dark:text-tn-muted">tasks</span>
+        </div>
       </div>
 
-      {/* Legend */}
-      <div className="flex-1 space-y-2">
-        {chartData.map((item) => {
-          const percentage = ((item.value / total) * 100).toFixed(1)
-          return (
-            <div key={item.status} className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="w-3 h-3 rounded-full shrink-0" style={{ background: item.color }} />
-                <span className="text-sm text-td-fg dark:text-tn-fg truncate">{item.name}</span>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <span className="text-sm text-td-fg dark:text-tn-fg font-medium">{item.value}</span>
-                <span className="text-xs text-td-muted dark:text-tn-muted w-12 text-right">
-                  {percentage}%
-                </span>
-              </div>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        {chartData.map(item => (
+          <div
+            key={item.status}
+            className="rounded-xl border border-td-border/40 dark:border-tn-border/40 bg-td-bg/50 dark:bg-tn-bg/40 p-3"
+          >
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <span className="flex min-w-0 items-center gap-2 text-xs text-td-muted dark:text-tn-muted">
+                <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: item.color }} />
+                <span className="truncate">{item.name}</span>
+              </span>
+              <span className="text-sm font-semibold tabular-nums text-td-fg dark:text-tn-fg">{item.value}</span>
             </div>
-          )
-        })}
+            <div className="h-1 overflow-hidden rounded-full bg-td-surface dark:bg-tn-surface">
+              <div className="h-full rounded-full" style={{ width: `${item.percentage}%`, background: item.color }} />
+            </div>
+            <div className="mt-1.5 text-right text-[10px] tabular-nums text-td-muted/70 dark:text-tn-muted/70">
+              {item.percentage}%
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   )

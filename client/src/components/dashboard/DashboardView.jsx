@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { createElement, useState, useEffect, useMemo } from 'react'
 import { useApp } from '../../context/AppContext'
 import { useTasks } from '../../hooks/useTasks'
 import { api } from '../../api'
@@ -209,19 +209,33 @@ function PaceRow({ label, values, max, highlight, total }) {
   )
 }
 
-function StatPill({ label, value, color }) {
-  const colorClass = {
-    blue: 'text-td-blue dark:text-tn-blue',
-    green: 'text-td-green dark:text-tn-green',
-    amber: 'text-td-amber dark:text-tn-amber',
-    purple: 'text-td-purple dark:text-tn-purple',
-    red: 'text-td-red dark:text-tn-red',
-  }[color] || 'text-td-blue dark:text-tn-blue'
+function StatPill({ label, value, color, icon }) {
+  const styles = {
+    blue: {
+      text: 'text-td-blue dark:text-tn-blue',
+      bg: 'bg-td-blue/10 dark:bg-tn-blue/10',
+    },
+    green: {
+      text: 'text-td-green dark:text-tn-green',
+      bg: 'bg-td-green/10 dark:bg-tn-green/10',
+    },
+    amber: {
+      text: 'text-td-amber dark:text-tn-amber',
+      bg: 'bg-td-amber/10 dark:bg-tn-amber/10',
+    },
+    purple: {
+      text: 'text-td-purple dark:text-tn-purple',
+      bg: 'bg-td-purple/10 dark:bg-tn-purple/10',
+    },
+  }[color]
 
   return (
-    <div className="flex flex-col gap-0.5">
-      <div className={`text-xl font-semibold ${colorClass}`}>{value}</div>
-      <div className="text-[11px] text-td-muted dark:text-tn-muted">{label}</div>
+    <div className="rounded-xl border border-td-border/40 dark:border-tn-border/40 bg-td-bg/50 dark:bg-tn-bg/40 p-3.5">
+      <div className={`mb-3 flex h-8 w-8 items-center justify-center rounded-lg ${styles.bg} ${styles.text}`}>
+        {createElement(icon, { size: 15 })}
+      </div>
+      <div className={`text-2xl font-semibold tracking-tight ${styles.text}`}>{value}</div>
+      <div className="mt-0.5 text-[11px] text-td-muted dark:text-tn-muted">{label}</div>
     </div>
   )
 }
@@ -473,62 +487,85 @@ export function DashboardView() {
           </button>
 
           {analyticsOpen && stats && (
-            <div className="border-t border-td-border/30 dark:border-tn-border/30 animate-fade-in">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 border-b border-td-border/20 dark:border-tn-border/20">
-                <StatPill label="Completed (30d)" value={stats.counts.completed_period} color="green" />
-                <StatPill label="Active Tasks" value={stats.counts.total_active} color="blue" />
-                <StatPill label="Streak" value={`${stats.insights.current_streak}d`} color="amber" />
-                <StatPill label="Completion Rate" value={`${Math.round(stats.insights.completion_rate * 100)}%`} color="purple" />
+            <div className="animate-fade-in space-y-3 border-t border-td-border/30 dark:border-tn-border/30 bg-td-surface/20 dark:bg-tn-surface/10 p-3 md:p-4">
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                <StatPill icon={CheckCircle2} label="Completed (30d)" value={stats.counts.completed_period} color="green" />
+                <StatPill icon={ListTodo} label="Active Tasks" value={stats.counts.total_active} color="blue" />
+                <StatPill icon={Flame} label="Current Streak" value={`${stats.insights.current_streak}d`} color="amber" />
+                <StatPill icon={Target} label="Completion Rate" value={`${Math.round(stats.insights.completion_rate * 100)}%`} color="purple" />
               </div>
-              <div className="p-4 border-b border-td-border/20 dark:border-tn-border/20">
-                <p className="text-[10px] font-semibold text-td-muted dark:text-tn-muted mb-3 uppercase tracking-widest">
-                  Completion Trend
-                </p>
-                <div className="h-48">
+
+              <section className="rounded-xl border border-td-border/40 dark:border-tn-border/40 bg-td-bg2 dark:bg-tn-bg2 p-4">
+                <div className="mb-4 flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-td-fg dark:text-tn-fg">Completion trend</h3>
+                    <p className="mt-0.5 text-[11px] text-td-muted dark:text-tn-muted">Tasks created versus completed</p>
+                  </div>
+                  <span className="rounded-full bg-td-surface dark:bg-tn-surface px-2.5 py-1 text-[10px] font-medium text-td-muted dark:text-tn-muted">
+                    30 days
+                  </span>
+                </div>
+                <div className="h-56">
                   <CompletionTrendChart data={stats.completion_trend} />
                 </div>
-              </div>
-              <div className="p-4 border-b border-td-border/20 dark:border-tn-border/20">
-                <p className="text-[10px] font-semibold text-td-muted dark:text-tn-muted mb-3 uppercase tracking-widest">
-                  Status Distribution
-                </p>
+              </section>
+
+              <section className="rounded-xl border border-td-border/40 dark:border-tn-border/40 bg-td-bg2 dark:bg-tn-bg2 p-4">
+                <div className="mb-2">
+                  <h3 className="text-sm font-semibold text-td-fg dark:text-tn-fg">Status distribution</h3>
+                  <p className="mt-0.5 text-[11px] text-td-muted dark:text-tn-muted">Current workload by status</p>
+                </div>
                 <StatusDonutChart data={stats.counts.by_status} />
-              </div>
-              <div className="grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-td-border/20 dark:divide-tn-border/20">
-                <div className="p-4">
-                  <p className="text-[10px] font-semibold text-td-muted dark:text-tn-muted mb-3 uppercase tracking-widest">
-                    By Project
-                  </p>
-                  <div className="space-y-2.5">
-                    {stats.projects.slice(0, 6).map(proj => (
-                      <div key={proj.id} className="flex items-center gap-2">
-                        <span className="text-xs text-td-fg dark:text-tn-fg w-24 truncate">{proj.name}</span>
-                        <div className="flex-1 h-1.5 bg-td-surface dark:bg-tn-surface rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-td-blue dark:bg-tn-blue rounded-full"
-                            style={{ width: `${proj.total > 0 ? (proj.completed / proj.total) * 100 : 0}%` }}
-                          />
+              </section>
+
+              <div className="grid gap-3 md:grid-cols-2">
+                <section className="rounded-xl border border-td-border/40 dark:border-tn-border/40 bg-td-bg2 dark:bg-tn-bg2 p-4">
+                  <div className="mb-4">
+                    <h3 className="text-sm font-semibold text-td-fg dark:text-tn-fg">Project progress</h3>
+                    <p className="mt-0.5 text-[11px] text-td-muted dark:text-tn-muted">Completion across busiest projects</p>
+                  </div>
+                  <div className="space-y-3.5">
+                    {stats.projects.slice(0, 6).map(proj => {
+                      const percentage = proj.total > 0 ? Math.round((proj.completed / proj.total) * 100) : 0
+                      return (
+                        <div key={proj.id}>
+                          <div className="mb-1.5 flex items-center justify-between gap-3">
+                            <span className="truncate text-xs font-medium text-td-fg dark:text-tn-fg">{proj.name}</span>
+                            <span className="shrink-0 text-[10px] tabular-nums text-td-muted dark:text-tn-muted">
+                              {proj.completed}/{proj.total} · {percentage}%
+                            </span>
+                          </div>
+                          <div className="h-1.5 overflow-hidden rounded-full bg-td-surface dark:bg-tn-surface">
+                            <div
+                              className="h-full rounded-full bg-td-blue dark:bg-tn-blue"
+                              style={{ width: `${percentage}%` }}
+                            />
+                          </div>
                         </div>
-                        <span className="text-[11px] text-td-muted dark:text-tn-muted tabular-nums w-10 text-right">
-                          {proj.completed}/{proj.total}
-                        </span>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
-                </div>
-                <div className="p-4">
-                  <p className="text-[10px] font-semibold text-td-muted dark:text-tn-muted mb-3 uppercase tracking-widest">
-                    Top Tags
-                  </p>
-                  <div className="space-y-1.5">
+                </section>
+
+                <section className="rounded-xl border border-td-border/40 dark:border-tn-border/40 bg-td-bg2 dark:bg-tn-bg2 p-4">
+                  <div className="mb-4">
+                    <h3 className="text-sm font-semibold text-td-fg dark:text-tn-fg">Top tags</h3>
+                    <p className="mt-0.5 text-[11px] text-td-muted dark:text-tn-muted">Most used labels across tasks</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
                     {stats.tags.slice(0, 8).map(tag => (
-                      <div key={tag.tag} className="flex items-center justify-between">
+                      <span
+                        key={tag.tag}
+                        className="inline-flex items-center gap-2 rounded-lg border border-td-purple/15 dark:border-tn-purple/15 bg-td-purple/5 dark:bg-tn-purple/5 px-2.5 py-1.5"
+                      >
                         <span className="text-xs text-td-purple dark:text-tn-purple">@{tag.tag}</span>
-                        <span className="text-[11px] text-td-muted dark:text-tn-muted">{tag.count}</span>
-                      </div>
+                        <span className="rounded-full bg-td-purple/10 dark:bg-tn-purple/10 px-1.5 text-[10px] font-semibold tabular-nums text-td-purple dark:text-tn-purple">
+                          {tag.count}
+                        </span>
+                      </span>
                     ))}
                   </div>
-                </div>
+                </section>
               </div>
             </div>
           )}
