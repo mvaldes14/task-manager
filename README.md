@@ -2,7 +2,7 @@
 
 ![Logo](https://s3.mvaldes.dev/doit-logo.png)
 
-A self-hosted task manager that runs as a PWA on phone and web. Understands natural language and syncs with Google Calendar.
+Self-hosted, multi-user task manager for desktop and mobile. Runs as an installable PWA, understands natural-language task input, and integrates with calendars, notifications, automation webhooks, and OpenTelemetry.
 
 Desktop
 <img width="2862" height="1728" alt="image" src="https://github.com/user-attachments/assets/337d9144-498e-4a28-b96e-a17d5a3974da" />
@@ -19,33 +19,42 @@ Mobile
 
 ## Features
 
-- **Dashboard** — productivity overview with stat cards, completion trend chart, activity heatmap, status donut, project progress bars, top tags, and streak / completion-rate insights; filterable by 7 / 30 / 90-day window
-- **Multi-user** — admin can create users; each user has a display name, bcrypt password, and optional avatar (stored in DB, served as JPEG); role-based admin flag
-- **Shared projects** — mark a project as shared so all users can see its tasks; per-project toggle in the project editor
-- **NLP scheduling** — natural language → due date, time, project, tags, recurrence
-- **2 views** — List, Kanban board
-- **Group & sort** — group by Status or Tags; sort by Status, Due Date, Project, Title, or Created
-- **Drag and drop** — Kanban: drag cards between columns; Calendar: drag tasks to reschedule (disabled on touch)
-- **Swipe actions** — on mobile, swipe a task row right to complete, left to reveal reschedule / delete
-- **Collapsible task groups** — collapse/expand any status or tag group; state persisted, with a collapse-all toggle in the toolbar
-- **Completed filter** — toggle to show only completed tasks (hidden by default)
-- **Pull to refresh** — pull down on mobile to reload
-- **Recurring tasks** — RFC 5545 RRULE format; auto-reschedules on completion
-- **Projects** — custom icon (25 lucide icons) and color; drag to reorder in the sidebar (desktop)
-- **Subtasks** — nested tasks with completion tracking; each subtask can carry its own due date and labels, or link to an existing task (completing the linked subtask marks the referenced task done)
-- **Links** — attach URLs per task (GitHub, Obsidian, or any URL), auto-labeled; also extractable inline from the task title with `!<url>` (rendered as link chips)
-- **Overdue view** — past-due tasks grouped by date
-- **Google Calendar sync** — tasks with due dates sync automatically; done tasks shown in linked calendar
-- **ICS calendar import** — import external calendars via URL or `.ics` file upload (managed in Settings)
-- **Push notifications** — ntfy or Gotify reminders; configurable per-task (timed: N minutes before due; all-day: at a set time); timezone-aware; deduplication via `reminder_sent_at`
-- **AI results** — store and retrieve AI-generated content per task (model-agnostic; written by any external client via `PUT /api/tasks/<id>/ai`); tasks with a stored result show an AI badge in the task detail view, and clicking it opens a modal with the rendered markdown content
-- **Settings modal** — Account tab (avatar, display name, password change), Calendars, Integrations (OTel), and Notifications
-- **OpenTelemetry** — backend (Flask + psycopg2) and frontend (fetch + document-load) tracing; opt-in via env vars or Settings UI
-- **PWA** — installable on iOS, Android, and macOS; share text/links from other apps straight into a pre-filled new task (share-target intake), plus app shortcuts for New Task and Today
-- **Mobile navigation** — floating icon-only pill bottom nav (TabBar) and a swipeable full-height drawer sidebar; larger tap targets throughout
-- **Collapsible sidebar** — full sidebar or slim icon rail (desktop); persisted preference
-- **Keyboard shortcuts** — full shortcut set on desktop (press `?` to see them)
-- **Theme** — toggle in sidebar
+### Task management
+
+- **Natural-language capture** — extracts dates, times, projects, tags, assignees, priorities, recurrence, and inline links
+- **Four statuses** — To do, In progress, Blocked, and Done
+- **Priorities** — low, medium, and high; Today view promotes highest-priority work into a focus card
+- **Three display modes** — grouped List, drag-and-drop Kanban, and desktop Table with sortable/resizable columns
+- **Search** — global or current-view search by title, description, or task key
+- **Bulk actions** — multi-select tasks, move them to another project, or mark them complete
+- **Drag and drop** — reorder Kanban cards, change status, reschedule calendar items, or drop a task onto a sidebar project
+- **Mobile gestures** — swipe to complete/reschedule/delete, long-press to select, pull to refresh, and swipe sheets closed
+- **Recurring tasks** — RFC 5545 RRULE storage with next occurrence created on completion
+- **Subtasks** — editable checklist items or links to existing tasks; completing a linked subtask completes its task
+- **Links** — colored link pills for GitHub, Obsidian, and arbitrary URLs; `!<url>` extracts links during quick capture
+- **Safe deletion** — task deletion is soft by default, with Undo in UI and restore API; permanent purge remains available
+- **Stable task keys** — immutable sequence IDs such as `DO-142`; API accepts UUID, formatted key, or bare sequence number
+
+### Projects and planning
+
+- **Projects and subprojects** — one nesting level, roll-up parent views, descriptions, deadlines, progress, sharing, and archiving
+- **Project customization** — colors and 50 Lucide icons; drag to reorder
+- **Upcoming and Overdue views** — 7/14-day planning plus past-due grouping and quick rescheduling
+- **Calendar** — month, week, and day layouts with drag-to-reschedule on desktop
+- **Dashboard** — 7/30/90-day stats, trends, heatmap, status breakdown, project progress, top tags, streaks, and at-risk project deadlines
+
+### Integrations and platform
+
+- **Multi-user** — admin-managed users, assignments, avatars, password changes, private tasks, and shared projects
+- **Google Calendar** — automatic task event sync plus manual full sync
+- **ICS calendars** — import by URL or `.ics` upload
+- **Notifications** — ntfy or Gotify reminders for timed tasks, all-day tasks, and project deadlines
+- **Bot webhook** — assigning a task to reserved Bot user sends JSON to configured automation endpoint
+- **AI results** — external clients can store model-agnostic markdown results against tasks
+- **OpenTelemetry** — Flask/psycopg2 backend tracing and browser fetch/document-load tracing
+- **PWA** — installable on iOS, Android, and macOS; share-target capture and New Task/Today app shortcuts
+- **Responsive UI** — mobile tab bar/drawer, collapsible desktop sidebar, keyboard shortcuts, and persisted preferences
+- **Theme modes** — Auto/system, Light, and Dark
 
 ---
 
@@ -61,7 +70,7 @@ Open [http://localhost:3000](http://localhost:3000).
 ### Pull pre-built image (no build required)
 
 ```bash
-make pull   # pulls ghcr.io/mvaldes14/doit:latest
+make pull   # pulls ghcr.io/mvaldes14/task-manager:latest
 ```
 
 ### Install on phone
@@ -83,10 +92,10 @@ Copy `.env.example` to `.env` and set:
 | `TD_API_KEY` | API key for Bearer token auth (automations) |
 | `GCAL_CREDENTIALS_JSON` | Google service account JSON (single line) |
 | `GCAL_CALENDAR_ID` | Calendar to sync to (default: `primary`) |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | Backend gRPC OTLP endpoint (e.g. `http://signoz:4317`) |
-| `OTEL_SERVICE_NAME` | Backend service name (default: `doit`) |
-| `VITE_OTEL_ENDPOINT` | Frontend HTTP OTLP endpoint (e.g. `http://signoz:4318`); can also be set in Settings UI |
-| `VITE_OTEL_SERVICE_NAME` | Frontend service name (default: `doit-web`) |
+| `OBSIDIAN_VAULT` | Vault name used to build `obsidian://` links from `![[Note]]` quick-capture syntax |
+| `OBSIDIAN_INBOX` | Default vault folder for Obsidian links |
+
+Runtime settings managed in **Settings** include frontend OTLP endpoint, Bot webhook URL, notification provider/token, reminder timing/timezone, and task-key prefix. Backend tracing uses `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME`, and optional `OTEL_EXPORTER_OTLP_INSECURE` container environment variables.
 
 ---
 
@@ -140,18 +149,21 @@ fix flaky test p1 +alice
 | View | Description |
 |---|---|
 | **Inbox** | Unassigned tasks |
-| **Today** | Priority focus view — today's tasks with a highlighted focus card, supporting tasks, and overdue rows |
-| **All Tasks** | Everything |
-| **Overdue** | Past-due tasks grouped by date |
-| **Calendar** | Monthly calendar view |
-| **Projects** | Tasks scoped to a project |
+| **Today** | Priority focus view with focus task, supporting work, completed-only filter, and overdue rows |
+| **Upcoming** | Tasks due in next 7 or 14 days |
+| **All Tasks** | All visible tasks |
+| **Overdue** | Past-due tasks grouped by date with quick rescheduling |
+| **Calendar** | Month, week, or day calendar |
+| **Dashboard** | Productivity metrics and at-risk projects |
+| **Projects** | Project scope; parent projects roll up direct subproject tasks |
 
-Each list view supports 2 display modes:
+Task views support these display modes:
 
 | Mode | Description |
 |---|---|
-| List | Grouped by status or tags; collapsible groups; show only-completed toggle; sortable |
-| Board | Kanban with drag-to-reorder between columns |
+| List | Group by status or tags, collapse groups, filter completed tasks, and sort |
+| Board | Four-column Kanban with drag-to-reorder/status changes |
+| Table | Desktop-only sortable table with persisted resizable columns and selection mode |
 
 ---
 
@@ -162,15 +174,19 @@ Desktop only.
 | Key | Action |
 |---|---|
 | `q` | Add new task |
+| `/` | Search tasks |
+| `d` | Go to Dashboard |
 | `i` | Go to Inbox |
 | `t` | Go to Today |
+| `a` | Go to All Tasks |
 | `o` | Go to Overdue |
 | `c` | Go to Calendar |
 | `l` | List view |
 | `k` | Kanban view |
+| `b` | Table view |
 | `s` | Toggle sidebar collapse |
 | `?` | Show shortcuts |
-| `Esc` | Close modal |
+| `Esc` | Close active overlay or clear selection |
 
 ---
 
@@ -183,11 +199,14 @@ make down        # stop
 make build       # force full rebuild, no cache
 make restart     # restart app only
 make logs        # tail app logs
+make logs-db     # tail PostgreSQL logs
 make shell       # bash into app container
 make db          # psql into postgres
 make status      # show containers + auth status
 make open        # open browser (macOS)
+make export      # export tasks as JSON
 make sync-gcal   # trigger Google Calendar full sync
+make clean       # remove containers and local images
 make reset       # wipe everything including DB data
 ```
 
@@ -217,7 +236,7 @@ A full machine-readable spec is available at [`openapi.yaml`](openapi.yaml).
 curl -X POST http://baseurl/api/nlp/parse \
   -H "Authorization: Bearer $TD_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"text": "call dentist tuesday at 2pm #health"}'
+  -d '{"text": "call dentist 2026-03-18 at 2pm #health @calls"}'
 ```
 
 **Response:**
@@ -226,9 +245,13 @@ curl -X POST http://baseurl/api/nlp/parse \
   "title": "call dentist",
   "due_date": "2026-03-18",
   "due_time": "14:00",
-  "project_id": "health",
-  "tags": [],
-  "recurrence": null
+  "project_name": "health",
+  "labels": ["calls"],
+  "assigned_to_username": null,
+  "priority": null,
+  "links": [],
+  "recurrence": null,
+  "nlp_summary": "#health · due Wed Mar 18 · at 2:00pm · @calls"
 }
 ```
 
@@ -238,16 +261,17 @@ curl -X POST http://baseurl/api/nlp/parse \
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/api/tasks` | List all tasks |
-| `GET` | `/api/tasks?project_id=<id>` | Filter by project |
-| `GET` | `/api/tasks?status=todo\|doing\|done` | Filter by status |
-| `GET` | `/api/tasks?search=<query>` | Full-text search title + description |
-| `GET` | `/api/tasks/today` | Tasks due today |
-| `GET` | `/api/tasks/overdue` | Past-due tasks |
-| `GET` | `/api/tasks/<id>` | Get single task |
-| `POST` | `/api/tasks` | Create task |
+| `GET` | `/api/tasks` | List visible tasks; supports project, status, priority, tags, assignee, due-date, search, limit, and offset filters |
+| `GET` | `/api/tasks/today` | Open tasks due today |
+| `GET` | `/api/tasks/upcoming` | Open tasks due within 7 days |
+| `GET` | `/api/tasks/overdue` | Open past-due tasks |
+| `GET` | `/api/tasks/search?q=<query>` | Type-ahead search for linking tasks |
+| `GET` | `/api/tasks/<id>` | Get task by UUID, task key (`DO-142`), or sequence (`142`) |
+| `POST` | `/api/tasks` | Create task; set `skip_nlp: true` for deterministic API writes |
 | `PATCH` | `/api/tasks/<id>` | Update task fields |
-| `DELETE` | `/api/tasks/<id>` | Delete task |
+| `PATCH` | `/api/tasks/bulk` | Move or change status for up to 200 tasks |
+| `POST` | `/api/tasks/<id>/restore` | Restore soft-deleted task |
+| `DELETE` | `/api/tasks/<id>` | Soft-delete task; add `?purge=true` for permanent deletion |
 
 **Task fields:**
 
@@ -255,10 +279,12 @@ curl -X POST http://baseurl/api/nlp/parse \
 |---|---|---|
 | `title` | string | Task title |
 | `description` | string | Notes / body |
-| `status` | `todo\|doing\|done` | Current status |
+| `status` | `todo\|doing\|blocked\|done` | Current status |
+| `priority` | `low\|medium\|high` | Task priority |
 | `due_date` | `YYYY-MM-DD` | Due date |
 | `due_time` | `HH:MM` | Due time (triggers timed GCal event) |
 | `project_id` | string | Project ID (default: `inbox`) |
+| `assigned_to` | string | User ID; assigning reserved Bot user triggers configured webhook |
 | `tags` | string[] | Array of tag strings |
 | `links` | `{url, label}[]` | Array of link objects |
 | `recurrence` | string | RFC 5545 RRULE e.g. `RRULE:FREQ=WEEKLY;BYDAY=MO` |
@@ -294,11 +320,11 @@ curl -s -X POST http://baseurl/api/nlp/parse \
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `POST` | `/api/tasks/<id>/subtasks` | Add subtask (`title`, optional `due_date`, `due_time`, `labels`, `linked_task_id`) |
-| `PATCH` | `/api/tasks/<id>/subtasks/<sid>` | Update subtask (`title`, `due_date`, `due_time`, `completed`, `labels`) |
+| `POST` | `/api/tasks/<id>/subtasks` | Add checklist item (`title`) or task reference (`linked_task_id`) |
+| `PATCH` | `/api/tasks/<id>/subtasks/<sid>` | Rename or complete a subtask |
 | `DELETE` | `/api/tasks/<id>/subtasks/<sid>` | Delete subtask |
 
-Pass `linked_task_id` to make a subtask reference an existing task; completing that subtask sets the linked task's status to `done`. `POST` and `PATCH` both return the full parent task with its subtasks embedded.
+Subtask titles are stored verbatim and do not run through NLP. Passing `linked_task_id` references an existing task; completing linked subtask marks referenced task done. `POST` returns full parent task; `PATCH` returns changed subtask row.
 
 ---
 
@@ -306,11 +332,11 @@ Pass `linked_task_id` to make a subtask reference an existing task; completing t
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/api/projects` | List all projects (includes task counts), ordered by sidebar position |
-| `POST` | `/api/projects` | Create project (appended to end of order) |
-| `PATCH` | `/api/projects/<id>` | Update project |
-| `POST` | `/api/projects/reorder` | Persist sidebar order — body: `{"order": ["<pid1>", "<pid2>", ...]}` |
-| `DELETE` | `/api/projects/<id>` | Delete project (tasks moved to inbox) |
+| `GET` | `/api/projects` | List user-visible projects ordered by sidebar position |
+| `POST` | `/api/projects` | Create root project or one-level subproject |
+| `PATCH` | `/api/projects/<id>` | Update metadata, sharing, hierarchy, deadline, or archive state |
+| `POST` | `/api/projects/reorder` | Persist depth-first sidebar order — body: `{"order": ["<pid1>", "<pid2>", ...]}` |
+| `DELETE` | `/api/projects/<id>` | Delete project; tasks move to Inbox and children become roots |
 
 **Project fields:**
 
@@ -318,9 +344,14 @@ Pass `linked_task_id` to make a subtask reference an existing task; completing t
 |---|---|---|
 | `name` | string | Project name |
 | `color` | string | Hex color e.g. `#7aa2f7` |
-| `icon` | string | Lucide icon name e.g. `rocket`, `briefcase` |
+| `icon` | string | Lucide icon storage key |
+| `parent_id` | string/null | Root parent ID; nesting is limited to one level |
+| `description` | string | Project notes/summary |
+| `due_date` | `YYYY-MM-DD` | Project deadline used by reminders and at-risk dashboard |
+| `shared` | boolean | Make project tasks visible to all users |
+| `archived` | boolean | Write-only convenience flag; archived projects/tasks are hidden from active views and stats |
 
-Available icons: `folder`, `home`, `briefcase`, `target`, `flask`, `book`, `palette`, `bulb`, `cart`, `dumbbell`, `music`, `plane`, `monitor`, `leaf`, `rocket`, `heart`, `star`, `zap`, `globe`, `code`, `camera`, `coffee`, `wrench`, `shield`, `smile`
+50 icon keys are available; see [`client/src/components/shared/ProjectIcon.jsx`](client/src/components/shared/ProjectIcon.jsx) for registry.
 
 ---
 
@@ -337,7 +368,7 @@ Available icons: `folder`, `home`, `briefcase`, `target`, `flask`, `book`, `pale
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/api/dashboard/stats?days=30` | Productivity stats (7/30/90d); includes counts, completion trend, activity heatmap, status breakdown, project progress, top tags, streak insights |
+| `GET` | `/api/dashboard/stats?days=30` | Productivity stats (7/30/90d), project progress, tags, streaks, and at-risk project deadlines |
 
 ### Users
 
@@ -354,8 +385,27 @@ Available icons: `folder`, `home`, `briefcase`, `target`, `flask`, `book`, `pale
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/api/settings` | Returns current settings (`gcal_enabled`, `otel_frontend_endpoint`, `notification_type`, `notification_url`, `notification_token`, `reminder_enabled`, `reminder_minutes_before`, `reminder_allday_time`, `reminder_timezone`) |
-| `PATCH` | `/api/settings` | Update settings fields |
+| `GET` | `/api/settings` | Get calendar state, Obsidian defaults, frontend OTel, Bot webhook, notifications/reminders, and task-key prefix |
+| `PATCH` | `/api/settings` | Update mutable settings; `task_key_prefix` must be 2–6 letters/digits starting with a letter |
+
+---
+
+### Bot webhook
+
+Doit seeds reserved, non-login **Bot** user. Configure `ai_webhook_url` in Settings, then assign task to Bot. Doit sends:
+
+```json
+{
+  "event": "task.assigned_to_bot",
+  "task": {
+    "id": "<uuid>",
+    "seq": 142,
+    "key": "DO-142"
+  }
+}
+```
+
+Payload also includes full task fields. Webhook fires on creation assigned to Bot, or when assignment changes from another user to Bot.
 
 ---
 
@@ -452,14 +502,12 @@ curl -s http://baseurl/api/tasks/overdue \
 - **NLP** — `dateparser` + `python-dateutil` (RRULE)
 - **AI** — model-agnostic result storage per task; any client writes via `PUT /api/tasks/<id>/ai`
 - **Observability** — OpenTelemetry SDK (backend: Flask + psycopg2; frontend: fetch + document-load); opt-in via env vars or Settings UI
-- **Theme** — TailwindCSS dark/light
-- **Auth** — Session-based with PostgreSQL storage; optional Bearer API key
+- **Theme** — Tailwind CSS with system/light/dark modes
+- **Auth** — PostgreSQL-backed sessions plus optional Bearer API key
 - **Deployment** — Docker Compose; data persisted in `./data/postgres/`
 
 ---
 
 ## CI / Deployment
 
-Every push to `main` builds and pushes a multi-arch image (`amd64` + `arm64`) to `ghcr.io/mvaldes14/doit:latest` via GitHub Actions.
-
-Development happens on `dev` — merge to `main` to trigger a release.
+Every push to `main` runs reusable GitHub Actions workflow and publishes multi-arch images (`amd64` + `arm64`) to `ghcr.io/mvaldes14/task-manager`, tagged `latest` plus timestamped build tag.
