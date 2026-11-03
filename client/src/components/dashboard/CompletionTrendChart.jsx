@@ -3,13 +3,14 @@ import { useApp } from '../../context/AppContext'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
 function TrendTooltip({ active, payload, label }) {
-  if (!active || !payload?.length) return null
+  const entries = payload?.filter(entry => entry?.dataKey) || []
+  if (!active || entries.length === 0) return null
 
   return (
     <div className="min-w-36 rounded-xl border border-td-border/70 dark:border-tn-border/70 bg-td-bg2/95 dark:bg-tn-bg2/95 p-3 shadow-e3 backdrop-blur">
       <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-td-muted dark:text-tn-muted">{label}</p>
       <div className="space-y-1.5">
-        {payload.map(entry => (
+        {entries.map(entry => (
           <div key={entry.dataKey} className="flex items-center justify-between gap-5 text-xs">
             <span className="flex items-center gap-2 text-td-muted dark:text-tn-muted">
               <span className="h-2 w-2 rounded-full" style={{ background: entry.color }} />
@@ -29,7 +30,7 @@ export function CompletionTrendChart({ data }) {
   const colors = {
     completed: isDark ? '#9ece6a' : '#65a30d',
     created: isDark ? '#89b4fa' : '#2e7de9',
-    grid: isDark ? '#2a2d38' : '#d8deee',
+    grid: isDark ? '#20222a' : '#d8deee',
     text: isDark ? '#787c99' : '#7b8194',
   }
 

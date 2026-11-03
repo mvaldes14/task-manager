@@ -510,9 +510,13 @@ export function TaskTable({ tasks, emptyMessage = 'No tasks here', selection = n
   )
   const toggleColumn = useCallback((key) => {
     if (key === 'title') return
-    setVisibleColumns(current => current.includes(key)
-      ? current.filter(columnKey => columnKey !== key)
-      : COLUMNS.filter(col => col.key === 'title' || current.includes(col.key) || col.key === key).map(col => col.key))
+    setVisibleColumns(current => {
+      const next = new Set(current)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      next.add('title')
+      return COLUMNS.filter(col => next.has(col.key)).map(col => col.key)
+    })
   }, [])
 
   const tableWidth = useMemo(() => (

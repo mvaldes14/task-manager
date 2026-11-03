@@ -4,13 +4,13 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
 import { STATUS_DISPLAY_LABELS } from '../tasks/grouping'
 
 function DonutTooltip({ active, payload }) {
-  if (!active || !payload?.length) return null
-  const item = payload[0].payload
+  const item = payload?.[0]?.payload
+  if (!active || !item) return null
 
   return (
     <div className="rounded-xl border border-td-border/70 dark:border-tn-border/70 bg-td-bg2/95 dark:bg-tn-bg2/95 p-3 shadow-e3 backdrop-blur">
       <div className="mb-1 flex items-center gap-2">
-        <span className="h-2.5 w-2.5 rounded-full" style={{ background: item.color }} />
+        <span className="h-2.5 w-2.5 rounded-full" style={{ background: item.color || '#565f89' }} />
         <span className="text-xs font-medium text-td-fg dark:text-tn-fg">{item.name}</span>
       </div>
       <p className="text-[11px] text-td-muted dark:text-tn-muted">
