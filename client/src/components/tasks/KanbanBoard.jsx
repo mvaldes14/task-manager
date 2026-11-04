@@ -215,7 +215,7 @@ export function KanbanBoard({ tasks }) {
                   onDragStart={e => handleDragStart(e, task)}
                   onDragEnd={handleDragEnd}
                   onTouchStart={e => handleTouchStart(e, task)}
-                  className="cursor-grab active:cursor-grabbing touch-none"
+                  className="cursor-grab active:cursor-grabbing touch-none mb-2 rounded-lg border-2 border-td-border dark:border-tn-border overflow-hidden"
                 >
                   <TaskCard task={task} />
                 </div>
