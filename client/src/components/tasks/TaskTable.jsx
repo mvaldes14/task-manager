@@ -46,9 +46,14 @@ function loadVisibleColumns() {
     const stored = JSON.parse(localStorage.getItem(VISIBLE_COLUMNS_STORAGE_KEY) || 'null')
     if (!stored) return DEFAULT_VISIBLE_COLUMNS
 
-    // v1 stored a bare array before Tags existed. Add Tags once while preserving
-    // every existing visibility choice; v2 stores an explicit schema version.
-    const saved = Array.isArray(stored) ? [...stored, 'tags'] : stored.columns
+    // v1 stored a bare array before Tags existed, so it could not contain a
+    // user preference for that column. Add Tags during migration only; v2 must
+    // preserve its explicit list, including Tags being hidden.
+    let saved
+    if (Array.isArray(stored)) saved = [...stored, 'tags']
+    else if (stored.version === VISIBLE_COLUMNS_VERSION) saved = stored.columns
+    else return DEFAULT_VISIBLE_COLUMNS
+
     if (!Array.isArray(saved)) return DEFAULT_VISIBLE_COLUMNS
 
     const selected = new Set(saved)
@@ -90,7 +95,7 @@ function sortValue(task, key, projects, users) {
     case 'tags':
       return (task.tags || []).join('\u0000').toLowerCase() || '\uffff'
     case 'recurrence':
-      return (recurrenceLabel(task.recurrence) || '\uffff').toLowerCase()
+      return (task.recurrence || '\uffff').toLowerCase()
     case 'created':
       return task.created_at || '\uffff'
     case 'updated':
