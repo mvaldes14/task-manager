@@ -22,6 +22,34 @@ const formatHour = h => h === 0 ? '12 AM' : h === 12 ? '12 PM' : h < 12 ? `${h} 
 const slotKey = (dateStr, h) => `${dateStr}|${String(h).padStart(2, '0')}:00:00`
 const hourOf = item => parseInt(item.due_time.slice(0, 2), 10)
 
+const STATUS_META = {
+  todo:    { label: 'To do', color: '#565f89' },
+  doing:   { label: 'In progress', color: '#2e7de9' },
+  blocked: { label: 'Blocked', color: '#f52a65' },
+  done:    { label: 'Done', color: '#2f9e44' },
+}
+
+function StatusBadge({ status, compact = false }) {
+  const meta = STATUS_META[status] || STATUS_META.todo
+  return (
+    <span title={meta.label} className={`inline-flex items-center gap-1 shrink-0 rounded-full font-semibold uppercase tracking-wide
+      ${compact ? 'w-1.5 h-1.5' : 'px-1.5 py-0.5 text-[8px]'}`}
+      style={{ background: `${meta.color}25`, color: meta.color }}>
+      <span className="w-1.5 h-1.5 rounded-full" style={{ background: meta.color }} />
+      {!compact && meta.label}
+    </span>
+  )
+}
+
+// Timed cells are one hour tall. Snap drops to the nearest 30-minute mark.
+function snapDropKey(key, rect, clientY) {
+  if (!key?.includes('|') || !rect) return key
+  const [dateStr, timeStr] = key.split('|')
+  const hour = Number.parseInt(timeStr.slice(0, 2), 10)
+  const minute = clientY - rect.top >= rect.height / 2 ? 30 : 0
+  return `${dateStr}|${String(hour).padStart(2, '0')}:${minute ? '30' : '00'}:00`
+}
+
 // Split a day's tasks + ICS events into timed (have due_time) and all-day buckets.
 function splitDayItems(dayTasks, dayIcs) {
   const all = [
@@ -43,25 +71,33 @@ function TaskPill({ task, onDragStart, onTouchStart }) {
   const { state, dispatch } = useApp()
   const done = task.status === 'done'
   const isDark = state.theme === 'dark'
+  const project = state.projects.find(p => p.id === task.project_id)
+  const accent = project?.color || (isDark ? '#89b4fa' : '#2e7de9')
   return (
     <div
       draggable
       onDragStart={e => onDragStart(e, task)}
       onTouchStart={e => onTouchStart(e, task)}
       onClick={e => { e.stopPropagation(); dispatch({ type: 'SELECT_TASK', payload: task.id }) }}
-      className="w-full text-left text-[10px] px-1.5 py-0.5 rounded truncate font-medium
-        cursor-grab active:cursor-grabbing touch-none select-none hover:opacity-80 transition-opacity"
+      title={task.title}
+      className={`w-full flex items-center gap-1 text-left text-[10px] px-1.5 py-1 rounded-md truncate font-medium
+        cursor-grab active:cursor-grabbing touch-none select-none transition-all
+        ${done ? 'opacity-55 line-through' : 'hover:brightness-110'}
+        ${task.priority === 'high' ? 'ring-1 ring-td-red/40 dark:ring-tn-red/40' : ''}`}
       style={{
         background: done
           ? (isDark ? 'rgba(138,143,152,0.15)' : 'rgba(107,114,128,0.15)')
-          : (isDark ? 'rgba(137,180,250,0.15)' : 'rgba(46,125,233,0.15)'),
+          : `${accent}20`,
         color: done
           ? (isDark ? '#8a8f98' : '#6b7280')
-          : (isDark ? '#89b4fa' : '#2e7de9'),
-        textDecoration: done ? 'line-through' : 'none',
+          : accent,
+        borderLeft: `3px solid ${done ? (isDark ? '#8a8f98' : '#6b7280') : accent}`,
       }}
     >
-      {task.title}
+      {task.priority === 'high' && <span className="w-1.5 h-1.5 rounded-full bg-td-red dark:bg-tn-red shrink-0" />}
+      {task.due_time && <span className="shrink-0 tabular-nums">{task.due_time.slice(0, 5)}</span>}
+      <span className="truncate">{task.title}</span>
+      <StatusBadge status={task.status} compact />
     </div>
   )
 }
@@ -82,16 +118,43 @@ function IcsPill({ event, color }) {
 }
 
 // A single timed task/ICS event rendered inside an hour cell (day + week grids).
+function TimedItems({ items, onDragStart, onTouchStart }) {
+  const groups = []
+  items.forEach(item => {
+    const time = item.due_time || '99:99'
+    let group = groups.find(g => g.time === time)
+    if (!group) {
+      group = { time, items: [] }
+      groups.push(group)
+    }
+    group.items.push(item)
+  })
+
+  return (
+    <div className="space-y-1">
+      {groups.map(group => (
+        <div key={group.time} className={group.items.length > 1 ? 'grid grid-cols-2 gap-1' : ''}>
+          {group.items.map((item, i) => (
+            <TimedItem key={item._type === 'ics' ? `ics-${group.time}-${i}` : item.id}
+              item={item} onDragStart={onDragStart} onTouchStart={onTouchStart} />
+          ))}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function TimedItem({ item, onDragStart, onTouchStart }) {
   const { dispatch } = useApp()
   if (item._type === 'ics') {
     return (
-      <div className="flex items-start gap-2 px-2.5 py-1.5 rounded-lg min-h-[44px]"
+      <div title={item.title} className="flex min-w-0 items-start gap-2 px-2.5 py-1.5 rounded-lg min-h-[44px] overflow-hidden"
         style={{ background: item._color + '15', borderLeft: `3px solid ${item._color}` }}>
         <span className="text-[11px] font-semibold shrink-0 pt-px" style={{ color: item._color }}>
           {item.due_time.slice(0, 5)}
         </span>
-        <span className="text-sm font-medium text-td-fg dark:text-tn-fg break-words leading-snug">{item.title}</span>
+        <span className="min-w-0 truncate text-sm font-medium text-td-fg dark:text-tn-fg">{item.title}</span>
+        <StatusBadge status={item.status} compact />
       </div>
     )
   }
@@ -102,40 +165,107 @@ function TimedItem({ item, onDragStart, onTouchStart }) {
       onDragStart={e => onDragStart(e, item)}
       onTouchStart={e => onTouchStart(e, item)}
       onClick={e => { e.stopPropagation(); dispatch({ type: 'SELECT_TASK', payload: item.id }) }}
-      className={`flex items-start gap-2 px-2.5 py-1.5 rounded-lg min-h-[44px]
+      title={item.title}
+      className={`flex min-w-0 items-start gap-2 px-2.5 py-1.5 rounded-lg min-h-[44px] overflow-hidden
         cursor-grab active:cursor-grabbing touch-none select-none hover:bg-td-surface dark:hover:bg-tn-surface transition-colors
         ${done ? 'opacity-50 bg-td-bg3/20 dark:bg-tn-bg3/20' : 'bg-td-blue/10 dark:bg-tn-blue/10 border-l-2 border-td-blue/40 dark:border-tn-blue/40'}`}
     >
       <span className="text-[11px] font-semibold text-td-blue dark:text-tn-blue shrink-0 pt-px">
         {item.due_time.slice(0, 5)}
       </span>
-      <span className={`text-sm font-medium text-td-fg dark:text-tn-fg break-words leading-snug ${done ? 'line-through' : ''}`}>
+      <span className={`min-w-0 truncate text-sm font-medium text-td-fg dark:text-tn-fg ${done ? 'line-through' : ''}`}>
         {item.title}
       </span>
+      <StatusBadge status={item.status} compact />
+    </div>
+  )
+}
+
+function AgendaPanel({ dateStr, tasks, events, projects }) {
+  const { dispatch } = useApp()
+  const dateLabel = new Date(`${dateStr}T00:00:00`).toLocaleDateString('en-US', {
+    weekday: 'long', month: 'short', day: 'numeric',
+  })
+  const items = [
+    ...events.map(event => ({ ...event, _type: 'ics' })),
+    ...tasks.map(task => ({ ...task, _type: 'task' })),
+  ].sort((a, b) => (a.due_time || '99:99').localeCompare(b.due_time || '99:99'))
+
+  return (
+    <div className="flex flex-col min-h-0 h-full">
+      <div className="flex items-start gap-2 mb-3 shrink-0">
+        <CalendarDays size={14} className="mt-0.5 text-td-blue dark:text-tn-blue" />
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-td-muted dark:text-tn-muted">Agenda</p>
+          <p className="text-sm font-semibold text-td-fg dark:text-tn-fg truncate">{dateLabel}</p>
+        </div>
+        <span className="ml-auto text-[10px] text-td-muted/60 dark:text-tn-muted/60">{items.length}</span>
+      </div>
+      <div className="flex-1 overflow-y-auto space-y-1.5 pr-0.5">
+        {items.length === 0 ? (
+          <p className="text-[11px] text-td-muted/50 dark:text-tn-muted/50 text-center pt-6">No items scheduled</p>
+        ) : items.map((item, index) => {
+          if (item._type === 'ics') return (
+            <div key={`ics-${index}`} className="rounded-lg border px-2.5 py-2" style={{ borderColor: `${item._color}80`, borderLeftWidth: '3px' }}>
+              <p className="text-[10px] font-semibold" style={{ color: item._color }}>{item.due_time?.slice(0, 5) || 'All day'}</p>
+              <p className="text-[11px] font-medium text-td-fg dark:text-tn-fg">{item.title}</p>
+            </div>
+          )
+          const project = projects.find(p => p.id === item.project_id)
+          return (
+            <button key={item.id} onClick={() => dispatch({ type: 'SELECT_TASK', payload: item.id })}
+              className="w-full text-left rounded-lg border border-td-border dark:border-tn-border px-2.5 py-2 hover:bg-td-surface dark:hover:bg-tn-surface transition-colors">
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className="text-[10px] font-semibold text-td-blue dark:text-tn-blue">{item.due_time?.slice(0, 5) || 'All day'}</span>
+                {item.priority === 'high' && <span className="text-[9px] font-semibold text-td-red dark:text-tn-red">HIGH</span>}
+              </div>
+              <p className={`text-[11px] font-medium text-td-fg dark:text-tn-fg ${item.status === 'done' ? 'line-through opacity-50' : ''}`}>{item.title}</p>
+              <div className="flex items-center gap-1.5 mt-1">
+                <StatusBadge status={item.status} />
+                {project && <span className="text-[10px] text-td-muted dark:text-tn-muted truncate">{project.name}</span>}
+              </div>
+            </button>
+          )
+        })}
+      </div>
     </div>
   )
 }
 
 function UnscheduledCard({ task, project, onDragStart }) {
-  const { dispatch } = useApp()
+  const { state, dispatch } = useApp()
   const done = task.status === 'done'
+  const isDark = state.theme === 'dark'
+  const accent = project?.color || (isDark ? '#89b4fa' : '#2e7de9')
   return (
     <div
       draggable
       onDragStart={e => onDragStart(e, task)}
       onClick={() => dispatch({ type: 'SELECT_TASK', payload: task.id })}
-      className="flex items-start gap-2 px-2.5 py-2 rounded-lg cursor-grab active:cursor-grabbing select-none
+      title={task.title}
+      className={`flex items-start gap-2 px-2.5 py-2 rounded-lg cursor-grab active:cursor-grabbing select-none
         bg-td-bg3/60 dark:bg-tn-bg3/60 hover:bg-td-surface dark:hover:bg-tn-surface
-        border border-transparent hover:border-td-border dark:hover:border-tn-border
-        transition-all group"
+        border transition-all group
+        ${done ? 'opacity-55' : 'hover:brightness-110'}
+        ${task.priority === 'high' ? 'ring-1 ring-td-red/40 dark:ring-tn-red/40' : ''}`}
+      style={{ borderColor: `${accent}80`, borderLeftWidth: '3px' }}
     >
-      {project && (
-        <span className="mt-0.5 w-1.5 h-1.5 rounded-full shrink-0" style={{ background: project.color }} />
+      {task.priority === 'high' ? (
+        <span className="mt-1 w-1.5 h-1.5 rounded-full bg-td-red dark:bg-tn-red shrink-0" />
+      ) : (
+        <span className="mt-1 w-1.5 h-1.5 rounded-full shrink-0" style={{ background: accent }} />
       )}
-      <span className={`text-[11px] leading-snug font-medium break-words
-        ${done ? 'line-through text-td-muted/50 dark:text-tn-muted/50' : 'text-td-fg dark:text-tn-fg'}`}>
-        {task.title}
-      </span>
+      <div className="min-w-0">
+        <span className={`block text-[11px] leading-snug font-medium break-words
+          ${done ? 'line-through text-td-muted/50 dark:text-tn-muted/50' : 'text-td-fg dark:text-tn-fg'}`}>
+          {task.title}
+        </span>
+        <div className="flex items-center gap-1.5 mt-1">
+          <StatusBadge status={task.status} />
+          {project && <span className="text-[9px] text-td-muted dark:text-tn-muted truncate">{project.name}</span>}
+          {task.priority === 'high' && <b className="text-[9px] text-td-red dark:text-tn-red">HIGH</b>}
+        </div>
+      </div>
     </div>
   )
 }
@@ -145,7 +275,7 @@ function UnscheduledCard({ task, project, onDragStart }) {
 // Grid template: a fixed time gutter + 7 equal day columns.
 const WEEK_GRID_COLS = '3rem repeat(7, minmax(0, 1fr))'
 
-function WeekView({ weekDays, tasksByDate, icsEventsByDate, onDragStart, onTouchStart, handleDragOver, handleDrop, setOverDate, overDate, cellRefs }) {
+function WeekView({ weekDays, tasksByDate, icsEventsByDate, onDragStart, onTouchStart, handleDragOver, handleDrop, setOverDate, overDate, cellRefs, onDayClick }) {
   const todayStr = toDateStr(new Date())
   const scrollRef = useRef(null)
 
@@ -178,7 +308,9 @@ function WeekView({ weekDays, tasksByDate, icsEventsByDate, onDragStart, onTouch
             const isToday = dateStr === todayStr
             return (
               <div key={dateStr}
-                className={`flex flex-col items-center py-2 border-b border-l border-td-border/20 dark:border-tn-border/20
+                onClick={() => onDayClick(dateStr)}
+                className={`flex flex-col items-center py-2 border-b border-l border-td-border/20 dark:border-tn-border/20 cursor-pointer
+                  hover:bg-td-surface dark:hover:bg-tn-surface transition-colors
                   ${isToday ? 'text-td-blue dark:text-tn-blue' : 'text-td-muted dark:text-tn-muted'}`}>
                 <span className="text-[10px] font-semibold uppercase tracking-wide">
                   {DAYS[date.getDay()].slice(0, 3)}
@@ -239,7 +371,7 @@ function WeekView({ weekDays, tasksByDate, icsEventsByDate, onDragStart, onTouch
                   return (
                     <div key={dateStr}
                       ref={el => { cellRefs.current[key] = el }}
-                      onDragOver={e => { e.preventDefault(); e.stopPropagation(); setOverDate(key) }}
+                      onDragOver={e => { e.stopPropagation(); handleDragOver(e, key) }}
                       onDragLeave={e => e.stopPropagation()}
                       onDrop={e => { e.stopPropagation(); handleDrop(e, key) }}
                       className={`p-0.5 space-y-0.5 border-b border-l border-td-border/10 dark:border-tn-border/10 transition-colors
@@ -250,10 +382,7 @@ function WeekView({ weekDays, tasksByDate, icsEventsByDate, onDragStart, onTouch
                       {isOver && items.length === 0 && (
                         <div className="h-10 rounded border border-dashed border-td-blue/30 dark:border-tn-blue/30" />
                       )}
-                      {items.map((item, i) => (
-                        <TimedItem key={item._type === 'ics' ? `ics-${i}` : item.id}
-                          item={item} onDragStart={onDragStart} onTouchStart={onTouchStart} />
-                      ))}
+                      <TimedItems items={items} onDragStart={onDragStart} onTouchStart={onTouchStart} />
                     </div>
                   )
                 })}
@@ -339,7 +468,7 @@ function DayView({ dateStr, dayTasks, dayIcs, onDragStart, onTouchStart, handleD
           return (
             <div key={hour}
               ref={el => { cellRefs.current[key] = el }}
-              onDragOver={e => { e.preventDefault(); e.stopPropagation(); setOverDate(key) }}
+              onDragOver={e => { e.stopPropagation(); handleDragOver(e, key) }}
               onDragLeave={e => e.stopPropagation()}
               onDrop={e => { e.stopPropagation(); handleDrop(e, key) }}
               className={`flex items-start gap-3 px-4 border-b border-td-border/20 dark:border-tn-border/20 transition-colors
@@ -354,10 +483,7 @@ function DayView({ dateStr, dayTasks, dayIcs, onDragStart, onTouchStart, handleD
                 {isSlotOver && items.length === 0 && (
                   <div className="h-6 rounded border border-dashed border-td-blue/30 dark:border-tn-blue/30" />
                 )}
-                {items.map((item, i) => (
-                  <TimedItem key={item._type === 'ics' ? `ics-${i}` : item.id}
-                    item={item} onDragStart={onDragStart} onTouchStart={onTouchStart} />
-                ))}
+                <TimedItems items={items} onDragStart={onDragStart} onTouchStart={onTouchStart} />
               </div>
             </div>
           )
@@ -377,6 +503,7 @@ export function CalendarView({ tasks }) {
   const today = new Date()
 
   const [overDate, setOverDate] = useState(null)
+  const [agendaDate, setAgendaDate] = useState(null)
   const dragTask = useRef(null)
   const ghostEl = useRef(null)
   const cellRefs = useRef({})
@@ -433,8 +560,8 @@ export function CalendarView({ tasks }) {
 
   const handleDragOver = useCallback((e, dateStr) => {
     e.preventDefault()
-    setOverDate(dateStr)
-  }, [])
+    setOverDate(snapDropKey(dateStr, e.currentTarget.getBoundingClientRect(), e.clientY))
+  }, [setOverDate])
 
   // Schedule a task from a drop key. Keys are either `YYYY-MM-DD` (date only,
   // e.g. all-day rows / month cells) or `YYYY-MM-DD|HH:00:00` (date + time,
@@ -459,10 +586,11 @@ export function CalendarView({ tasks }) {
   const handleDrop = useCallback((e, key) => {
     e.preventDefault()
     const task = dragTask.current
+    const dropKey = snapDropKey(key, e.currentTarget.getBoundingClientRect(), e.clientY)
     setOverDate(null)
     dragTask.current = null
-    applyDrop(task, key)
-  }, [applyDrop])
+    applyDrop(task, dropKey)
+  }, [applyDrop, setOverDate])
 
   // ── Mobile touch drag ─────────────────────────────────────────
   const createGhost = useCallback((el, x, y) => {
@@ -533,17 +661,19 @@ export function CalendarView({ tasks }) {
       touchListeners.current = { onMove: null, onEnd: null }
       const task = dragTask.current
       const t = ev.changedTouches[0]
-      const targetKey = getDateAtPoint(t.clientX, t.clientY)
+      let targetKey = getDateAtPoint(t.clientX, t.clientY)
+      const targetEl = targetKey ? cellRefs.current[targetKey] : null
+      targetKey = snapDropKey(targetKey, targetEl?.getBoundingClientRect(), t.clientY)
       removeGhost()
       setOverDate(null)
       dragTask.current = null
-      // targetKey may carry a time (hour cell) or be date-only — applyDrop handles both.
+      // targetKey may carry a time (date + snapped half-hour) or be date-only.
       await applyDrop(task, targetKey)
     }
     touchListeners.current = { onMove, onEnd }
     window.addEventListener('touchmove', onMove, { passive: false })
     window.addEventListener('touchend', onEnd)
-  }, [createGhost, moveGhost, removeGhost, getDateAtPoint, applyDrop])
+  }, [createGhost, moveGhost, removeGhost, getDateAtPoint, applyDrop, setOverDate])
 
   // ── Navigation ────────────────────────────────────────────────
   const navigate = useCallback((dir) => {
@@ -691,10 +821,11 @@ export function CalendarView({ tasks }) {
                       onDragOver={dateStr ? e => handleDragOver(e, dateStr) : undefined}
                       onDragLeave={() => setOverDate(null)}
                       onDrop={dateStr ? e => handleDrop(e, dateStr) : undefined}
+                      onClick={dateStr ? () => setAgendaDate(dateStr) : undefined}
                       className={`p-1 rounded-lg transition-colors overflow-hidden flex flex-col
                         ${!cell.cur ? 'bg-transparent opacity-30' :
                           isOver ? 'bg-td-surface dark:bg-tn-surface ring-2 ring-td-blue/50 dark:ring-tn-blue/50' :
-                          'bg-td-bg3/40 dark:bg-tn-bg3/40 hover:bg-td-bg3 dark:hover:bg-tn-bg3'}
+                          'bg-td-bg3/40 dark:bg-tn-bg3/40 hover:bg-td-bg3 dark:hover:bg-tn-bg3 border border-td-border/40 dark:border-tn-border/40'}
                         ${isToday && !isOver ? 'ring-1 ring-td-blue/50 dark:ring-tn-blue/50' : ''}`}
                     >
                       <div className={`text-[11px] font-medium mb-0.5 text-right shrink-0
@@ -728,6 +859,7 @@ export function CalendarView({ tasks }) {
             tasksByDate={tasksByDate}
             icsEventsByDate={icsEventsByDate}
             {...dragProps}
+            onDayClick={setAgendaDate}
           />
         )}
 
@@ -747,32 +879,32 @@ export function CalendarView({ tasks }) {
         )}
       </div>
 
-      {/* ── Unscheduled sidebar (desktop only) ───────────────────── */}
-      <div className="hidden lg:flex flex-col w-52 shrink-0 pb-4">
-        <div className="flex items-center gap-2 mb-3 shrink-0">
-          <CalendarDays size={13} className="text-td-muted dark:text-tn-muted" />
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-td-muted dark:text-tn-muted">
-            Unscheduled
-          </span>
-          <span className="ml-auto text-[10px] text-td-muted/60 dark:text-tn-muted/60 bg-td-surface dark:bg-tn-surface px-1.5 rounded-full">
-            {unscheduled.length}
-          </span>
+      {/* ── Calendar context sidebar (desktop only) ───────────────── */}
+      <div className="hidden lg:flex flex-col gap-3 w-56 shrink-0 pb-4 min-h-0">
+        {/* Agenda */}
+        <div className="flex-1 min-h-0 rounded-xl border border-td-border/60 dark:border-tn-border/60 bg-td-bg3/30 dark:bg-tn-bg3/30 p-3">
+          <AgendaPanel
+            dateStr={agendaDate || currentDateStr}
+            tasks={tasksByDate[agendaDate || currentDateStr] || []}
+            events={icsEventsByDate[agendaDate || currentDateStr] || []}
+            projects={projects}
+          />
         </div>
-        <div className="flex-1 overflow-y-auto space-y-1.5 pr-0.5">
-          {unscheduled.length === 0 ? (
-            <p className="text-[11px] text-td-muted/40 dark:text-tn-muted/40 text-center pt-6">
-              All tasks scheduled
-            </p>
-          ) : (
-            unscheduled.map(task => (
-              <UnscheduledCard
-                key={task.id}
-                task={task}
-                project={projects.find(p => p.id === task.project_id)}
-                onDragStart={handleDragStart}
-              />
-            ))
-          )}
+
+        {/* Unscheduled */}
+        <div className="flex-1 min-h-0 rounded-xl border border-td-border/60 dark:border-tn-border/60 bg-td-bg3/30 dark:bg-tn-bg3/30 p-3">
+          <div className="flex items-center gap-2 mb-3 shrink-0">
+            <CalendarDays size={13} className="text-td-muted dark:text-tn-muted" />
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-td-muted dark:text-tn-muted">Unscheduled</span>
+            <span className="ml-auto text-[10px] text-td-muted/60 dark:text-tn-muted/60 bg-td-surface dark:bg-tn-surface px-1.5 rounded-full">{unscheduled.length}</span>
+          </div>
+          <div className="h-[calc(100%-1.75rem)] overflow-y-auto space-y-1.5 pr-0.5">
+            {unscheduled.length === 0 ? (
+              <p className="text-[11px] text-td-muted/40 dark:text-tn-muted/40 text-center pt-6">All tasks scheduled</p>
+            ) : unscheduled.map(task => (
+              <UnscheduledCard key={task.id} task={task} project={projects.find(p => p.id === task.project_id)} onDragStart={handleDragStart} />
+            ))}
+          </div>
         </div>
       </div>
     </div>

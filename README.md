@@ -40,7 +40,7 @@ Mobile
 - **Projects and subprojects** — one nesting level, roll-up parent views, descriptions, deadlines, progress, sharing, and archiving
 - **Project customization** — colors and 50 Lucide icons; drag to reorder
 - **Upcoming and Overdue views** — 7/14-day planning plus past-due grouping and quick rescheduling
-- **Calendar** — month, week, and day layouts with drag-to-reschedule on desktop
+- **Calendar** — month, week, and day layouts with drag-to-reschedule, 30-minute time snapping, side-by-side same-time tasks, project/status indicators, agenda and unscheduled panels, and ICS event support
 - **Dashboard** — 7/30/90-day stats, trends, heatmap, status breakdown, project progress, top tags, streaks, and at-risk project deadlines
 
 ### Integrations and platform
