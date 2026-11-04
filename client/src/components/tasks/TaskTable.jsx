@@ -3,7 +3,7 @@ import { useApp } from '../../context/AppContext'
 import { useTasks } from '../../hooks/useTasks'
 import { ProjectIcon } from '../shared/ProjectIcon'
 import { LinkIcon, Skeleton, TaskKey } from '../ui'
-import { formatDate, fmtTime, getLinkLabel, isOverdue, priorityColor } from '../../utils'
+import { formatDate, fmtTime, getLinkLabel, isOverdue, priorityColor, recurrenceLabel } from '../../utils'
 import { STATUS_DISPLAY_LABELS, STATUS_ORDER } from './grouping'
 import { ArrowUp, ArrowDown, Check, Columns3, Eye, EyeOff, ListChecks, X } from 'lucide-react'
 import { TASK_DRAG_TYPE } from '../../constants/dnd'
@@ -26,22 +26,39 @@ const COLUMNS = [
   { key: 'status',   label: 'Status',   sortable: true,  width: 112, minWidth: 88 },
   { key: 'priority', label: 'Priority', sortable: true,  width: 90,  minWidth: 76 },
   { key: 'due',      label: 'Due',      sortable: true,  width: 124, minWidth: 96 },
-  { key: 'project',  label: 'Project',  sortable: true,  width: 130, minWidth: 96 },
-  { key: 'links',    label: 'Links',    sortable: false, width: 110, minWidth: 80 },
-  { key: 'assignee', label: 'Assignee', sortable: true,  width: 110, minWidth: 90 },
+  { key: 'project',    label: 'Project',  sortable: true,  width: 130, minWidth: 96 },
+  { key: 'tags',       label: 'Tags',     sortable: true,  width: 160, minWidth: 100 },
+  { key: 'links',      label: 'Links',    sortable: false, width: 110, minWidth: 80 },
+  { key: 'assignee',   label: 'Assignee', sortable: true,  width: 110, minWidth: 90 },
+  { key: 'recurrence', label: 'Repeat',   sortable: true,  width: 140, minWidth: 100, defaultVisible: false },
+  { key: 'created',    label: 'Created',  sortable: true,  width: 110, minWidth: 90, defaultVisible: false },
+  { key: 'updated',    label: 'Updated',  sortable: true,  width: 110, minWidth: 90, defaultVisible: false },
 ]
 
 const COLUMN_WIDTHS_STORAGE_KEY = 'td-table-column-widths'
 const VISIBLE_COLUMNS_STORAGE_KEY = 'td-table-visible-columns'
 const DEFAULT_COLUMN_WIDTHS = Object.fromEntries(COLUMNS.map(col => [col.key, col.width]))
-const DEFAULT_VISIBLE_COLUMNS = COLUMNS.map(col => col.key)
+const DEFAULT_VISIBLE_COLUMNS = COLUMNS.filter(col => col.defaultVisible !== false).map(col => col.key)
+const VISIBLE_COLUMNS_VERSION = 2
 
 function loadVisibleColumns() {
   try {
-    const saved = JSON.parse(localStorage.getItem(VISIBLE_COLUMNS_STORAGE_KEY) || 'null')
+    const stored = JSON.parse(localStorage.getItem(VISIBLE_COLUMNS_STORAGE_KEY) || 'null')
+    if (!stored) return DEFAULT_VISIBLE_COLUMNS
+
+    // v1 stored a bare array before Tags existed, so it could not contain a
+    // user preference for that column. Add Tags during migration only; v2 must
+    // preserve its explicit list, including Tags being hidden.
+    let saved
+    if (Array.isArray(stored)) saved = [...stored, 'tags']
+    else if (stored.version === VISIBLE_COLUMNS_VERSION) saved = stored.columns
+    else return DEFAULT_VISIBLE_COLUMNS
+
     if (!Array.isArray(saved)) return DEFAULT_VISIBLE_COLUMNS
-    const valid = new Set(COLUMNS.map(col => col.key))
-    return DEFAULT_VISIBLE_COLUMNS.filter(key => key === 'title' || (valid.has(key) && saved.includes(key)))
+
+    const selected = new Set(saved)
+    selected.add('title')
+    return COLUMNS.filter(col => selected.has(col.key)).map(col => col.key)
   } catch {
     return DEFAULT_VISIBLE_COLUMNS
   }
@@ -75,6 +92,14 @@ function sortValue(task, key, projects, users) {
       return task.due_date ? `${task.due_date}T${task.due_time || '99:99'}` : '\uffff'
     case 'project':
       return (projects.find(p => p.id === task.project_id)?.name || '\uffff').toLowerCase()
+    case 'tags':
+      return (task.tags || []).join('\u0000').toLowerCase() || '\uffff'
+    case 'recurrence':
+      return (task.recurrence || '\uffff').toLowerCase()
+    case 'created':
+      return task.created_at || '\uffff'
+    case 'updated':
+      return task.updated_at || '\uffff'
     case 'assignee': {
       const u = users.find(x => x.id === task.assigned_to)
       return (u?.display_name || u?.username || '\uffff').toLowerCase()
@@ -161,6 +186,13 @@ function SortHeader({ col, sort, width, onSort, onResizeStart, onResizeKey, onRe
 
 function tableDate(d) {
   return (formatDate(d) || '').replace(/^📅\s*/, '')
+}
+
+function timestampDate(value) {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
 function PriorityBars({ priority }) {
@@ -374,6 +406,30 @@ function TaskRow({ task, selection, visibleColumnKeys }) {
         </td>
       )}
 
+      {/* Tags */}
+      {columnVisible('tags') && (
+        <td className={CELL}>
+          {(task.tags || []).length > 0 && (
+            <div className="flex items-center gap-1 min-w-0 overflow-hidden">
+              {(task.tags || []).slice(0, 2).map(tag => (
+                <span
+                  key={tag}
+                  title={tag}
+                  className="min-w-0 truncate rounded-md bg-td-surface dark:bg-tn-surface px-1.5 py-0.5 text-[10px] text-td-muted dark:text-tn-muted"
+                >
+                  @{tag}
+                </span>
+              ))}
+              {(task.tags || []).length > 2 && (
+                <span className="shrink-0 text-[10px] text-td-muted/60 dark:text-tn-muted/60">
+                  +{task.tags.length - 2}
+                </span>
+              )}
+            </div>
+          )}
+        </td>
+      )}
+
       {/* Links */}
       {columnVisible('links') && (
         <td className={CELL}>
@@ -391,6 +447,31 @@ function TaskRow({ task, selection, visibleColumnKeys }) {
               {assignee.display_name || assignee.username}
             </span>
           ) : null}
+        </td>
+      )}
+
+      {/* Recurrence */}
+      {columnVisible('recurrence') && (
+        <td className={CELL}>
+          <span className="text-xs text-td-muted dark:text-tn-muted truncate block">
+            {recurrenceLabel(task.recurrence)}
+          </span>
+        </td>
+      )}
+
+      {/* Audit dates */}
+      {columnVisible('created') && (
+        <td className={CELL}>
+          <span className="text-xs text-td-muted dark:text-tn-muted whitespace-nowrap">
+            {timestampDate(task.created_at)}
+          </span>
+        </td>
+      )}
+      {columnVisible('updated') && (
+        <td className={CELL}>
+          <span className="text-xs text-td-muted dark:text-tn-muted whitespace-nowrap">
+            {timestampDate(task.updated_at)}
+          </span>
         </td>
       )}
     </tr>
@@ -416,7 +497,10 @@ export function TaskTable({ tasks, emptyMessage = 'No tasks here', selection = n
   }, [columnWidths])
 
   useEffect(() => {
-    localStorage.setItem(VISIBLE_COLUMNS_STORAGE_KEY, JSON.stringify(visibleColumns))
+    localStorage.setItem(VISIBLE_COLUMNS_STORAGE_KEY, JSON.stringify({
+      version: VISIBLE_COLUMNS_VERSION,
+      columns: visibleColumns,
+    }))
   }, [visibleColumns])
 
   useEffect(() => {
