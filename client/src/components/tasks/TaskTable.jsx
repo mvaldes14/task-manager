@@ -637,7 +637,7 @@ export function TaskTable({ tasks, emptyMessage = 'No tasks here', selection = n
                 className="flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-lg
                   text-td-blue dark:text-tn-blue hover:bg-td-blue/10 dark:hover:bg-tn-blue/10 transition-colors"
               >
-                <ListChecks size={13} />
+                <ListChecks size={14} />
                 {allSelected ? 'Deselect all' : 'Select all'}
               </button>
               <button
@@ -660,7 +660,7 @@ export function TaskTable({ tasks, emptyMessage = 'No tasks here', selection = n
                     ? 'bg-td-surface dark:bg-tn-surface border-td-border dark:border-tn-border text-td-fg dark:text-tn-fg'
                     : 'border-transparent text-td-muted/60 dark:text-tn-muted/60 hover:text-td-muted dark:hover:text-tn-muted hover:bg-td-surface dark:hover:bg-tn-surface'}`}
               >
-                {showDone ? <Eye size={12} /> : <EyeOff size={12} />}
+                {showDone ? <Eye size={14} /> : <EyeOff size={14} />}
                 Completed{doneCount > 0 ? ` (${doneCount})` : ''}
               </button>
               <div ref={columnMenuRef} className="relative">
@@ -722,7 +722,7 @@ export function TaskTable({ tasks, emptyMessage = 'No tasks here', selection = n
                     text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg
                     hover:bg-td-surface dark:hover:bg-tn-surface transition-colors"
                 >
-                  <ListChecks size={13} />
+                  <ListChecks size={14} />
                   Select
                 </button>
               )}

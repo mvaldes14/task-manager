@@ -9,7 +9,7 @@ import { getGroupKeys } from '../tasks/grouping'
 import { KanbanBoard } from '../tasks/KanbanBoard'
 import { CalendarView } from '../calendar/CalendarView'
 import { DashboardView } from '../dashboard/DashboardView'
-import { LayoutList, Columns, Table2, Search, X, Inbox, Sun, Layers, CalendarDays, CalendarClock, AlertCircle, SlidersHorizontal } from 'lucide-react'
+import { LayoutList, Columns, Table2, Search, X, Inbox, Sun, Layers, CalendarDays, CalendarClock, AlertCircle, SlidersHorizontal, Eye, EyeOff, ListFilter, ChevronsUp, ChevronsDown } from 'lucide-react'
 import { ProjectIcon } from '../shared/ProjectIcon'
 import { Select } from '../ui'
 import { PriorityTodayView } from '../tasks/PriorityTodayView'
@@ -257,69 +257,114 @@ const GROUP_OPTIONS = [
 ]
 
 function ListToolbar({ showDone, onToggleDone, sortBy, onSortBy, groupBy, onGroupBy, canCollapse, allCollapsed, onToggleCollapseAll, mode = 'full' }) {
+  const [organizeOpen, setOrganizeOpen] = useState(false)
+  const organizeRef = useRef(null)
+  const organizeActive = groupBy !== 'status' || sortBy !== 'status'
+
+  useEffect(() => {
+    if (!organizeOpen) return
+    const onPointerDown = (event) => {
+      if (!organizeRef.current?.contains(event.target)) setOrganizeOpen(false)
+    }
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') setOrganizeOpen(false)
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [organizeOpen])
+
   return (
     <div className="flex items-center justify-end gap-3 px-4 py-2 border-b border-td-border/30 dark:border-tn-border/30 bg-td-bg dark:bg-tn-bg flex-wrap">
       {/* Hide/show done */}
       <button
         onClick={onToggleDone}
-        className={`flex items-center gap-1.5 text-xs px-2.5 min-h-[40px] rounded-lg transition-colors
+        className={`flex items-center gap-1.5 text-[11px] px-2.5 min-h-[40px] rounded-lg transition-colors
           ${showDone
             ? 'bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg'
             : 'text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg active:text-td-fg dark:active:text-tn-fg'}`}
       >
-        <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-colors
-          ${showDone ? 'bg-td-green dark:bg-tn-green border-td-green dark:border-tn-green' : 'border-td-muted/50 dark:border-tn-muted/50'}`}>
-          {showDone && <span className="text-[8px] text-white font-bold">✓</span>}
-        </span>
+        {showDone ? <Eye size={14} /> : <EyeOff size={14} />}
         Completed only
       </button>
 
       {mode === 'full' && (
-        <>
-          <div className="h-3.5 w-px bg-td-border dark:bg-tn-border" />
+        <div ref={organizeRef} className="relative">
+          <button
+            type="button"
+            onClick={() => setOrganizeOpen(open => !open)}
+            aria-expanded={organizeOpen}
+            aria-haspopup="menu"
+            className={`flex items-center gap-1.5 text-[11px] px-2.5 min-h-[40px] rounded-lg border transition-colors
+              ${organizeOpen || organizeActive
+                ? 'bg-td-surface dark:bg-tn-surface border-td-border dark:border-tn-border text-td-fg dark:text-tn-fg'
+                : 'border-transparent text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg hover:bg-td-surface dark:hover:bg-tn-surface'}`}
+          >
+            <ListFilter size={14} />
+            Group & sort
+            {organizeActive && <span className="w-1.5 h-1.5 rounded-full bg-td-blue dark:bg-tn-blue" />}
+          </button>
 
-          {/* Group */}
-          <div className="flex items-center gap-1.5 text-xs text-td-muted dark:text-tn-muted">
-            <span>Group:</span>
-            <Select
-              value={groupBy}
-              onChange={onGroupBy}
-              options={GROUP_OPTIONS}
-              variant="compact"
-              ariaLabel="Group tasks"
-              title="Group"
-            />
-          </div>
+          {organizeOpen && (
+            <div role="menu" className="absolute right-0 top-full z-30 mt-1 w-52 rounded-xl border border-td-border dark:border-tn-border bg-td-bg2 dark:bg-tn-bg2 p-2 shadow-e3">
+              <div className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-td-muted dark:text-tn-muted">Group by</div>
+              <div className="space-y-0.5">
+                {GROUP_OPTIONS.map(option => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={groupBy === option.value}
+                    onClick={() => onGroupBy(option.value)}
+                    className={`w-full rounded-lg px-2 py-1.5 text-left text-[11px] transition-colors
+                      ${groupBy === option.value
+                        ? 'bg-td-blue/10 dark:bg-tn-blue/10 text-td-blue dark:text-tn-blue'
+                        : 'text-td-fg dark:text-tn-fg hover:bg-td-surface dark:hover:bg-tn-surface'}`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
 
-          <div className="h-3.5 w-px bg-td-border dark:bg-tn-border" />
+              <div className="my-2 border-t border-td-border/50 dark:border-tn-border/50" />
+              <div className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-td-muted dark:text-tn-muted">Sort by</div>
+              <div className="space-y-0.5">
+                {SORT_OPTIONS.map(option => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={sortBy === option.value}
+                    onClick={() => onSortBy(option.value)}
+                    className={`w-full rounded-lg px-2 py-1.5 text-left text-[11px] transition-colors
+                      ${sortBy === option.value
+                        ? 'bg-td-blue/10 dark:bg-tn-blue/10 text-td-blue dark:text-tn-blue'
+                        : 'text-td-fg dark:text-tn-fg hover:bg-td-surface dark:hover:bg-tn-surface'}`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
 
-          {/* Sort */}
-          <div className="flex items-center gap-1.5 text-xs text-td-muted dark:text-tn-muted">
-            <span>Sort:</span>
-            <Select
-              value={sortBy}
-              onChange={onSortBy}
-              options={SORT_OPTIONS}
-              variant="compact"
-              ariaLabel="Sort tasks"
-              title="Sort"
-            />
-          </div>
-
-          {/* Collapse / expand all groups */}
-          {canCollapse && (
-            <>
-              <div className="h-3.5 w-px bg-td-border dark:bg-tn-border" />
-              <button
-                onClick={onToggleCollapseAll}
-                className="flex items-center gap-1.5 text-xs px-2.5 min-h-[40px] rounded-lg transition-colors
-                  text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg active:text-td-fg dark:active:text-tn-fg"
-              >
-                {allCollapsed ? 'Expand all' : 'Collapse all'}
-              </button>
-            </>
+              {canCollapse && (
+                <>
+                  <div className="my-2 border-t border-td-border/50 dark:border-tn-border/50" />
+                  <button
+                    type="button"
+                    onClick={onToggleCollapseAll}
+                    className="w-full flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-[11px] text-td-muted dark:text-tn-muted hover:bg-td-surface dark:hover:bg-tn-surface hover:text-td-fg dark:hover:text-tn-fg transition-colors"
+                  >
+                    {allCollapsed ? <ChevronsDown size={14} /> : <ChevronsUp size={14} />}
+                    {allCollapsed ? 'Expand all groups' : 'Collapse all groups'}
+                  </button>
+                </>
+              )}
+            </div>
           )}
-        </>
+        </div>
       )}
     </div>
   )
