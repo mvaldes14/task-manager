@@ -32,7 +32,7 @@ const STATUS_META = {
 function StatusBadge({ status, compact = false }) {
   const meta = STATUS_META[status] || STATUS_META.todo
   return (
-    <span title={meta.label} className={`inline-flex items-center gap-1 shrink-0 rounded-full font-semibold uppercase tracking-wide
+    <span title={meta.label} role="img" aria-label={meta.label} className={`inline-flex items-center gap-1 shrink-0 rounded-full font-semibold uppercase tracking-wide
       ${compact ? 'w-1.5 h-1.5' : 'px-1.5 py-0.5 text-[8px]'}`}
       style={{ background: `${meta.color}25`, color: meta.color }}>
       <span className="w-1.5 h-1.5 rounded-full" style={{ background: meta.color }} />
@@ -46,8 +46,10 @@ function snapDropKey(key, rect, clientY) {
   if (!key?.includes('|') || !rect) return key
   const [dateStr, timeStr] = key.split('|')
   const hour = Number.parseInt(timeStr.slice(0, 2), 10)
-  const minute = clientY - rect.top >= rect.height / 2 ? 30 : 0
-  return `${dateStr}|${String(hour).padStart(2, '0')}:${minute ? '30' : '00'}:00`
+  const relativeY = Math.max(0, Math.min(rect.height, clientY - rect.top))
+  const rawMinute = (relativeY / rect.height) * 60
+  const snappedMinute = Math.min(30, Math.floor(rawMinute / 30) * 30)
+  return `${dateStr}|${String(hour).padStart(2, '0')}:${String(snappedMinute).padStart(2, '0')}:00`
 }
 
 // Split a day's tasks + ICS events into timed (have due_time) and all-day buckets.
