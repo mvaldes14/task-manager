@@ -1,5 +1,4 @@
 const base = '/api'
-const TZ = Intl.DateTimeFormat().resolvedOptions().timeZone
 
 async function req(path, method = 'GET', body = null) {
   const opts = {
@@ -33,7 +32,7 @@ export const api = {
   reorderProjects: (order) => req('/projects/reorder', 'POST', { order }),
   deleteProject: (id) => req(`/projects/${id}`, 'DELETE'),
 
-  // Tasks — always include browser timezone so GCal events land at the right time
+  // Tasks
   getTask: (id) => req(`/tasks/${id}`),
   getTasks: (params = {}) => {
     const q = new URLSearchParams(params).toString()
@@ -42,8 +41,8 @@ export const api = {
   getToday: () => req('/tasks/today'),
   getOverdue: () => req('/tasks/overdue'),
   searchTasks: (q, exclude) => req('/tasks/search?q=' + encodeURIComponent(q) + (exclude ? '&exclude=' + exclude : '')),
-  createTask: (data) => req('/tasks', 'POST', { ...data, timezone: TZ }),
-  updateTask: (id, data) => req(`/tasks/${id}`, 'PATCH', { ...data, timezone: TZ }),
+  createTask: (data) => req('/tasks', 'POST', data),
+  updateTask: (id, data) => req(`/tasks/${id}`, 'PATCH', data),
   deleteTask: (id) => req(`/tasks/${id}`, 'DELETE'),
   restoreTask: (id) => req(`/tasks/${id}/restore`, 'POST'),
   reorderTasks: (data) => req('/tasks/reorder', 'POST', data),
