@@ -1,9 +1,10 @@
 """Settings routes — single-row app configuration backed by DB."""
 
 import os
+import re
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from flask import Blueprint, jsonify, request
 from lib.db import get_settings, save_settings
-import re
 from lib.gcal import is_enabled as gcal_is_enabled
 
 bp = Blueprint('settings', __name__)
@@ -28,6 +29,7 @@ def get_full_settings() -> dict:
     data.setdefault('reminder_minutes_before', 30)
     data.setdefault('reminder_allday_time', '08:00')
     data.setdefault('reminder_timezone', 'America/Chicago')
+    data.setdefault('calendar_timezone', 'UTC')
     data.setdefault('task_key_prefix', 'DO')
     return data
 
@@ -48,6 +50,13 @@ def update_settings():
         if not _TASK_KEY_PREFIX_RE.match(prefix):
             return jsonify({'error': 'task_key_prefix must be 2-6 letters/digits starting with a letter'}), 400
         data['task_key_prefix'] = prefix
+    if 'calendar_timezone' in data:
+        tz_name = str(data.get('calendar_timezone') or '').strip()
+        try:
+            ZoneInfo(tz_name)
+        except (ZoneInfoNotFoundError, ValueError):
+            return jsonify({'error': 'calendar_timezone must be a valid IANA timezone'}), 400
+        data['calendar_timezone'] = tz_name
     saved = save_settings(data)
     # Re-merge with env defaults and computed fields before returning
     for key, fn in _ENV_DEFAULTS.items():
@@ -56,5 +65,6 @@ def update_settings():
             if val:
                 saved[key] = val
     saved['gcal_enabled'] = gcal_is_enabled()
+    saved.setdefault('calendar_timezone', 'UTC')
     saved.setdefault('task_key_prefix', 'DO')
     return jsonify(saved)

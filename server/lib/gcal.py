@@ -2,7 +2,7 @@
 
 import json, os, logging
 from datetime import datetime, timedelta, date as date_type
-from lib.db import get_db, release_db
+from lib.db import get_db, release_db, get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +45,7 @@ def gcal_upsert(task):
         logger.debug("skip — no due_date (task %s '%s')", tid, ttitle)
         return None
     try:
-        tz = task.get('timezone') or 'UTC'
+        tz = task.get('timezone') or get_settings().get('calendar_timezone') or 'UTC'
         if task.get('due_time'):
             dt = f"{task['due_date']}T{task['due_time']}:00"
             end_dt = (datetime.fromisoformat(dt) + timedelta(hours=1)).isoformat()

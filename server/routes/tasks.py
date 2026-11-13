@@ -507,7 +507,8 @@ def create_task():
     # deterministic create should return the task and nothing else.
     if nlp.get('nlp_summary'): task['nlp_summary'] = nlp['nlp_summary']
     if due_date:
-        task['timezone'] = data.get('timezone') or 'UTC'
+        if data.get('timezone'):
+            task['timezone'] = data['timezone']
         eid = gcal_upsert(task)
         if eid: gcal_save(tid, eid); task['gcal_event_id'] = eid
     _bot_id = _get_bot_user_id()
@@ -670,7 +671,8 @@ def update_task(tid):
             result['recurrence_next'] = new_task
     if any(f in data for f in ('due_date', 'due_time', 'title', 'status')):
         if result.get('due_date'):
-            result['timezone'] = data.get('timezone') or 'UTC'
+            if data.get('timezone'):
+                result['timezone'] = data['timezone']
             eid = gcal_upsert(result)
             if eid and eid != result.get('gcal_event_id'):
                 gcal_save(tid, eid); result['gcal_event_id'] = eid

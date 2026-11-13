@@ -6,19 +6,21 @@ from zoneinfo import ZoneInfo
 
 import psycopg2.extras
 from flask import Blueprint, request, jsonify
-from lib.db import get_db, release_db
-
-_CST = ZoneInfo('America/Chicago')
+from lib.db import get_db, release_db, get_settings
 
 bp = Blueprint('ics', __name__)
 
 
-def _parse_ics(content: str, year: int, month: int) -> list:
+def _parse_ics(content: str, year: int, month: int, timezone_name: str = 'UTC') -> list:
     from icalendar import Calendar as ICal
     try:
         cal = ICal.from_ical(content)
     except Exception as e:
         raise ValueError(f"Invalid ICS data: {e}")
+    try:
+        target_tz = ZoneInfo(timezone_name)
+    except (ValueError, KeyError):
+        target_tz = timezone.utc
     events = []
     for component in cal.walk():
         if component.name != 'VEVENT': continue
@@ -27,9 +29,9 @@ def _parse_ics(content: str, year: int, month: int) -> list:
             if not dtstart: continue
             val = dtstart.dt
             if isinstance(val, dt):
-                # Convert timezone-aware datetimes (typically UTC) to CST/CDT
+                # Convert timezone-aware datetimes into configured calendar timezone.
                 if val.tzinfo is not None:
-                    val = val.astimezone(_CST)
+                    val = val.astimezone(target_tz)
                 event_date = val.date()
             else:
                 event_date = val
@@ -136,7 +138,8 @@ def get_ics_events(cid):
         except Exception:
             pass  # fall back to stored content if fetch fails
     try:
-        events = _parse_ics(content, year, month)
+        timezone_name = get_settings().get('calendar_timezone') or 'UTC'
+        events = _parse_ics(content, year, month, timezone_name)
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
     return jsonify(events)

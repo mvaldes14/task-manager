@@ -13,6 +13,36 @@ const TABS = [
 ]
 
 const COLORS = ['#bb9af7','#7aa2f7','#9ece6a','#f7768e','#ff9e64','#e0af68','#73daca','#7dcfff']
+const BROWSER_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+const TIMEZONES = [
+  ['America/New_York',    'Eastern (ET)'],
+  ['America/Chicago',     'Central (CT)'],
+  ['America/Denver',      'Mountain (MT)'],
+  ['America/Phoenix',     'Mountain — no DST (AZ)'],
+  ['America/Los_Angeles', 'Pacific (PT)'],
+  ['America/Anchorage',   'Alaska (AKT)'],
+  ['Pacific/Honolulu',    'Hawaii (HST)'],
+  ['Europe/London',       'London (GMT/BST)'],
+  ['Europe/Paris',        'Paris (CET/CEST)'],
+  ['Europe/Berlin',       'Berlin (CET/CEST)'],
+  ['Asia/Tokyo',          'Tokyo (JST)'],
+  ['Asia/Shanghai',       'Shanghai (CST)'],
+  ['Asia/Kolkata',        'India (IST)'],
+  ['Australia/Sydney',    'Sydney (AEST)'],
+  ['UTC',                 'UTC'],
+]
+const TIMEZONE_LABELS = Object.fromEntries(TIMEZONES)
+const SUPPORTED_TIMEZONES = typeof Intl.supportedValuesOf === 'function'
+  ? Intl.supportedValuesOf('timeZone')
+  : []
+const TIMEZONE_OPTIONS = [...new Set([
+  BROWSER_TIMEZONE,
+  ...TIMEZONES.map(([value]) => value),
+  ...SUPPORTED_TIMEZONES,
+])].map(value => ({
+  value,
+  label: `${TIMEZONE_LABELS[value] || value}${value === BROWSER_TIMEZONE ? ' · this device' : ''}`,
+}))
 
 // ── Shared input style ────────────────────────────────────────────────────────
 const inputCls = `w-full px-3 py-2.5 rounded-xl text-sm bg-td-surface dark:bg-tn-surface
@@ -115,7 +145,7 @@ function AccountTab() {
     if (!newUsername.trim() || !newUserPw.trim()) { setAddUserError('Username and password required'); return }
     setAddingUser(true)
     try {
-      const created = await api.createUser({ username: newUsername.trim(), password: newUserPw.trim() })
+      await api.createUser({ username: newUsername.trim(), password: newUserPw.trim() })
       const users = await api.getUsers()
       if (users) dispatch({ type: 'SET_USERS', payload: users })
       setNewUsername(''); setNewUserPw('')
@@ -284,10 +314,28 @@ function CalendarsTab({ gcalEnabled }) {
   const [file, setFile] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [timezone, setTimezone] = useState(BROWSER_TIMEZONE)
+  const [savingTimezone, setSavingTimezone] = useState(false)
+  const [timezoneSaved, setTimezoneSaved] = useState(false)
+  const [timezoneError, setTimezoneError] = useState(null)
   const fileRef = useRef()
 
   const load = () => api.listIcs().then(c => setCalendars(c || [])).catch(() => {})
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    load()
+    api.getSettings().then(s => setTimezone(s?.calendar_timezone || 'UTC')).catch(() => {})
+  }, [])
+
+  const saveTimezone = async () => {
+    setTimezoneError(null); setSavingTimezone(true); setTimezoneSaved(false)
+    try {
+      await api.updateSettings({ calendar_timezone: timezone })
+      if (gcalEnabled) await api.gcalSync()
+      setTimezoneSaved(true)
+      setTimeout(() => setTimezoneSaved(false), 3000)
+    } catch (e) { setTimezoneError(e.message || 'Failed to save timezone') }
+    finally { setSavingTimezone(false) }
+  }
 
   const handleAdd = async () => {
     if (!name.trim()) { setError('Name is required'); return }
@@ -315,6 +363,25 @@ function CalendarsTab({ gcalEnabled }) {
         </div>
         {gcalEnabled && <CheckCircle2 size={14} className="text-td-green dark:text-tn-green shrink-0" />}
       </div>
+
+      <Field
+        label="Calendar timezone"
+        hint="Used for Google Calendar events and timezone-aware ICS imports. Saving resyncs existing Google Calendar tasks."
+      >
+        <div className="flex gap-2">
+          <Select
+            value={timezone}
+            onChange={setTimezone}
+            options={TIMEZONE_OPTIONS}
+            variant="field"
+            ariaLabel="Calendar timezone"
+            title="Calendar timezone"
+            className={inputCls}
+          />
+          <SaveButton onClick={saveTimezone} saving={savingTimezone} saved={timezoneSaved} />
+        </div>
+        {timezoneError && <p className="text-xs text-td-red dark:text-tn-red">{timezoneError}</p>}
+      </Field>
 
       {/* Imported ICS */}
       {calendars.length > 0 && (
@@ -442,24 +509,6 @@ function IntegrationsTab() {
 }
 
 // ── Notifications tab ─────────────────────────────────────────────────────────
-const TIMEZONES = [
-  ['America/New_York',    'Eastern (ET)'],
-  ['America/Chicago',     'Central (CT)'],
-  ['America/Denver',      'Mountain (MT)'],
-  ['America/Phoenix',     'Mountain — no DST (AZ)'],
-  ['America/Los_Angeles', 'Pacific (PT)'],
-  ['America/Anchorage',   'Alaska (AKT)'],
-  ['Pacific/Honolulu',    'Hawaii (HST)'],
-  ['Europe/London',       'London (GMT/BST)'],
-  ['Europe/Paris',        'Paris (CET/CEST)'],
-  ['Europe/Berlin',       'Berlin (CET/CEST)'],
-  ['Asia/Tokyo',          'Tokyo (JST)'],
-  ['Asia/Shanghai',       'Shanghai (CST)'],
-  ['Asia/Kolkata',        'India (IST)'],
-  ['Australia/Sydney',    'Sydney (AEST)'],
-  ['UTC',                 'UTC'],
-]
-
 function NotificationsTab() {
   const [type, setType] = useState('')
   const [url, setUrl] = useState('')
@@ -632,7 +681,7 @@ export function SettingsModal({ onClose }) {
 
         {/* Tabs */}
         <div className="flex gap-1 px-5 pt-3 shrink-0 overflow-x-auto pb-0.5">
-          {TABS.map(({ id, label, icon: Icon }) => (
+          {TABS.map(({ id, label }) => (
             <button key={id} onClick={() => setTab(id)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors
                 ${tab === id

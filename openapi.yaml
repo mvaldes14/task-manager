@@ -1034,6 +1034,7 @@ components:
         reminder_minutes_before: { type: integer }
         reminder_allday_time:    { type: string, example: "08:00" }
         reminder_timezone:       { type: string, example: "America/Chicago" }
+        calendar_timezone:       { type: string, default: "UTC", example: "America/Chicago", description: IANA timezone used for Google Calendar events and timezone-aware ICS imports. }
         gcal_enabled:            { type: boolean, readOnly: true }
         task_key_prefix:         { type: string, default: "DO", pattern: '^[A-Z][A-Z0-9]{1,5}$', description: 2-6 letters/digits starting with a letter; clients format task keys as <prefix>-<seq>. }
 
