@@ -6,10 +6,10 @@ import { api } from '../../api'
 import { Select } from '../ui'
 
 const TABS = [
-  { id: 'account',       label: 'Account',       icon: UserCircle },
-  { id: 'calendars',     label: 'Calendars',     icon: CalendarDays },
-  { id: 'integrations',  label: 'Integrations',  icon: Puzzle },
-  { id: 'notifications', label: 'Notifications', icon: Bell },
+  { id: 'account',       label: 'Account',       icon: <UserCircle size={12} /> },
+  { id: 'calendars',     label: 'Calendars',     icon: <CalendarDays size={12} /> },
+  { id: 'integrations',  label: 'Integrations',  icon: <Puzzle size={12} /> },
+  { id: 'notifications', label: 'Notifications', icon: <Bell size={12} /> },
 ]
 
 const COLORS = ['#bb9af7','#7aa2f7','#9ece6a','#f7768e','#ff9e64','#e0af68','#73daca','#7dcfff']
@@ -686,13 +686,13 @@ export function SettingsModal({ onClose }) {
 
         {/* Tabs */}
         <div className="flex gap-1 px-5 pt-3 shrink-0 overflow-x-auto pb-0.5">
-          {TABS.map(({ id, label }) => (
+          {TABS.map(({ id, label, icon }) => (
             <button key={id} onClick={() => setTab(id)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors
                 ${tab === id
                   ? 'bg-td-surface dark:bg-tn-surface text-td-fg dark:text-tn-fg'
                   : 'text-td-muted dark:text-tn-muted hover:text-td-fg dark:hover:text-tn-fg'}`}>
-              <Icon size={12} />
+              {icon}
               {label}
             </button>
           ))}
