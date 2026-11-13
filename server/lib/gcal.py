@@ -2,6 +2,7 @@
 
 import json, os, logging
 from datetime import datetime, timedelta, date as date_type
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from lib.db import get_db, release_db, get_settings
 
 logger = logging.getLogger(__name__)
@@ -46,11 +47,18 @@ def gcal_upsert(task):
         return None
     try:
         tz = task.get('timezone') or get_settings().get('calendar_timezone') or 'UTC'
+        try:
+            tzinfo = ZoneInfo(tz)
+        except (ZoneInfoNotFoundError, ValueError):
+            logger.warning("unknown timezone %r for task %s; falling back to UTC", tz, tid)
+            tz = 'UTC'
+            tzinfo = ZoneInfo(tz)
         if task.get('due_time'):
             dt = f"{task['due_date']}T{task['due_time']}:00"
-            end_dt = (datetime.fromisoformat(dt) + timedelta(hours=1)).isoformat()
-            start = {'dateTime': dt, 'timeZone': tz}
-            end   = {'dateTime': end_dt, 'timeZone': tz}
+            start_dt = datetime.fromisoformat(dt).replace(tzinfo=tzinfo)
+            end_dt = start_dt + timedelta(hours=1)
+            start = {'dateTime': start_dt.isoformat(), 'timeZone': tz}
+            end   = {'dateTime': end_dt.isoformat(), 'timeZone': tz}
             time_str = f"{task['due_date']} {task['due_time']} ({tz})"
         else:
             # Google Calendar requires all-day event end = start + 1 day

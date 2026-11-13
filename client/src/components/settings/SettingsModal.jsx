@@ -14,7 +14,7 @@ const TABS = [
 
 const COLORS = ['#bb9af7','#7aa2f7','#9ece6a','#f7768e','#ff9e64','#e0af68','#73daca','#7dcfff']
 const BROWSER_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
-const TIMEZONES = [
+const COMMON_TIMEZONES = [
   ['America/New_York',    'Eastern (ET)'],
   ['America/Chicago',     'Central (CT)'],
   ['America/Denver',      'Mountain (MT)'],
@@ -31,13 +31,13 @@ const TIMEZONES = [
   ['Australia/Sydney',    'Sydney (AEST)'],
   ['UTC',                 'UTC'],
 ]
-const TIMEZONE_LABELS = Object.fromEntries(TIMEZONES)
+const TIMEZONE_LABELS = Object.fromEntries(COMMON_TIMEZONES)
 const SUPPORTED_TIMEZONES = typeof Intl.supportedValuesOf === 'function'
   ? Intl.supportedValuesOf('timeZone')
   : []
 const TIMEZONE_OPTIONS = [...new Set([
   BROWSER_TIMEZONE,
-  ...TIMEZONES.map(([value]) => value),
+  ...COMMON_TIMEZONES.map(([value]) => value),
   ...SUPPORTED_TIMEZONES,
 ])].map(value => ({
   value,
@@ -327,7 +327,12 @@ function CalendarsTab({ gcalEnabled }) {
   }, [])
 
   const saveTimezone = async () => {
-    setTimezoneError(null); setSavingTimezone(true); setTimezoneSaved(false)
+    setTimezoneError(null); setTimezoneSaved(false)
+    if (!TIMEZONE_OPTIONS.some(option => option.value === timezone)) {
+      setTimezoneError('Choose a valid IANA timezone')
+      return
+    }
+    setSavingTimezone(true)
     try {
       await api.updateSettings({ calendar_timezone: timezone })
       if (gcalEnabled) await api.gcalSync()
@@ -611,7 +616,7 @@ function NotificationsTab() {
               <Select
                 value={tz}
                 onChange={setTz}
-                options={TIMEZONES.map(([val, lbl]) => ({ value: val, label: lbl }))}
+                options={COMMON_TIMEZONES.map(([val, lbl]) => ({ value: val, label: lbl }))}
                 variant="field"
                 ariaLabel="Timezone"
                 title="Timezone"
